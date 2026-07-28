@@ -1,4 +1,4 @@
-import type { CheckResult, Severity } from "@/core/types";
+import type { CheckResult, Position, Severity } from "@/core/types";
 
 export interface ScoreInput {
   checks: Pick<CheckResult, "engine" | "promptKind" | "mentioned" | "position">[];
@@ -16,7 +16,7 @@ export interface ScoreBreakdown {
   capped: boolean;
 }
 
-const POSITION_WEIGHT: Record<string, number> = {
+const POSITION_WEIGHT: Record<Position, number> = {
   first: 1,
   top3: 0.7,
   mentioned: 0.4,
@@ -49,7 +49,7 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
     : 1;
 
   // score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))
-  // if no citations at all, score is 0
+  // Locked rule: zero citations => score 0; accuracy never lifts an invisible practice.
   let score = citationRate === 0
     ? 0
     : Math.round(

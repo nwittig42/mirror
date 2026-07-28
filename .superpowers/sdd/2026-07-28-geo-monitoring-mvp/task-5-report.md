@@ -31,3 +31,45 @@ Implemented `computeScore` function in `src/core/scoring.ts` with full test cove
 - Commit hash: `0dbe438`
 - Message: "feat: visibility score formula with accuracy cap"
 - Files: `src/core/scoring.ts`, `tests/core/scoring.test.ts`
+
+---
+
+## Fix Report: Locked Rule Enforcement
+
+### Changes Applied (Three Items)
+
+#### 1. Added Locked Rule Comment
+**File**: `src/core/scoring.ts`
+- Added comment above zero-citation branch: `// Locked rule: zero citations => score 0; accuracy never lifts an invisible practice.`
+- Clarifies the business rule that accuracy component cannot lift an invisible (zero-citation) practice to a visible score.
+
+#### 2. Type-Safe Position Weights
+**File**: `src/core/scoring.ts:19`
+- Changed: `const POSITION_WEIGHT: Record<string, number>` → `Record<Position, number>`
+- Added import: `Position` from `@/core/types`
+- Benefit: Compiler now catches missing or typo'd position keys at compile time.
+
+#### 3. New Test Case: Locked Rule Verification
+**File**: `tests/core/scoring.test.ts`
+- Test name: `"locked rule: zero citations with perfect accuracy still scores 0"`
+- Setup: 4 category checks (all mentioned:false, position:"absent") across 4 engines, perfect accuracy=1
+- Verification: Score = 0 (despite accuracy=1), and breakdown.accuracy = 1 (component preserved)
+- Confirms: The zero-citation rule takes precedence over accuracy
+
+### Test Results
+```
+npx vitest run tests/core/scoring.test.ts
+✓ All 5 scoring tests pass (original 4 + new locked rule test)
+
+npm run test
+✓ All 22 tests pass (5 test files)
+
+npx tsc --noEmit
+✓ TypeScript strict mode: no errors
+```
+
+### Verification
+- Rule enforced: Zero citations forces score to 0 regardless of other components
+- Component preservation: Accuracy component still calculated and reported (1 in this case)
+- Type safety: Position type narrowing prevents configuration errors
+- No regressions: All existing tests continue to pass

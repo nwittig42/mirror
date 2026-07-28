@@ -31,4 +31,12 @@ describe("computeScore", () => {
       openFindings: [], brandedCheckCount: 1, brandedChecksWithFinding: 0 });
     expect(r.positionQuality).toBeCloseTo(0.4);
   });
+  it("locked rule: zero citations with perfect accuracy still scores 0", () => {
+    const r = computeScore({
+      checks: ["openai", "anthropic", "gemini", "perplexity"].map(e => check(e, "category", false, "absent")),
+      openFindings: [], brandedCheckCount: 4, brandedChecksWithFinding: 0 });
+    // Zero citations forces score to 0, despite perfect accuracy=1
+    expect(r.score).toBe(0);
+    expect(r.accuracy).toBe(1);
+  });
 });
