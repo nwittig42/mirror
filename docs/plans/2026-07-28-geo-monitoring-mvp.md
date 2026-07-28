@@ -15,7 +15,7 @@
 - Node >= 20; TypeScript `strict: true`; no `any` in `src/core/**`.
 - All business logic in `src/core/**` must be pure functions (no I/O) — this is the tested surface.
 - Engine model IDs come from env with defaults: `OPENAI_MODEL=gpt-5.1`, `ANTHROPIC_MODEL=claude-sonnet-5`, `GEMINI_MODEL=gemini-2.5-flash`, `PERPLEXITY_MODEL=sonar-pro`, `JUDGE_MODEL=claude-haiku-4-5-20251001`. Never hardcode a model ID outside `src/lib/env.ts`.
-- Score formula (locked, from strategy Doc 3): `score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))`, then **cap at 70 if any OPEN critical finding exists**.
+- Score formula (locked, from strategy Doc 3): `score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))`, then **cap at 70 if any OPEN critical finding exists**. Explicit floor rule: if `citationRate = 0`, score = 0 — the accuracy component never lifts an invisible practice (spec-owner ruling, 2026-07-28).
 - Position weights (locked): first = 1.0, top3 = 0.7, mentioned = 0.4, absent = 0. Position is computed over `kind='category'` prompts only.
 - Severity bands (locked): `critical` = credentials/safety/fabricated service; `major` = pricing/hours/location; `minor` = stale or incomplete detail.
 - Every scan-visible number must trace to a stored `check` row. No estimated metrics anywhere in the UI. Copy rule: the UI never says "rank" or "ranking" — always "named / cited / shortlisted".
