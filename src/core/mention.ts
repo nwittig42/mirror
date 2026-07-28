@@ -19,3 +19,19 @@ export function detectNames(answer: string, names: string[]): string[] {
     .sort((a, b) => a.i - b.i)
     .map(x => x.n);
 }
+
+export interface Match {
+  name: string;
+  start: number;
+  end: number;
+}
+
+export function findMatches(answer: string, names: string[]): Match[] {
+  return names
+    .map(n => {
+      const start = firstIndexOf(answer, n);
+      return start !== -1 ? { name: n, start, end: start + n.length } : null;
+    })
+    .filter((m): m is Match => m !== null)
+    .sort((a, b) => a.start - b.start);
+}

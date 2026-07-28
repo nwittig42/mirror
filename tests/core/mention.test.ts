@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectMention, detectNames } from "@/core/mention";
+import { detectMention, detectNames, findMatches } from "@/core/mention";
 
 describe("detectMention", () => {
   it("matches case-insensitively", () =>
@@ -18,4 +18,14 @@ describe("detectNames", () => {
   it("returns names in order of first appearance", () =>
     expect(detectNames("B Clinic is great; A Spa is fine too", ["A Spa", "B Clinic", "C Derm"]))
       .toEqual(["B Clinic", "A Spa"]));
+});
+
+describe("findMatches", () => {
+  it("returns match objects with name, start, and end positions", () => {
+    const matches = findMatches("Glow MedSpa and Derm House", ["Glow MedSpa", "Derm House"]);
+    expect(matches).toEqual([
+      { name: "Glow MedSpa", start: 0, end: 11 },
+      { name: "Derm House", start: 16, end: 26 }
+    ]);
+  });
 });

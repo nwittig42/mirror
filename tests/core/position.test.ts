@@ -16,4 +16,23 @@ describe("classifyPosition", () => {
     expect(classifyPosition("Skin Bar LA, then Glow MedSpa, then Derm House.", practiceNames, comps).position).toBe("top3"));
   it("mentioned when practice is 4th+", () =>
     expect(classifyPosition("Skin Bar LA, Derm House, Lumière Aesthetics, and Glow MedSpa.", practiceNames, comps).position).toBe("mentioned"));
+
+  // Prefix collision tests
+  it("suppresses practice prefix match when competitor is longer", () => {
+    const r = classifyPosition("Glow Aesthetics dominates the market.", ["Glow"], ["Glow Aesthetics"]);
+    expect(r.position).toBe("absent");
+    expect(r.competitorsMentioned).toEqual(["Glow Aesthetics"]);
+  });
+
+  it("suppresses competitor prefix match when practice is longer", () => {
+    const r = classifyPosition("Glow MedSpa is excellent.", ["Glow MedSpa"], ["Glow"]);
+    expect(r.position).toBe("first");
+    expect(r.competitorsMentioned).toEqual([]);
+  });
+
+  it("deduplicates competitors in competitorsMentioned", () => {
+    const r = classifyPosition("Skin Bar LA is fine", [], ["Skin Bar LA", "Skin Bar LA"]);
+    expect(r.position).toBe("absent");
+    expect(r.competitorsMentioned).toEqual(["Skin Bar LA"]);
+  });
 });
