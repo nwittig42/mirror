@@ -45,6 +45,18 @@ describe("perplexity adapter", () => {
     const { perplexityAdapter } = await import("@/engines/perplexity");
     await expect(perplexityAdapter.run("x")).rejects.toThrow(/perplexity.*429/);
   });
+
+  it.each(["AbortError", "TimeoutError"])(
+    "throws EngineError(408, timeout) when fetch rejects with %s",
+    async (errorName) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn().mockRejectedValue(Object.assign(new Error("timed out"), { name: errorName })),
+      );
+      const { perplexityAdapter } = await import("@/engines/perplexity");
+      await expect(perplexityAdapter.run("x")).rejects.toThrow(/perplexity 408: timeout/);
+    },
+  );
 });
 
 describe("openai adapter", () => {

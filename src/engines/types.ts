@@ -7,7 +7,7 @@ export interface EngineAdapter {
 
 export class EngineError extends Error {
   constructor(
-    public engine: string,
+    public engine: Engine,
     public status: number,
     body: string,
   ) {

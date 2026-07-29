@@ -111,3 +111,25 @@ not a live-API check — that requires real keys and was intentionally not run.
 - `npx vitest run tests/engines/adapters.test.ts` — 8/8 pass (2 per engine).
 - `npm run test` — 38/38 pass across 7 files.
 - `npx tsc --noEmit` — clean.
+
+## Fix round 1 (coordinator review)
+
+Two items addressed:
+
+1. **Timeout path was untested.** Added a parameterized test in the `perplexity adapter`
+   describe block that stubs `fetch` to reject with an `Error` whose `.name` is `AbortError`
+   or `TimeoutError` (both variants covered via `it.each`), and asserts
+   `perplexityAdapter.run("x")` rejects with a message matching `/perplexity 408: timeout/`.
+   This exercises `engineFetch`'s catch branch in `src/engines/types.ts` end-to-end, since all
+   four adapters route through it — perplexity alone is sufficient to prove the shared path
+   works.
+2. **`EngineError.engine` widened correctly.** Changed the constructor param from `string` to
+   `Engine` (imported as a type from `@/core/types`, already imported in `types.ts`). No call
+   sites needed changes — all four adapters already pass one of the four literal engine names,
+   which are valid `Engine` members.
+
+### Verification
+
+- `npx vitest run tests/engines/` — 10/10 pass (8 original + 2 new timeout-variant tests).
+- `npm run test` — 40/40 pass across 7 files.
+- `npx tsc --noEmit` — clean.
