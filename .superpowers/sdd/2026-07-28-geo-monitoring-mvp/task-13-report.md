@@ -91,3 +91,64 @@
   test's seeded practice has zero members, so `sendPulse` returns early before importing the SDK).
   If Resend's request shape (from/to/subject/html) ever regresses, only a live send or a future
   mocked-fetch test would catch it.
+
+## Fix round 1 (code review: 1 Critical + 2 Important)
+
+Commit `15ae266`.
+
+1. **CRITICAL — HTML injection.** `composePulse` interpolated `bestQuote.snippet` (raw AI-engine
+   output — untrusted) directly into HTML with no escaping; a `<script>` or `<img onerror=...>` in
+   an engine's answer would land live in the client's inbox. Added `escapeHtml(s)` (escapes `&`,
+   `<`, `>`, `"`, `'`) in `pulse-email.ts` and applied it to every dynamic string reaching the HTML
+   output: the quote snippet, the engine-name fallback (when an engine isn't in
+   `ENGINE_DISPLAY_NAMES`), and the CTA href. `practiceName` wasn't previously rendered in the HTML
+   body at all (only in the subject) — added a small masthead line (`"{practiceName} — Weekly
+   Pulse"`, escaped) above the table both to close that escaping gap the review flagged and because
+   an email whose body never states which practice it's about was a real gap. The CTA's `slug` is
+   now `encodeURIComponent`'d before being embedded in the URL, and the whole href string is then
+   HTML-escaped (covers quote-attribute breakout, not just URL syntax). New test: a snippet
+   containing `<script>alert(1)</script>` asserts the html contains the escaped form and not the raw
+   tag.
+2. **IMPORTANT — snippet missed name-variation-only mentions.** `checks.mentioned` (set by
+   scan-runner) matches against `[practice.name, ...nameVariations]`, but `extractSnippet` only
+   searched `practice.name` — a check mentioned purely via a variation silently nulled the quote.
+   `sendPulse` now loads the practice's `nameVariations` rows and passes the full name set into
+   `extractSnippet`, which uses `findMatches` from `@/core/mention` (the same word-boundary matcher
+   scan-runner itself uses) to find the earliest match across all names, then returns the `". "`
+   -delimited sentence containing that match's start offset.
+3. **IMPORTANT — sendPulse's DB assembly path had zero coverage.** Refactored `sendPulse` to accept
+   an injectable `transport: PulseTransport = defaultTransport` (default: the real lazy-Resend send,
+   still imported inside `defaultTransport` so it's never constructed unless actually invoked).
+   `tests/helpers/db.ts`'s `seedPractice` gained an optional `members?: string[]` (emails) option
+   that creates client users and links them via `practice_members` (non-breaking — existing 25
+   call sites unaffected, verified via grep). New `tests/services/send-pulse.test.ts` (4 tests):
+   full assembly path with a member + a complete scan whose one mentioned check's answer contains
+   only a name variation (locks fix #2) + one open finding, asserting the fake transport's `to`,
+   `subject`, and `html` (variation-based snippet + open-issues line); plus the two silent-skip
+   paths (no complete scan, no members) and the failed-transport → `logActivity` path.
+4. **Also fixed (from review probes):** a zero-delta week rendered `"(+0)"`; now omitted like the
+   no-previous-scan case (`delta === null || delta === 0` both suppress the parenthetical). New test
+   added to `tests/services/pulse-email.test.ts`.
+
+### Verification (fix round 1)
+
+- `npx vitest run tests/services/ tests/app/`: 6 files / 23 tests passed.
+- `npm run test` (full suite): 15 files / 84 tests passed clean. One run under default 5s timeouts
+  hit the same pre-existing PGlite "Pulling schema from database" contention flake noted in the
+  original report (now touching 6 files instead of 4, since 2 new test files add more concurrent
+  `makeTestDb()` calls) — confirmed non-substantive by rerunning with `--testTimeout=30000` (15/15
+  passed) and by a subsequent clean default-timeout run (15 files / 84 tests passed). Not caused by
+  the fixes themselves.
+- `npx tsc --noEmit`: clean.
+- `npm run build`: succeeded with dummy env vars, same routes as before.
+- `npx eslint` over all new/changed files: clean.
+
+### Concerns carried forward / new
+
+- The PGlite full-suite timeout flake is now slightly more likely to surface (more test files,
+  more concurrent `makeTestDb()` calls) — worth raising separately as a suite-wide flake-reduction
+  task (e.g. `vitest.config.ts` pool tuning or a shared PGlite instance per file) rather than
+  something to keep patching per-task.
+- The masthead-line addition (practice name in the HTML body) is scope slightly beyond the
+  review's literal ask ("escape practiceName") but was necessary to have anywhere in the HTML to
+  escape — flagging in case a reviewer wants the wording/placement changed.
