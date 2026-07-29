@@ -16,6 +16,15 @@ type FactCategory = (typeof factCategoryEnum.enumValues)[number];
 type PromptKind = (typeof promptKindEnum.enumValues)[number];
 type FindingStatus = (typeof findingStatusEnum.enumValues)[number];
 
+// This page's "Run scan now" form invokes the `triggerScan` server action,
+// which kicks off a ~2-minute scan via `after()`. `after()` work counts
+// toward the *invoking route's* maxDuration, so without this export Vercel
+// kills the scan mid-run on the default limit, leaving the `scans` row
+// stuck `running` forever. Mirrors the identical setting on the cron route
+// (`src/app/api/cron/weekly-scan/route.ts`) — 800s requires a paid Vercel
+// plan (see README ship checklist).
+export const maxDuration = 800;
+
 const MAX_ACTIVE_PROMPTS = 10;
 
 const CATEGORY_LABELS: Record<FactCategory, string> = {

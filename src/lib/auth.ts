@@ -3,7 +3,7 @@ import type { JWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
 import Resend from "next-auth/providers/resend";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { notFound } from "next/navigation";
 import { getDb } from "@/db";
 import { accounts, practiceMembers, practices, sessions, users, verificationTokens } from "@/db/schema";
@@ -131,13 +131,17 @@ export async function requirePracticeAccess(slug: string) {
   const [practice] = await db.select().from(practices).where(eq(practices.slug, slug));
   if (!practice) notFound();
 
-  if (session.user.role === "operator") return practice;
+  // Operators never need a practice_members lookup (canAccessPractice
+  // short-circuits `true` on role alone), so only clients pay for the query.
+  const memberPracticeIds = session.user.role === "operator"
+    ? []
+    : (
+        await db.select({ practiceId: practiceMembers.practiceId })
+          .from(practiceMembers)
+          .where(eq(practiceMembers.userId, session.user.id))
+      ).map((m) => m.practiceId);
 
-  const [membership] = await db
-    .select()
-    .from(practiceMembers)
-    .where(and(eq(practiceMembers.userId, session.user.id), eq(practiceMembers.practiceId, practice.id)));
-  if (!membership) notFound();
+  if (!canAccessPractice({ role: session.user.role, memberPracticeIds }, practice.id)) notFound();
 
   return practice;
 }

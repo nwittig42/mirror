@@ -53,6 +53,7 @@ npm run dev
   - `APP_URL`
   - `OPERATOR_EMAIL` (real value — production refuses the dev default once `AUTH_URL` is set)
   - `OPERATOR_PASSWORD` (real value — same guard)
+- [ ] Vercel project is on a **paid plan** — the cron route and the admin scan-trigger pages set `maxDuration = 800` for the ~2-minute scan, which the free Hobby tier's 10s/60s function limit cannot satisfy
 - [ ] `vercel deploy`
 - [ ] Cron job visible in the Vercel dashboard
 - [ ] `npm run seed` run against the prod database

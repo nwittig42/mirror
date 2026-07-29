@@ -81,7 +81,6 @@ export async function runScan(
         scoringChecks.push({ engine: adapter.name, promptKind: prompt.kind, mentioned, position });
 
         if (prompt.kind === "branded" && check.answerText) {
-          brandedCheckCount++;
           let judgeFindings;
           try {
             judgeFindings = await judge({ answer, facts: judgeFacts });
@@ -89,6 +88,12 @@ export async function runScan(
             await logActivity(db, practiceId, `scan warning: judge failed on prompt ${prompt.text}`);
             continue;
           }
+
+          // Only checks the judge actually scored count toward the accuracy
+          // denominator — a judge failure means "unknown", not "clean", so
+          // it must not silently inflate the accuracy component (see F3 in
+          // the final review).
+          brandedCheckCount++;
 
           if (judgeFindings.some(f => f.severity === "critical" || f.severity === "major")) {
             brandedChecksWithFinding++;

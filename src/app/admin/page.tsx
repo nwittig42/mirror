@@ -7,6 +7,17 @@ import { createPractice } from "@/app/admin/actions";
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
+// A server action invoked from a page runs under that *page's* route
+// segment config, not the action module's — so `triggerScan`'s ~2-minute
+// after() scan needs whichever admin page called it to allow enough
+// duration, same as `src/app/admin/practices/[id]/page.tsx` (the page that
+// actually renders the "Run scan now" form). Set here too so this rule
+// holds regardless of which admin page ends up invoking scan actions.
+// Mirrors the cron route's identical setting
+// (`src/app/api/cron/weekly-scan/route.ts`) — 800s requires a paid Vercel
+// plan (see README ship checklist).
+export const maxDuration = 800;
+
 async function handleCreatePractice(formData: FormData): Promise<void> {
   "use server";
   const name = formData.get("name");

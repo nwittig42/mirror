@@ -69,6 +69,10 @@ describe("runScan", () => {
     expect(score).toBeGreaterThan(0);
     const scan = await db.query.scans.findFirst();
     expect(scan?.status).toBe("complete");
+    // A judge failure must not count as a clean branded check: the failed
+    // check is excluded from the accuracy denominator entirely (unjudged !=
+    // clean), so accuracy stays at its no-branded-checks default of 1 (100).
+    expect(scan?.accuracyScore).toBe(100);
     const findings = await db.query.findings.findMany();
     expect(findings).toHaveLength(0);
     const activities = await db.query.activities.findMany();

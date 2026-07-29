@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { highlightRanges } from "@/core/mention";
 import { ENGINE_LABELS } from "@/core/types";
 import type { Engine, Position } from "@/core/types";
+import { isSafeHttpUrl } from "@/lib/url";
 
 export { ENGINE_LABELS };
 
@@ -73,17 +74,23 @@ export function AnswerCard({ promptText, engine, position, answerText, citations
       </p>
       {citations.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-900">
-          {citations.map((url, i) => (
-            <a
-              key={i}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-            >
-              {url}
-            </a>
-          ))}
+          {citations.map((url, i) =>
+            isSafeHttpUrl(url) ? (
+              <a
+                key={url + i}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+              >
+                {url}
+              </a>
+            ) : (
+              <span key={url + i} className="text-xs text-zinc-500 dark:text-zinc-400">
+                {url}
+              </span>
+            ),
+          )}
         </div>
       )}
     </article>
