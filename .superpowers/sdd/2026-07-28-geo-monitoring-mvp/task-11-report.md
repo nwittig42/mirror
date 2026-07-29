@@ -26,3 +26,41 @@
 - `addPrompt`'s cap violation throws a raw `Error`, which will surface as Next's default server-action error UI (no inline form message) — matches the brief's literal spec ("throw Error(...)") but isn't a polished UX; flagging in case a later task wants a friendlier inline error.
 - No end-to-end manual walkthrough against a real Postgres + live engine keys was performed in this session (brief's Step 4 "trigger scan with real keys, inspect via `drizzle-kit studio`") — out of scope for an automated implementation pass; recommend as a manual QA step before this ships.
 - Fact-sheet "add" and "archive" are both present, but there's no edit-in-place for an existing fact's value — matches the brief (`addFact`/`archiveFact` only, no `updateFact`), noting in case product wants correction-without-archive later.
+
+## Fix report (review round 1)
+
+Three findings addressed:
+
+1. **IMPORTANT — `triggerScan` serverless termination** (`src/app/admin/actions.ts`): the
+   fire-and-forget `void runScan(...).catch(...)` risked being killed on Vercel once the
+   response ended, since nothing kept the function instance alive. Replaced with Next's
+   `after()` (imported from `next/server`), which schedules the scan (and its `.catch`
+   handler, unchanged) to run after the response is sent, with the platform keeping the
+   invocation alive for it. Added a one-line comment noting `after()` runs post-response
+   on Vercel and in-process on plain Node servers. `after()` is called synchronously inside
+   the action body (not inside a nested async callback) so it's still within the request
+   lifecycle, per Next's requirement.
+2. **MINOR — missing app-name header** (`src/app/admin/practices/[id]/page.tsx`): added a
+   `NEXT_PUBLIC_APP_NAME`-driven header (`{appName} — {practice.name}`, falls back to
+   "Mirror", same env-var pattern as `/admin/page.tsx`) plus a "← Back to {appName}"
+   link to `/admin`.
+3. **RULING — reopen activity** (`src/app/admin/actions.ts`): `updateFindingStatus` now
+   logs `Reopened: <claim>` when a finding transitions back to `open`, matching the
+   fixed/verified/dismissed pattern. Extended the existing reopen test in
+   `tests/app/admin-actions.test.ts` to assert the `Reopened:` activity row is written
+   (in addition to the existing `resolvedAt`-cleared assertion).
+
+### Verification
+
+- `npx vitest run tests/app/`: 1 file / 4 tests passed.
+- `npm run test` (full suite): 11 files / 53 tests passed.
+- `npx tsc --noEmit`: clean.
+- `npm run build` (dummy env vars): succeeded — same routes as before (`/admin`,
+  `/admin/practices/[id]` dynamic), same pre-existing middleware→proxy deprecation warning,
+  untouched.
+
+### Concerns
+
+- None new. The `after()` behavior on plain (non-Vercel) Node servers is a same-process
+  best-effort continuation, not a hard guarantee across process restarts — acceptable per
+  the brief's own framing ("on plain Node servers it runs in-process").

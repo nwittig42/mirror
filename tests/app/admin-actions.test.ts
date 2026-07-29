@@ -83,10 +83,10 @@ describe("admin actions", () => {
       expect(activities.some(a => a.description === `Dismissed: ${finding.claim}`)).toBe(true);
     });
 
-    it("clears resolvedAt when a finding is reopened", async () => {
+    it("clears resolvedAt and logs a Reopened activity when a finding is reopened", async () => {
       const db = await makeTestDb();
       setDbForTests(db);
-      const { finding } = await seedOpenFinding(db);
+      const { practiceId, finding } = await seedOpenFinding(db);
 
       await updateFindingStatus(finding.id, "verified");
       let [updated] = await db.select().from(schema.findings).where(eq(schema.findings.id, finding.id));
@@ -96,6 +96,9 @@ describe("admin actions", () => {
       [updated] = await db.select().from(schema.findings).where(eq(schema.findings.id, finding.id));
       expect(updated.status).toBe("open");
       expect(updated.resolvedAt).toBeNull();
+
+      const activities = await db.select().from(schema.activities).where(eq(schema.activities.practiceId, practiceId));
+      expect(activities.some(a => a.description === `Reopened: ${finding.claim}`)).toBe(true);
     });
   });
 });

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -26,6 +27,8 @@ const CATEGORY_LABELS: Record<FactCategory, string> = {
   logistics: "Logistics",
   compliance: "Compliance",
 };
+
+const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
 const inputClass =
   "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
@@ -125,7 +128,15 @@ export default async function PracticeDetailPage({
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{practice.name}</h1>
+        <Link
+          href="/admin"
+          className="mb-2 inline-block text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+        >
+          ← Back to {appName}
+        </Link>
+        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
+          {appName} — {practice.name}
+        </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           {practice.slug} {practice.website ? `· ${practice.website}` : ""} · {practice.active ? "Active" : "Inactive"}
         </p>

@@ -2,6 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getDb } from "@/db";
 import {
   practices, practiceMembers, nameVariations, competitors, facts, prompts, findings, users,
@@ -129,18 +130,22 @@ export async function inviteClient(practiceId: string, email: string): Promise<v
 export async function triggerScan(practiceId: string): Promise<void> {
   await requireOperator();
   const db = getDb();
-  void runScan(db, practiceId, getAdapters(), judgeAnswer).catch((err) => {
-    const message = err instanceof Error ? err.message : String(err);
-    void logActivity(db, practiceId, `scan failed: ${message}`);
-  });
+  // Scan runs post-response via after(); on plain Node servers it runs in-process.
+  after(() =>
+    runScan(db, practiceId, getAdapters(), judgeAnswer).catch((err) => {
+      const message = err instanceof Error ? err.message : String(err);
+      void logActivity(db, practiceId, `scan failed: ${message}`);
+    }),
+  );
   revalidatePath(`/admin/practices/${practiceId}`);
 }
 
 /**
  * Operators only: transitions a finding's triage status. `resolvedAt` is
  * stamped when it moves to a resolved state (fixed/verified/dismissed) and
- * cleared on reopen. Resolved transitions are recorded as an activity;
- * reopening isn't (there's no "Reopened: ..." activity in the spec).
+ * cleared on reopen. Every transition is recorded as an activity — resolved
+ * states log "Fixed/Verified/Dismissed: <claim>", reopening logs
+ * "Reopened: <claim>".
  */
 export async function updateFindingStatus(findingId: string, status: FindingStatus): Promise<void> {
   await requireOperator();
@@ -153,7 +158,7 @@ export async function updateFindingStatus(findingId: string, status: FindingStat
     .set({ status, resolvedAt: resolved ? new Date() : null })
     .where(eq(findings.id, findingId));
 
-  const label = STATUS_ACTIVITY_LABEL[status];
+  const label = status === "open" ? "Reopened" : STATUS_ACTIVITY_LABEL[status];
   if (label) {
     await logActivity(db, finding.practiceId, `${label}: ${finding.claim}`);
   }
