@@ -25,6 +25,44 @@ Open [http://localhost:3000](http://localhost:3000) to view the app.
 npm run test
 ```
 
+## Local dev
+
+```bash
+npm install
+cp .env.example .env.local   # fill in real credentials
+npm run db:push              # push the drizzle schema to your database
+npm run seed                 # creates the operator user + demo "Glow MedSpa" practice
+npm run dev
+```
+
+## Ship checklist
+
+- [ ] Neon database created and `DATABASE_URL` set
+- [ ] `npm run db:push`
+- [ ] All required env keys set in Vercel:
+  - `DATABASE_URL`
+  - `OPENAI_API_KEY`
+  - `ANTHROPIC_API_KEY`
+  - `GEMINI_API_KEY`
+  - `PERPLEXITY_API_KEY`
+  - `RESEND_API_KEY`
+  - `EMAIL_FROM`
+  - `CRON_SECRET`
+  - `AUTH_SECRET`
+  - `AUTH_URL` (canonical `https://` domain — required in production, see Security)
+  - `APP_URL`
+  - `OPERATOR_EMAIL` (real value — production refuses the dev default once `AUTH_URL` is set)
+  - `OPERATOR_PASSWORD` (real value — same guard)
+- [ ] `vercel deploy`
+- [ ] Cron job visible in the Vercel dashboard
+- [ ] `npm run seed` run against the prod database
+- [ ] Operator login works
+- [ ] `npm run smoke` passes all 4 engines
+- [ ] Trigger the first real scan from `/admin`
+- [ ] Invite the first client email
+
+**Cost note:** at 10 prompts × 4 engines × roughly weekly scans, expect about 40 search-enabled calls plus about 8 judge calls per practice per week. Budget a few dollars per practice per month, and recheck vendor pricing at deploy time — model pricing changes.
+
 ## Environment
 
 All environment variables are validated at startup via `src/lib/env.ts` (see `.env.example` for the full list). LLM vendor model IDs (`OPENAI_MODEL`, `ANTHROPIC_MODEL`, `GEMINI_MODEL`, `PERPLEXITY_MODEL`, `JUDGE_MODEL`) are read from env with defaults there — never hardcode a model ID elsewhere in the codebase.

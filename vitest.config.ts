@@ -9,6 +9,13 @@ export default defineConfig({
   },
   test: {
     environment: "node",
+    // Each test that needs a real Postgres dialect spins up its own
+    // in-memory PGlite instance (see tests/helpers/db.ts). Running test
+    // files in parallel worker processes contends over PGlite's shared
+    // native lock/temp-file resources and produces flaky timeouts under
+    // load. Serializing file execution (still parallel *within* a file)
+    // fixes that at a small cost to wall-clock time for this suite's size.
+    fileParallelism: false,
     server: {
       deps: {
         // next-auth ships pure ESM and imports bare subpaths like
