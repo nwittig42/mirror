@@ -26,6 +26,8 @@ export interface SeedPracticeInput {
   prompts?: { text: string; kind: PromptKind }[];
   facts?: { category: FactCategory; label: string; value: string; status?: string }[];
   competitors?: string[];
+  /** Emails of client users to create and link via practice_members. */
+  members?: string[];
 }
 
 export interface SeedPracticeResult {
@@ -33,6 +35,7 @@ export interface SeedPracticeResult {
   promptIds: string[];
   factIds: string[];
   competitorIds: string[];
+  memberIds: string[];
 }
 
 function slugify(name: string): string {
@@ -72,10 +75,20 @@ export async function seedPractice(db: Db, input: SeedPracticeInput): Promise<Se
         .returning()
     : [];
 
+  const memberRows = input.members?.length
+    ? await db.insert(schema.users).values(input.members.map(email => ({ email }))).returning()
+    : [];
+
+  if (memberRows.length > 0) {
+    await db.insert(schema.practiceMembers)
+      .values(memberRows.map(u => ({ userId: u.id, practiceId: practice.id })));
+  }
+
   return {
     practiceId: practice.id,
     promptIds: promptRows.map(p => p.id),
     factIds: factRows.map(f => f.id),
     competitorIds: competitorRows.map(c => c.id),
+    memberIds: memberRows.map(u => u.id),
   };
 }

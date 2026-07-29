@@ -1,9 +1,10 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
-import { practiceMembers, practices, scans, users } from "@/db/schema";
+import { nameVariations, practiceMembers, practices, scans, users } from "@/db/schema";
 import { getLatestScan, getChecksForScan, getOpenFindings } from "@/lib/queries";
 import { loadEnv } from "@/lib/env";
 import { logActivity } from "@/services/activity";
+import { findMatches } from "@/core/mention";
 
 export interface PulseArgs {
   practiceName: string;
@@ -29,6 +30,22 @@ const row = (content: string): string =>
   `<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5e5;font-family:sans-serif;font-size:15px;color:#111;">${content}</td></tr>`;
 
 /**
+ * Escapes the five HTML-significant characters. Every dynamic string
+ * interpolated into `composePulse`'s HTML output MUST pass through this —
+ * `bestQuote.snippet` in particular is raw third-party LLM output, not
+ * trusted content, so it can contain arbitrary markup (including script
+ * tags) unless neutralized here.
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Pure composer for the weekly client "Pulse" email: an inline-styled HTML
  * table with at most 6 content rows (score/delta, cited-checks count,
  * verbatim quote, open-findings count, CTA). Kept pure (no DB/network) so
@@ -40,14 +57,14 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
   const rows: string[] = [];
 
   const delta = args.prevScore === null ? null : args.score - args.prevScore;
-  const deltaText = delta === null ? "" : ` (${delta >= 0 ? "+" : ""}${delta})`;
+  const deltaText = delta === null || delta === 0 ? "" : ` (${delta > 0 ? "+" : ""}${delta})`;
   rows.push(row(`<strong>Score: ${args.score}${deltaText}</strong>`));
 
   rows.push(row(`AI answered ${args.cited} of ${args.total} checks with your practice cited.`));
 
   if (args.bestQuote) {
-    const engineName = ENGINE_DISPLAY_NAMES[args.bestQuote.engine] ?? args.bestQuote.engine;
-    rows.push(row(`${engineName} said: <em>&ldquo;${args.bestQuote.snippet}&rdquo;</em>`));
+    const engineName = ENGINE_DISPLAY_NAMES[args.bestQuote.engine] ?? escapeHtml(args.bestQuote.engine);
+    rows.push(row(`${engineName} said: <em>&ldquo;${escapeHtml(args.bestQuote.snippet)}&rdquo;</em>`));
   }
 
   if (args.openFindings > 0) {
@@ -55,12 +72,13 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
     rows.push(row(`${args.openFindings} open accuracy ${plural} — we're on it.`));
   }
 
-  const dashboardUrl = `${args.appUrl}/dashboard/${args.slug}`;
+  const dashboardUrl = `${args.appUrl}/dashboard/${encodeURIComponent(args.slug)}`;
   rows.push(row(
-    `<a href="${dashboardUrl}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open your Mirror dashboard</a>`,
+    `<a href="${escapeHtml(dashboardUrl)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open your Mirror dashboard</a>`,
   ));
 
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
+    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">${escapeHtml(args.practiceName)} — Weekly Pulse</div>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;">` +
     rows.join("") +
     `</table></body></html>`;
@@ -69,17 +87,53 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
 }
 
 /**
- * Very small "best sentence" heuristic: splits the answer on ". " and
- * returns the first sentence that contains the practice name, truncated to
- * ~160 chars. Not NLP — good enough to surface a relevant verbatim snippet
- * for the email without another judge/LLM round trip.
+ * Very small "best sentence" heuristic: finds the earliest word-boundary
+ * match of any of `names` (practice name + its variations — the same set
+ * `checks.mentioned` is computed from in scan-runner, via `findMatches` for
+ * consistent matching semantics) in the full answer, then returns the ". "
+ * -delimited sentence that contains that match, truncated to ~160 chars.
+ * Not NLP — good enough to surface a relevant verbatim snippet for the
+ * email without another judge/LLM round trip. Falls back to `null` when
+ * none of `names` appear anywhere in the answer.
  */
-function extractSnippet(answerText: string, practiceName: string): string | null {
+function extractSnippet(answerText: string, names: string[]): string | null {
+  const matches = findMatches(answerText, names);
+  if (matches.length === 0) return null;
+  const earliestStart = matches[0].start;
+
   const sentences = answerText.split(". ");
-  const hit = sentences.find(s => s.toLowerCase().includes(practiceName.toLowerCase()));
-  if (!hit) return null;
-  return hit.length > 160 ? `${hit.slice(0, 160)}…` : hit;
+  let offset = 0;
+  for (const sentence of sentences) {
+    const end = offset + sentence.length;
+    if (earliestStart >= offset && earliestStart < end) {
+      return sentence.length > 160 ? `${sentence.slice(0, 160)}…` : sentence;
+    }
+    offset = end + 2; // 2 == length of the ". " delimiter split() consumed
+  }
+  return null;
 }
+
+export interface PulseTransportArgs {
+  to: string[];
+  subject: string;
+  html: string;
+  from: string;
+}
+
+export type PulseTransport = (args: PulseTransportArgs) => Promise<void>;
+
+/**
+ * Real transport: constructs the Resend SDK and sends. The `import("resend")`
+ * only happens when THIS function actually runs — `sendPulse` only calls it
+ * when the caller hasn't injected its own `transport`, so tests that pass a
+ * fake transport (e.g. `runWeeklyScans` tests, via a fake `send`) never
+ * construct the Resend SDK.
+ */
+const defaultTransport: PulseTransport = async ({ to, subject, html, from }) => {
+  const { Resend } = await import("resend");
+  const resend = new Resend(loadEnv().RESEND_API_KEY);
+  await resend.emails.send({ from, to, subject, html });
+};
 
 /**
  * Loads the latest complete scan for a practice, composes the Pulse email,
@@ -87,15 +141,23 @@ function extractSnippet(answerText: string, practiceName: string): string | null
  * there's no complete scan yet (e.g. first cron run before onboarding
  * finishes). Send failures are logged as an activity and swallowed — a
  * flaky email provider should never fail the cron loop for other practices.
+ *
+ * `transport` defaults to the real lazy-Resend implementation above; tests
+ * inject a fake to assert on the composed subject/html/recipients without
+ * touching the network.
  */
-export async function sendPulse(db: Db, practiceId: string): Promise<void> {
+export async function sendPulse(
+  db: Db,
+  practiceId: string,
+  transport: PulseTransport = defaultTransport,
+): Promise<void> {
   const latest = await getLatestScan(db, practiceId);
   if (!latest) return;
 
   const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
   if (!practice) return;
 
-  const [recentScans, checks, openFindings, memberRows] = await Promise.all([
+  const [recentScans, checks, openFindings, memberRows, variationRows] = await Promise.all([
     db.select().from(scans)
       .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
       .orderBy(desc(scans.startedAt))
@@ -106,6 +168,7 @@ export async function sendPulse(db: Db, practiceId: string): Promise<void> {
       .from(practiceMembers)
       .innerJoin(users, eq(practiceMembers.userId, users.id))
       .where(eq(practiceMembers.practiceId, practiceId)),
+    db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
   ]);
 
   const prevScore = recentScans.length > 1 ? (recentScans[1].score ?? null) : null;
@@ -113,8 +176,14 @@ export async function sendPulse(db: Db, practiceId: string): Promise<void> {
   const cited = checks.filter(c => c.mentioned).length;
   const total = checks.length;
 
+  // Same name set `checks.mentioned` is derived from in scan-runner
+  // (practice name + all variations) — matters because a check can be
+  // `mentioned: true` purely off a variation match, with the practice's
+  // canonical name never appearing verbatim in that answer.
+  const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
+
   const firstMentioned = checks.find(c => c.mentioned);
-  const snippet = firstMentioned ? extractSnippet(firstMentioned.answerText, practice.name) : null;
+  const snippet = firstMentioned ? extractSnippet(firstMentioned.answerText, practiceNames) : null;
   const bestQuote = firstMentioned && snippet ? { engine: firstMentioned.engine, snippet } : null;
 
   const recipients = memberRows.map(m => m.email);
@@ -133,13 +202,7 @@ export async function sendPulse(db: Db, practiceId: string): Promise<void> {
   });
 
   try {
-    // Imported lazily so `sendPulse` (and everything that transitively
-    // imports this module, e.g. runWeeklyScans) never constructs the Resend
-    // SDK in tests that never hit this branch.
-    const { Resend } = await import("resend");
-    const env = loadEnv();
-    const resend = new Resend(env.RESEND_API_KEY);
-    await resend.emails.send({ from: env.EMAIL_FROM, to: recipients, subject, html });
+    await transport({ to: recipients, subject, html, from: loadEnv().EMAIL_FROM });
   } catch (err) {
     await logActivity(db, practiceId, `pulse email failed: ${String(err instanceof Error ? err.message : err).slice(0, 200)}`);
   }

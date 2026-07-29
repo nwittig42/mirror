@@ -18,4 +18,17 @@ describe("composePulse", () => {
     expect(composePulse(base).html).toContain("natural results"));
   it("first scan (no prev) omits delta", () =>
     expect(composePulse({ ...base, prevScore: null }).html).not.toContain("+"));
+  it("zero-delta week omits the parenthetical too", () => {
+    const { html } = composePulse({ ...base, prevScore: base.score });
+    expect(html).not.toContain("(+0)");
+    expect(html).not.toContain("(0)");
+  });
+  it("escapes HTML in the quote snippet instead of interpolating it raw", () => {
+    const { html } = composePulse({
+      ...base,
+      bestQuote: { engine: "perplexity", snippet: "<script>alert(1)</script>" },
+    });
+    expect(html).not.toContain("<script>alert(1)</script>");
+    expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+  });
 });
