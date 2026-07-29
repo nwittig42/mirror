@@ -77,6 +77,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
       }),
     ],
     callbacks: {
+      async signIn({ user, account }) {
+        // The operator account must only be reachable via the Credentials
+        // provider (env-checked email+password). Without this, anyone who
+        // knows OPERATOR_EMAIL could request a Resend magic link for that
+        // address and sign in as the operator without ever knowing the
+        // password — email delivery isn't a secret the operator controls
+        // the same way a password is, so the magic-link path is treated as
+        // a distinct, lower-trust channel that operator identity is barred
+        // from.
+        if (
+          account?.provider === "resend" &&
+          user.email?.toLowerCase() === env.OPERATOR_EMAIL.toLowerCase()
+        ) {
+          return false;
+        }
+        return true;
+      },
       async jwt({ token, user }): Promise<JWT> {
         if (user) {
           token.id = user.id;

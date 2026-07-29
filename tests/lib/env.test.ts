@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 describe("env", () => {
   beforeEach(() => {
@@ -27,5 +27,46 @@ describe("env", () => {
     delete process.env.DATABASE_URL;
     const { loadEnv } = await import("@/lib/env");
     expect(() => loadEnv()).toThrow(/DATABASE_URL/);
+  });
+
+  // Trigger condition: this only throws when NODE_ENV is "production" AND
+  // AUTH_URL is set — the latter is what distinguishes a real deployment
+  // (which sets AUTH_URL per .env.example) from `next build`, which also
+  // runs with NODE_ENV=production but never sets AUTH_URL. Without the
+  // AUTH_URL gate, this guard would break every production build.
+  // `vi.stubEnv` is used (rather than direct `process.env.NODE_ENV =`
+  // assignment) because @types/node marks NODE_ENV read-only.
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("throws in production when operator credentials are still the dev defaults", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AUTH_URL", "https://mirror.example.com");
+    delete process.env.OPERATOR_EMAIL;
+    delete process.env.OPERATOR_PASSWORD;
+
+    const { loadEnv } = await import("@/lib/env");
+    expect(() => loadEnv()).toThrow(/default operator credentials/);
+  });
+
+  it("does not throw in production when AUTH_URL is unset (e.g. `next build`)", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    delete process.env.AUTH_URL;
+    delete process.env.OPERATOR_EMAIL;
+    delete process.env.OPERATOR_PASSWORD;
+
+    const { loadEnv } = await import("@/lib/env");
+    expect(() => loadEnv()).not.toThrow();
+  });
+
+  it("does not throw in production when real operator credentials are set", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("AUTH_URL", "https://mirror.example.com");
+    vi.stubEnv("OPERATOR_EMAIL", "ops@realpractice.com");
+    vi.stubEnv("OPERATOR_PASSWORD", "a-real-secret");
+
+    const { loadEnv } = await import("@/lib/env");
+    expect(() => loadEnv()).not.toThrow();
   });
 });

@@ -40,7 +40,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // /api/auth/* (the NextAuth route handler) and static assets are excluded
-  // so they're never blocked by the unauthenticated redirect.
-  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
+  // All of /api/* is excluded, not just /api/auth/*: API routes authenticate
+  // themselves (e.g. Task 13's /api/cron checks the CRON_SECRET header) and
+  // must never be redirected to /login by this session-cookie check — that
+  // would silently break the weekly scan cron. Page-level guards
+  // (requireOperator/requirePracticeAccess) remain the real enforcement for
+  // pages; this middleware is a redirect-to-login convenience plus the
+  // /admin 404 check below.
+  matcher: ["/((?!api/|_next/static|_next/image|favicon.ico).*)"],
 };
