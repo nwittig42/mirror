@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectMention, detectNames, findMatches } from "@/core/mention";
+import { detectMention, detectNames, findMatches, highlightRanges } from "@/core/mention";
 
 describe("detectMention", () => {
   it("matches case-insensitively", () =>
@@ -27,5 +27,40 @@ describe("findMatches", () => {
       { name: "Glow MedSpa", start: 0, end: 11 },
       { name: "Derm House", start: 16, end: 26 }
     ]);
+  });
+});
+
+describe("highlightRanges", () => {
+  it("returns every occurrence of a variation, not just the first", () => {
+    const ranges = highlightRanges(
+      "Glow MedSpa is great. Visit Glow MedSpa today for Glow MedSpa specials.",
+      ["Glow MedSpa"],
+    );
+    expect(ranges).toEqual([
+      { start: 0, end: 11 },
+      { start: 28, end: 39 },
+      { start: 50, end: 61 },
+    ]);
+  });
+
+  it("matches multiple variations across the answer", () => {
+    const ranges = highlightRanges("Dr. Kim runs Glow MedSpa downtown.", ["Glow MedSpa", "Dr. Kim"]);
+    expect(ranges).toEqual([
+      { start: 0, end: 7 },
+      { start: 13, end: 24 },
+    ]);
+  });
+
+  it("merges overlapping ranges from different variations (name contained in another)", () => {
+    const ranges = highlightRanges("Glow MedSpa is downtown.", ["Glow MedSpa", "Glow"]);
+    expect(ranges).toEqual([{ start: 0, end: 11 }]);
+  });
+
+  it("requires word boundaries (no substring false positives)", () => {
+    expect(highlightRanges("The glowing reviews mention nothing", ["Glow"])).toEqual([]);
+  });
+
+  it("returns an empty array when nothing matches", () => {
+    expect(highlightRanges("Nothing here.", ["Glow MedSpa"])).toEqual([]);
   });
 });
