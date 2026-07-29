@@ -36,6 +36,32 @@ export function findMatches(answer: string, names: string[]): Match[] {
     .sort((a, b) => a.start - b.start);
 }
 
+/**
+ * Very small "best sentence" heuristic: finds the earliest word-boundary
+ * match of any of `names` in `answer` (via `findMatches`, for consistent
+ * matching semantics with `checks.mentioned`), then returns the ". "
+ * -delimited sentence that contains that match, truncated to ~160 chars.
+ * Not NLP — good enough to surface a relevant verbatim snippet (weekly Pulse
+ * email, monthly client report) without another judge/LLM round trip. Falls
+ * back to `null` when none of `names` appear anywhere in `answer`.
+ */
+export function extractSnippet(answer: string, names: string[]): string | null {
+  const matches = findMatches(answer, names);
+  if (matches.length === 0) return null;
+  const earliestStart = matches[0].start;
+
+  const sentences = answer.split(". ");
+  let offset = 0;
+  for (const sentence of sentences) {
+    const end = offset + sentence.length;
+    if (earliestStart >= offset && earliestStart < end) {
+      return sentence.length > 160 ? `${sentence.slice(0, 160)}…` : sentence;
+    }
+    offset = end + 2; // 2 == length of the ". " delimiter split() consumed
+  }
+  return null;
+}
+
 export interface Range {
   start: number;
   end: number;

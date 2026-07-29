@@ -4,7 +4,7 @@ import { nameVariations, practiceMembers, practices, scans, users } from "@/db/s
 import { getLatestScan, getChecksForScan, getOpenFindings } from "@/lib/queries";
 import { loadEnv } from "@/lib/env";
 import { logActivity } from "@/services/activity";
-import { findMatches } from "@/core/mention";
+import { extractSnippet } from "@/core/mention";
 
 export interface PulseArgs {
   practiceName: string;
@@ -84,33 +84,6 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
     `</table></body></html>`;
 
   return { subject, html };
-}
-
-/**
- * Very small "best sentence" heuristic: finds the earliest word-boundary
- * match of any of `names` (practice name + its variations — the same set
- * `checks.mentioned` is computed from in scan-runner, via `findMatches` for
- * consistent matching semantics) in the full answer, then returns the ". "
- * -delimited sentence that contains that match, truncated to ~160 chars.
- * Not NLP — good enough to surface a relevant verbatim snippet for the
- * email without another judge/LLM round trip. Falls back to `null` when
- * none of `names` appear anywhere in the answer.
- */
-function extractSnippet(answerText: string, names: string[]): string | null {
-  const matches = findMatches(answerText, names);
-  if (matches.length === 0) return null;
-  const earliestStart = matches[0].start;
-
-  const sentences = answerText.split(". ");
-  let offset = 0;
-  for (const sentence of sentences) {
-    const end = offset + sentence.length;
-    if (earliestStart >= offset && earliestStart < end) {
-      return sentence.length > 160 ? `${sentence.slice(0, 160)}…` : sentence;
-    }
-    offset = end + 2; // 2 == length of the ". " delimiter split() consumed
-  }
-  return null;
 }
 
 export interface PulseTransportArgs {

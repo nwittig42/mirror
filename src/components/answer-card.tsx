@@ -1,13 +1,9 @@
 import type { ReactNode } from "react";
 import { highlightRanges } from "@/core/mention";
+import { ENGINE_LABELS } from "@/core/types";
 import type { Engine, Position } from "@/core/types";
 
-export const ENGINE_LABELS: Record<Engine, string> = {
-  openai: "ChatGPT",
-  anthropic: "Claude",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-};
+export { ENGINE_LABELS };
 
 const POSITION_STYLES: Record<Position, { label: string; className: string }> = {
   first: { label: "First mention", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" },

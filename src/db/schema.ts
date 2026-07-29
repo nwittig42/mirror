@@ -65,6 +65,9 @@ export const practices = pgTable("practices", {
   slug: text("slug").notNull().unique(),
   website: text("website"),
   active: boolean("active").notNull().default(true),
+  // Operator-edited "what's planned next month" note, shown on the client's
+  // printable monthly report. Nullable — most practices won't have one set.
+  reportNotes: text("report_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

@@ -15,6 +15,13 @@
       "when": 1785290534784,
       "tag": "0001_fantastic_queen_noir",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785295371803,
+      "tag": "0002_absurd_sabra",
+      "breakpoints": true
     }
   ]
 }

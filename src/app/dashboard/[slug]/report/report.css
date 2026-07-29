@@ -1,0 +1,24 @@
+/*
+ * Print styles for the monthly client report. The screen view stays
+ * Tailwind-styled (including dark mode); this only kicks in for
+ * window.print()/Print-to-PDF, and forces plain black-on-white regardless
+ * of the visitor's OS color scheme (Tailwind's `dark:` classes respond to
+ * prefers-color-scheme, which print doesn't otherwise override).
+ */
+@media print {
+  @page {
+    margin: 1.6cm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  * {
+    color: #000 !important;
+    background-color: transparent !important;
+    border-color: #ccc !important;
+  }
+}

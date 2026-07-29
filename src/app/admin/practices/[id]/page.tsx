@@ -9,7 +9,7 @@ import {
 import { requireOperator } from "@/lib/auth";
 import {
   addFact, archiveFact, addPrompt, togglePrompt, addCompetitor, addNameVariation,
-  inviteClient, triggerScan, updateFindingStatus,
+  inviteClient, triggerScan, updateFindingStatus, updateReportNotes,
 } from "@/app/admin/actions";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
@@ -82,6 +82,13 @@ async function handleInviteClient(practiceId: string, formData: FormData): Promi
   const email = formData.get("email");
   if (typeof email !== "string" || !email.trim()) return;
   await inviteClient(practiceId, email.trim());
+}
+
+async function handleUpdateReportNotes(practiceId: string, formData: FormData): Promise<void> {
+  "use server";
+  const text = formData.get("text");
+  if (typeof text !== "string") return;
+  await updateReportNotes(practiceId, text.trim());
 }
 
 async function handleTriggerScan(practiceId: string): Promise<void> {
@@ -336,6 +343,24 @@ export default async function PracticeDetailPage({
             </tbody>
           </table>
         )}
+      </section>
+
+      {/* Report notes */}
+      <section className="mb-10">
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Report notes</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Shown as &ldquo;Next month&rdquo; on the client&apos;s printable monthly report.
+        </p>
+        <form action={handleUpdateReportNotes.bind(null, practiceId)} className="flex flex-col gap-3">
+          <textarea
+            name="text"
+            rows={4}
+            defaultValue={practice.reportNotes ?? ""}
+            placeholder="What's planned for next month..."
+            className={`${inputClass} w-full`}
+          />
+          <button type="submit" className={`${primaryButtonClass} self-start`}>Save notes</button>
+        </form>
       </section>
 
       {/* Invite client */}

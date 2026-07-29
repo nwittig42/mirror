@@ -120,6 +120,14 @@ export async function inviteClient(practiceId: string, email: string): Promise<v
   revalidatePath(`/admin/practices/${practiceId}`);
 }
 
+/** Operators only: sets the "next month" note shown on the client's printable monthly report. */
+export async function updateReportNotes(practiceId: string, text: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  await db.update(practices).set({ reportNotes: text || null }).where(eq(practices.id, practiceId));
+  revalidatePath(`/admin/practices/${practiceId}`);
+}
+
 /**
  * Operators only: kicks off a scan in the background and returns immediately
  * — a scan takes ~2 minutes (four engines × up to ten prompts), far longer

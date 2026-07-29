@@ -2,12 +2,13 @@ import Link from "next/link";
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
-type Tab = "overview" | "answers" | "accuracy";
+type Tab = "overview" | "answers" | "accuracy" | "report";
 
 const TABS: { key: Tab; label: string; suffix: string }[] = [
   { key: "overview", label: "Overview", suffix: "" },
   { key: "answers", label: "Answers", suffix: "/answers" },
   { key: "accuracy", label: "Accuracy", suffix: "/accuracy" },
+  { key: "report", label: "Report", suffix: "/report" },
 ];
 
 /** Shared header + tab nav for the three client dashboard pages. */
@@ -22,7 +23,7 @@ export function DashboardHeader({
     <header className="mb-8">
       <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{appName}</p>
       <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{practiceName}</h1>
-      <nav className="mt-4 flex gap-1 border-b border-zinc-200 dark:border-zinc-800">
+      <nav className="mt-4 flex gap-1 border-b border-zinc-200 print:hidden dark:border-zinc-800">
         {TABS.map(tab => (
           <Link
             key={tab.key}
