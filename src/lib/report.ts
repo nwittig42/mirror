@@ -17,6 +17,27 @@ export interface ReportData {
 }
 
 const ACTIVITY_CAP = 30;
+const MONTH_ISO_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function currentMonthISO(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Validates the `?month=` search param against "YYYY-MM" (01-12). Missing or
+ * malformed input (e.g. "garbage", "2026", "2026-13" — all user-reachable via
+ * a shareable URL) falls back silently to the current UTC month, the same
+ * default used when the param is absent. `monthBounds`/`formatMonthLabel`
+ * both assume a value that has already passed through here or is otherwise
+ * known-valid — they'll throw on garbage input (e.g. an Invalid Date's
+ * `toLocaleString` raises `RangeError`), so callers reading `month` from a
+ * request must always route it through this first.
+ */
+export function resolveMonthParam(raw: string | undefined): string {
+  if (raw && MONTH_ISO_PATTERN.test(raw)) return raw;
+  return currentMonthISO();
+}
 
 /** [start, end) UTC bounds for a calendar month, plus the same for the preceding month. */
 function monthBounds(monthISO: string): { start: Date; end: Date; prevStart: Date; prevEnd: Date } {

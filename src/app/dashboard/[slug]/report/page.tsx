@@ -2,15 +2,10 @@ import Link from "next/link";
 import { requirePracticeAccess } from "@/lib/auth";
 import { getDb } from "@/db";
 import { getOpenFindings } from "@/lib/queries";
-import { buildReportData, formatMonthLabel } from "@/lib/report";
+import { buildReportData, formatMonthLabel, resolveMonthParam } from "@/lib/report";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PrintButton } from "@/components/print-button";
 import "./report.css";
-
-function currentMonthISO(): string {
-  const now = new Date();
-  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
-}
 
 /** Shifts a "YYYY-MM" ISO month string by `delta` calendar months (UTC). */
 function shiftMonth(monthISO: string, delta: number): string {
@@ -31,7 +26,7 @@ export default async function ReportPage({
   const practice = await requirePracticeAccess(slug);
   const db = getDb();
 
-  const month = monthParam ?? currentMonthISO();
+  const month = resolveMonthParam(monthParam);
 
   const [report, openFindings] = await Promise.all([
     buildReportData(db, practice.id, month),

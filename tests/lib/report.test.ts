@@ -1,7 +1,32 @@
 import { describe, it, expect } from "vitest";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { buildReportData } from "@/lib/report";
+import { buildReportData, resolveMonthParam } from "@/lib/report";
+
+function currentMonthISO(): string {
+  const now = new Date();
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+describe("resolveMonthParam", () => {
+  it("falls back to the current UTC month when the param is missing", () =>
+    expect(resolveMonthParam(undefined)).toBe(currentMonthISO()));
+
+  it("passes through a valid YYYY-MM value", () =>
+    expect(resolveMonthParam("2026-07")).toBe("2026-07"));
+
+  it("falls back to the current UTC month for non-matching garbage", () =>
+    expect(resolveMonthParam("garbage")).toBe(currentMonthISO()));
+
+  it("falls back to the current UTC month when the month is missing", () =>
+    expect(resolveMonthParam("2026")).toBe(currentMonthISO()));
+
+  it("falls back to the current UTC month for an out-of-range month", () =>
+    expect(resolveMonthParam("2026-13")).toBe(currentMonthISO()));
+
+  it("falls back to the current UTC month for a zero month", () =>
+    expect(resolveMonthParam("2026-00")).toBe(currentMonthISO()));
+});
 
 type TestDb = Awaited<ReturnType<typeof makeTestDb>>;
 
