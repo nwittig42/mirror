@@ -16,6 +16,9 @@ const schema = z.object({
   PERPLEXITY_MODEL: z.string().default("sonar-pro"),
   JUDGE_MODEL: z.string().default("claude-haiku-4-5-20251001"),
   NEXT_PUBLIC_APP_NAME: z.string().default("Mirror"),
+  EMAIL_FROM: z.string().default("onboarding@resend.dev"),
+  OPERATOR_EMAIL: z.string().default("operator@example.com"),
+  OPERATOR_PASSWORD: z.string().default("change-me-dev-only"),
 });
 
 export type Env = z.infer<typeof schema>;

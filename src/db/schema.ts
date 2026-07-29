@@ -1,4 +1,5 @@
 import { pgTable, text, uuid, timestamp, boolean, integer, jsonb, pgEnum, primaryKey } from "drizzle-orm/pg-core";
+import type { AdapterAccountType } from "@auth/core/adapters";
 
 export const roleEnum = pgEnum("role", ["operator", "client"]);
 export const factCategoryEnum = pgEnum("fact_category",
@@ -14,10 +15,49 @@ export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name"),
+  // Required by @auth/drizzle-adapter's DefaultPostgresUsersTable shape, even
+  // though the product has no avatar-upload feature yet.
+  image: text("image"),
   role: roleEnum("role").notNull().default("client"),
   emailVerified: timestamp("email_verified"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// The next three tables exist solely to satisfy @auth/drizzle-adapter's
+// Postgres adapter contract (Resend magic-link verification tokens, and
+// OAuth-shaped account linking for parity with the adapter's expected
+// schema). Column names/types mirror the adapter's documented
+// `defineTables` default, with `userId` switched from text to uuid to
+// reference our uuid-keyed `users` table.
+export const accounts = pgTable("accounts", {
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").$type<AdapterAccountType>().notNull(),
+  provider: text("provider").notNull(),
+  providerAccountId: text("provider_account_id").notNull(),
+  refresh_token: text("refresh_token"),
+  access_token: text("access_token"),
+  expires_at: integer("expires_at"),
+  token_type: text("token_type"),
+  scope: text("scope"),
+  id_token: text("id_token"),
+  session_state: text("session_state"),
+}, (account) => [
+  primaryKey({ columns: [account.provider, account.providerAccountId] }),
+]);
+
+export const sessions = pgTable("sessions", {
+  sessionToken: text("session_token").primaryKey(),
+  userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  expires: timestamp("expires").notNull(),
+});
+
+export const verificationTokens = pgTable("verification_tokens", {
+  identifier: text("identifier").notNull(),
+  token: text("token").notNull(),
+  expires: timestamp("expires").notNull(),
+}, (vt) => [
+  primaryKey({ columns: [vt.identifier, vt.token] }),
+]);
 
 export const practices = pgTable("practices", {
   id: uuid("id").defaultRandom().primaryKey(),
