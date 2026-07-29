@@ -1,22 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { PGlite } from "@electric-sql/pglite";
-import { drizzle } from "drizzle-orm/pglite";
 import * as schema from "@/db/schema";
-import { sql } from "drizzle-orm";
-
-async function testDb() {
-  const client = new PGlite();
-  const db = drizzle(client, { schema });
-  // push schema DDL directly for tests
-  const { pushSchema } = await import("drizzle-kit/api");
-  const { apply } = await pushSchema(schema, db as never);
-  await apply();
-  return db;
-}
+import { makeTestDb } from "../helpers/db";
 
 describe("schema", () => {
   it("stores a practice with facts, prompts, and a scan with checks", async () => {
-    const db = await testDb();
+    const db = await makeTestDb();
     const [practice] = await db.insert(schema.practices)
       .values({ name: "Glow MedSpa", slug: "glow", website: "https://glow.example" }).returning();
     await db.insert(schema.facts).values({
