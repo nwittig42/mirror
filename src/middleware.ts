@@ -7,9 +7,14 @@ import { getToken } from "next-auth/jwt";
 // middleware (edge runtime) needs to carry. Decoding the JWT session cookie
 // via `getToken` only needs AUTH_SECRET, keeping this dependency-light.
 
+// "/" is the public marketing page. It is matched exactly below rather than by
+// the startsWith() prefix rule — `"/".startsWith("/")` is true for every path
+// on the site, so treating it as a prefix would make the entire app public.
 const PUBLIC_PATHS = ["/login"];
+const PUBLIC_EXACT = ["/"];
 
 function isPublicPath(pathname: string): boolean {
+  if (PUBLIC_EXACT.includes(pathname)) return true;
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
 }
 

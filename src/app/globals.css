@@ -24,3 +24,664 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ==========================================================================
+   Marketing surface (the public landing page at "/")
+   --------------------------------------------------------------------------
+   Everything below is scoped under .mk so it cannot leak into the signed-in
+   app, which keeps Geist + Tailwind's zinc scale. The palette is taken from
+   the logo lockup: near-black ink on warm ivory with a single bronze accent.
+   The page is deliberately light-only — it opts out of the dark-mode block
+   above by setting its own background, because the brand is an ivory sheet
+   and a dark inversion reads as a different company.
+   ========================================================================== */
+
+.mk {
+  --ink: #1a1a18;
+  --ink-soft: #46443f;
+  --muted: #78746c;
+  --ivory: #f7f5f0;
+  --bone: #ede8df;
+  --paper: #ffffff;
+  --gold: #a8763e;
+  --line: #ded8cd;
+  --flag: #a33a2a;
+  --gut: 40px;
+
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.mk-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+.mk-inner.narrow {
+  max-width: 820px;
+}
+
+.mk a:focus-visible,
+.mk button:focus-visible,
+.mk summary:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* ---------- type ---------- */
+.mk-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0;
+}
+.mk-h1 {
+  font-size: clamp(44px, 6vw, 78px);
+  line-height: 1.04;
+}
+.mk-h2 {
+  font-size: clamp(30px, 3.6vw, 44px);
+  line-height: 1.12;
+}
+.mk-h3 {
+  font-size: 22px;
+  line-height: 1.25;
+}
+.mk-eyebrow {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold);
+  display: block;
+}
+.mk-lede {
+  font-size: 18px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+  margin: 20px 0 0;
+  max-width: 54ch;
+}
+.mk-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+
+/* A hairline rule under a section heading — the logo's gold baseline, reused
+   as the page's one recurring ornament. */
+.mk-rule {
+  width: 56px;
+  height: 1px;
+  background: var(--gold);
+  margin: 22px 0 0;
+  border: 0;
+}
+
+/* ---------- sections & bands ---------- */
+.mk-section {
+  padding: 96px var(--gut);
+}
+.mk-section.tight {
+  padding-top: 64px;
+  padding-bottom: 64px;
+}
+.band-bone {
+  background: var(--bone);
+}
+.band-paper {
+  background: var(--paper);
+}
+.band-ink {
+  background: var(--ink);
+  color: var(--ivory);
+}
+.band-ink .mk-display,
+.band-ink .mk-h2 {
+  color: var(--ivory);
+}
+.band-ink .mk-lede {
+  color: rgba(247, 245, 240, 0.72);
+}
+
+/* ---------- header ---------- */
+.mk-header {
+  height: 76px;
+  padding: 0 var(--gut);
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  background: var(--ivory);
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+.mk-nav {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-left: auto;
+}
+.mk-nav a {
+  font-size: 14px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+.mk-nav a:hover {
+  color: var(--gold);
+}
+
+/* ---------- buttons ---------- */
+/* Square, not pill: pills read prosumer-app, and this page is asking a
+   physician-owner for a consult. Ink fill for primary, hairline for secondary. */
+.mk-btn {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 14px 26px;
+  background: var(--ink);
+  color: var(--ivory);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 160ms ease, color 160ms ease;
+}
+.mk-btn:hover {
+  background: transparent;
+  color: var(--ink);
+}
+.mk-btn-sec {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 14px 26px;
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+.mk-btn-sec:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+.mk-btn-sm {
+  padding: 10px 18px;
+  font-size: 13px;
+}
+.band-ink .mk-btn {
+  background: var(--ivory);
+  color: var(--ink);
+  border-color: var(--ivory);
+}
+.band-ink .mk-btn:hover {
+  background: transparent;
+  color: var(--ivory);
+}
+.band-ink .mk-btn-sec {
+  color: var(--ivory);
+  border-color: rgba(247, 245, 240, 0.4);
+}
+
+/* ---------- hero ---------- */
+.mk-hero {
+  padding: 84px var(--gut) 76px;
+  background: var(--ivory);
+}
+.mk-hero-grid {
+  display: grid;
+  grid-template-columns: 1.05fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.mk-hero .btns {
+  display: flex;
+  gap: 12px;
+  margin-top: 34px;
+  flex-wrap: wrap;
+}
+.mk-hero .trust {
+  margin-top: 26px;
+  font-size: 13px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ---------- the answer card (hero proof visual + proof section) ---------- */
+/* A verbatim AI answer with the false clause marked. This is the product in
+   one object, so it carries the hero instead of a stock dashboard shot. */
+.mk-answer {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  box-shadow: 0 18px 40px -28px rgba(26, 26, 24, 0.45);
+  overflow: hidden;
+}
+.mk-answer-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfaf7;
+}
+.mk-answer-engine {
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.mk-answer-meta {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mk-answer-body {
+  padding: 22px 24px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink-soft);
+}
+/* The hallucinated clause. Underline rather than highlighter fill — a
+   marker-pen yellow would fight the palette and cheapen the page. */
+.mk-false {
+  color: var(--flag);
+  text-decoration: underline;
+  text-decoration-color: var(--flag);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.mk-answer-foot {
+  border-top: 1px solid var(--line);
+  padding: 16px 24px;
+  background: #fbfaf7;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.mk-flag-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--flag);
+  margin-top: 6px;
+  flex: none;
+}
+.mk-answer-foot .txt {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.mk-answer-foot .txt strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- engine strip ---------- */
+.mk-engines {
+  padding: 28px var(--gut);
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  background: var(--ivory);
+}
+.mk-engine-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 44px;
+  flex-wrap: wrap;
+}
+.mk-engine-row .lbl {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mk-engine-row .eng {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 19px;
+  color: var(--ink);
+}
+
+/* ---------- stat row ---------- */
+.mk-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 48px;
+}
+.mk-stat .n {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 52px;
+  line-height: 1;
+  color: var(--ink);
+}
+.mk-stat .label {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin-top: 14px;
+  max-width: 32ch;
+}
+.mk-stat .src {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 10px;
+}
+
+/* ---------- two-column pitch ---------- */
+.mk-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 72px;
+  align-items: start;
+}
+.mk-checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 20px;
+}
+.mk-checklist li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+.mk-checklist li:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.mk-checklist svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin-top: 2px;
+  color: var(--gold);
+}
+.mk-checklist p {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--ink-soft);
+}
+.mk-checklist strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ---------- steps ---------- */
+.mk-steps {
+  display: grid;
+  gap: 72px;
+  margin-top: 64px;
+}
+.mk-step {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 64px;
+  align-items: center;
+}
+.mk-step.reversed .copy {
+  order: 2;
+}
+.mk-step-num {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 15px;
+  color: var(--gold);
+  display: block;
+  margin-bottom: 14px;
+}
+.mk-bullets {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 11px;
+}
+.mk-bullets li {
+  position: relative;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.mk-bullets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  width: 6px;
+  height: 1px;
+  background: var(--gold);
+}
+
+/* A neutral panel standing in for a product screenshot. Real captures should
+   replace these once the dashboard has a seeded practice worth showing. */
+.mk-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 26px;
+  box-shadow: 0 18px 40px -30px rgba(26, 26, 24, 0.4);
+}
+.mk-panel-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 18px;
+}
+.mk-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.mk-bar .track {
+  flex: 1;
+  height: 4px;
+  background: var(--bone);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mk-bar .fill {
+  height: 100%;
+  background: var(--gold);
+}
+.mk-bar .pct {
+  width: 44px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
+/* score dial */
+.mk-score {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.mk-score .val {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 64px;
+  line-height: 1;
+  color: var(--ink);
+}
+.mk-score .of {
+  font-size: 14px;
+  color: var(--muted);
+}
+
+/* ---------- card grid ---------- */
+.mk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  margin-top: 56px;
+  background: var(--line);
+  border: 1px solid var(--line);
+}
+.mk-card {
+  background: var(--ivory);
+  padding: 32px 28px;
+}
+.band-paper .mk-card {
+  background: var(--paper);
+}
+.mk-card h4 {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 19px;
+  font-weight: 400;
+  margin: 0;
+  color: var(--ink);
+}
+.mk-card p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+
+/* ---------- FAQ ---------- */
+.mk-faq {
+  margin-top: 44px;
+  border-top: 1px solid var(--line);
+}
+.mk-faq details {
+  border-bottom: 1px solid var(--line);
+}
+.mk-faq summary {
+  padding: 22px 40px 22px 0;
+  cursor: pointer;
+  list-style: none;
+  position: relative;
+  font-size: 16px;
+  color: var(--ink);
+}
+.mk-faq summary::-webkit-details-marker {
+  display: none;
+}
+.mk-faq summary::after {
+  content: "+";
+  position: absolute;
+  right: 4px;
+  top: 20px;
+  font-size: 19px;
+  color: var(--gold);
+  line-height: 1;
+}
+.mk-faq details[open] summary::after {
+  content: "–";
+}
+.mk-faq .ans {
+  padding: 0 40px 24px 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--muted);
+  margin: 0;
+}
+
+/* ---------- footer ---------- */
+.mk-footer {
+  background: var(--ink);
+  color: rgba(247, 245, 240, 0.68);
+  padding: 64px var(--gut) 32px;
+}
+.mk-footer-grid {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 1fr;
+  gap: 48px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.mk-footer .col .head {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ivory);
+  display: block;
+  margin-bottom: 16px;
+}
+.mk-footer .col a,
+.mk-footer .col span:not(.head) {
+  display: block;
+  font-size: 14px;
+  color: rgba(247, 245, 240, 0.68);
+  text-decoration: none;
+  margin-bottom: 10px;
+}
+.mk-footer .col a:hover {
+  color: var(--ivory);
+}
+.mk-footer-legal {
+  max-width: 1200px;
+  margin: 48px auto 0;
+  padding-top: 24px;
+  border-top: 1px solid rgba(247, 245, 240, 0.14);
+  font-size: 12px;
+  color: rgba(247, 245, 240, 0.45);
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 900px) {
+  .mk {
+    --gut: 22px;
+  }
+  .mk-hero-grid,
+  .mk-split,
+  .mk-step {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .mk-step.reversed .copy {
+    order: 0;
+  }
+  .mk-stats,
+  .mk-grid {
+    grid-template-columns: 1fr;
+  }
+  .mk-footer-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .mk-section {
+    padding: 64px var(--gut);
+  }
+  .mk-hero {
+    padding: 52px var(--gut) 56px;
+  }
+  .mk-nav {
+    display: none;
+  }
+  /* The trust line wraps to two rows on narrow screens, which leaves the gold
+     separator dangling at the end of the first one. Drop it and let the rows
+     read as a short list instead. */
+  .mk-hero .trust [aria-hidden="true"] {
+    display: none;
+  }
+  .mk-engine-row {
+    gap: 22px;
+  }
+}

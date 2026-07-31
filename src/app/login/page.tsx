@@ -14,7 +14,9 @@ async function sendMagicLink(formData: FormData): Promise<void> {
   "use server";
   const email = formData.get("email");
   if (typeof email !== "string" || !email) return;
-  await signIn("resend", { email, redirectTo: "/" });
+  // "/app", not "/" — "/" is the public marketing page and would strand a
+  // freshly signed-in client on marketing instead of their dashboard.
+  await signIn("resend", { email, redirectTo: "/app" });
 }
 
 async function signInOperator(formData: FormData): Promise<void> {
