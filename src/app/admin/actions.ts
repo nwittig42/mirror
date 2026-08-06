@@ -9,6 +9,7 @@ import {
   factCategoryEnum, promptKindEnum, findingStatusEnum,
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
+import { generateTempPassword, hashPassword } from "@/lib/password";
 import { runScan } from "@/services/scan-runner";
 import { getAdapters } from "@/engines";
 import { judgeAnswer } from "@/services/hallucination-judge";
@@ -47,7 +48,7 @@ export async function addFact(
   revalidatePath(`/admin/practices/${practiceId}`);
 }
 
-/** Operators only: archives a fact (soft delete — findings may still reference it). */
+/** Operators only: archives a fact (soft delete; findings may still reference it). */
 export async function archiveFact(factId: string): Promise<void> {
   await requireOperator();
   const db = getDb();
@@ -60,8 +61,8 @@ export async function archiveFact(factId: string): Promise<void> {
 
 /**
  * Operators only: adds a monitoring prompt. Caps a practice at 10 *active*
- * prompts (each active prompt is run against every engine on every scan) —
- * beyond that, an operator must deactivate one first.
+ * prompts (each active prompt is run against every engine on every scan).
+ * Beyond that, an operator must deactivate one first.
  */
 export async function addPrompt(
   practiceId: string,
@@ -105,19 +106,56 @@ export async function addNameVariation(practiceId: string, text: string): Promis
 }
 
 /**
- * Operators only: grants a client dashboard access to a practice. Creates the
- * `users` row (role `client`) if the email hasn't signed in before, then
- * links it via `practice_members` (a no-op if already linked). This does NOT
- * send a magic link — Resend sends one automatically the next time the
- * client signs in at /login with this email.
+ * Operators only: grants a client dashboard access to a practice and issues
+ * the temporary password read to them on the onboarding call. Creates the
+ * `users` row (role `client`) if the email hasn't been seen before, links it
+ * via `practice_members` (a no-op if already linked), and flags the account
+ * so the client is forced to choose their own password at first sign-in.
+ *
+ * Returns the plaintext password. It is shown on screen exactly once and is
+ * recoverable nowhere: re-running this issues a new one and invalidates the
+ * old. No email is sent from here, by design, since the password is spoken
+ * aloud on the call rather than put in an inbox.
  */
-export async function inviteClient(practiceId: string, email: string): Promise<void> {
+export async function issueClientPassword(
+  practiceId: string,
+  email: string,
+): Promise<{ email: string; password: string }> {
   await requireOperator();
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) throw new Error("An email address is required.");
+
   const db = getDb();
-  const [existing] = await db.select().from(users).where(eq(users.email, email));
-  const user = existing ?? (await db.insert(users).values({ email, role: "client" }).returning())[0];
+  const [existing] = await db.select().from(users).where(eq(users.email, normalized));
+
+  // The operator's own password is bootstrapped from OPERATOR_PASSWORD and
+  // changed at /change-password. Letting this screen overwrite it would both
+  // strand the operator behind a must-change prompt and quietly hand their
+  // credential to whoever is on the call.
+  if (existing?.role === "operator") {
+    throw new Error("That address is the operator account. Issue a client password to a client address.");
+  }
+
+  const password = generateTempPassword();
+  const passwordHash = await hashPassword(password);
+
+  const user = existing
+    ? (await db.update(users)
+        .set({ passwordHash, mustChangePassword: true })
+        .where(eq(users.id, existing.id))
+        .returning())[0]
+    : (await db.insert(users)
+        .values({ email: normalized, role: "client", passwordHash, mustChangePassword: true })
+        .returning())[0];
+
   await db.insert(practiceMembers).values({ userId: user.id, practiceId }).onConflictDoNothing();
+
+  // Deliberately records the address and not the password: the plaintext is
+  // shown once on screen and never written anywhere it could be read back.
+  await logActivity(db, practiceId, `Issued a temporary password to ${normalized}`);
+
   revalidatePath(`/admin/practices/${practiceId}`);
+  return { email: normalized, password };
 }
 
 /** Operators only: sets the "next month" note shown on the client's printable monthly report. */
@@ -130,7 +168,7 @@ export async function updateReportNotes(practiceId: string, text: string): Promi
 
 /**
  * Operators only: kicks off a scan in the background and returns immediately
- * — a scan takes ~2 minutes (four engines × up to ten prompts), far longer
+ * because a scan takes ~2 minutes (four engines × up to ten prompts), far longer
  * than the request should stay open. Failures are swallowed here and
  * recorded as an activity instead of surfacing to the caller, since nothing
  * is awaiting this action's result by the time the scan finishes.
@@ -151,7 +189,7 @@ export async function triggerScan(practiceId: string): Promise<void> {
 /**
  * Operators only: transitions a finding's triage status. `resolvedAt` is
  * stamped when it moves to a resolved state (fixed/verified/dismissed) and
- * cleared on reopen. Every transition is recorded as an activity — resolved
+ * cleared on reopen. Every transition is recorded as an activity. Resolved
  * states log "Fixed/Verified/Dismissed: <claim>", reopening logs
  * "Reopened: <claim>".
  */

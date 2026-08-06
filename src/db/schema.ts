@@ -19,6 +19,13 @@ export const users = pgTable("users", {
   // though the product has no avatar-upload feature yet.
   image: text("image"),
   role: roleEnum("role").notNull().default("client"),
+  // scrypt hash written by src/lib/password.ts. Nullable, and that null is
+  // meaningful: a client who has only ever used a magic link has no password
+  // and cannot be signed into via the Credentials provider at all.
+  passwordHash: text("password_hash"),
+  // Set when the operator issues a temporary password on the onboarding call.
+  // While true, middleware pins the user to /change-password.
+  mustChangePassword: boolean("must_change_password").notNull().default(false),
   emailVerified: timestamp("email_verified"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -66,7 +73,7 @@ export const practices = pgTable("practices", {
   website: text("website"),
   active: boolean("active").notNull().default(true),
   // Operator-edited "what's planned next month" note, shown on the client's
-  // printable monthly report. Nullable — most practices won't have one set.
+  // printable monthly report. Nullable, since most practices won't have one set.
   reportNotes: text("report_notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

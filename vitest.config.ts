@@ -16,6 +16,11 @@ export default defineConfig({
     // load. Serializing file execution (still parallel *within* a file)
     // fixes that at a small cost to wall-clock time for this suite's size.
     fileParallelism: false,
+    // Standing up a PGlite instance and pushing the schema to it costs 1-2s
+    // before a test's first assertion, so tests that need two or three fixtures
+    // sit close to vitest's 5s default and tip over it on a loaded machine.
+    // The work itself is fast (scrypt hashing, the slowest thing here, is ~55ms).
+    testTimeout: 20_000,
     server: {
       deps: {
         // next-auth ships pure ESM and imports bare subpaths like

@@ -4,13 +4,15 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import {
   practices, facts, prompts, competitors, nameVariations, findings, activities,
+  practiceMembers, users,
   factCategoryEnum, promptKindEnum, findingStatusEnum,
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import {
   addFact, archiveFact, addPrompt, togglePrompt, addCompetitor, addNameVariation,
-  inviteClient, triggerScan, updateFindingStatus, updateReportNotes,
+  issueClientPassword, triggerScan, updateFindingStatus, updateReportNotes,
 } from "@/app/admin/actions";
+import { ClientAccess, type IssueResult } from "./client-access";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
 type PromptKind = (typeof promptKindEnum.enumValues)[number];
@@ -21,7 +23,7 @@ type FindingStatus = (typeof findingStatusEnum.enumValues)[number];
 // toward the *invoking route's* maxDuration, so without this export Vercel
 // kills the scan mid-run on the default limit, leaving the `scans` row
 // stuck `running` forever. Mirrors the identical setting on the cron route
-// (`src/app/api/cron/weekly-scan/route.ts`) — 800s requires a paid Vercel
+// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
 // plan (see README ship checklist).
 export const maxDuration = 800;
 
@@ -86,11 +88,28 @@ async function handleAddNameVariation(practiceId: string, formData: FormData): P
   await addNameVariation(practiceId, text.trim());
 }
 
-async function handleInviteClient(practiceId: string, formData: FormData): Promise<void> {
+/**
+ * Returns the issued password to the calling client component rather than
+ * redirecting, so the plaintext never enters the URL. Errors come back as data
+ * (a thrown server action would surface as an opaque "unexpected error" in
+ * production), which is how the operator learns they typed the operator's own
+ * address into the client field.
+ */
+async function handleIssueClientPassword(
+  practiceId: string,
+  _previous: IssueResult,
+  formData: FormData,
+): Promise<IssueResult> {
   "use server";
   const email = formData.get("email");
-  if (typeof email !== "string" || !email.trim()) return;
-  await inviteClient(practiceId, email.trim());
+  if (typeof email !== "string" || !email.trim()) {
+    return { error: "Enter the client's email address." };
+  }
+  try {
+    return await issueClientPassword(practiceId, email.trim());
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not issue a password." };
+  }
 }
 
 async function handleUpdateReportNotes(practiceId: string, formData: FormData): Promise<void> {
@@ -128,7 +147,9 @@ export default async function PracticeDetailPage({
   const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
   if (!practice) notFound();
 
-  const [factRows, promptRows, competitorRows, variationRows, openFindings, recentActivities] = await Promise.all([
+  const [
+    factRows, promptRows, competitorRows, variationRows, openFindings, recentActivities, memberRows,
+  ] = await Promise.all([
     db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "active"))),
     db.select().from(prompts).where(eq(prompts.practiceId, practiceId)),
     db.select().from(competitors).where(eq(competitors.practiceId, practiceId)),
@@ -137,7 +158,25 @@ export default async function PracticeDetailPage({
       .orderBy(desc(findings.createdAt)),
     db.select().from(activities).where(eq(activities.practiceId, practiceId))
       .orderBy(desc(activities.createdAt)).limit(20),
+    db.select({
+      id: users.id,
+      email: users.email,
+      passwordHash: users.passwordHash,
+      mustChangePassword: users.mustChangePassword,
+    })
+      .from(practiceMembers)
+      .innerJoin(users, eq(practiceMembers.userId, users.id))
+      .where(eq(practiceMembers.practiceId, practiceId)),
   ]);
+
+  // The hash itself must not reach the client bundle, so the row is reduced to
+  // the one bit the panel actually renders: whether a password exists.
+  const members = memberRows.map(m => ({
+    id: m.id,
+    email: m.email,
+    hasPassword: m.passwordHash !== null,
+    mustChangePassword: m.mustChangePassword,
+  }));
 
   const activePromptCount = promptRows.filter(p => p.active).length;
 
@@ -151,7 +190,7 @@ export default async function PracticeDetailPage({
           ← Back to {appName}
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
-          {appName} — {practice.name}
+          {appName} · {practice.name}
         </h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           {practice.slug} {practice.website ? `· ${practice.website}` : ""} · {practice.active ? "Active" : "Inactive"}
@@ -216,7 +255,7 @@ export default async function PracticeDetailPage({
       <section className="mb-10">
         <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Prompts</h2>
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          {activePromptCount}/{MAX_ACTIVE_PROMPTS} active — each active prompt runs against every engine on every scan.
+          {activePromptCount}/{MAX_ACTIVE_PROMPTS} active. Each active prompt runs against every engine on every scan.
         </p>
         <form action={handleAddPrompt.bind(null, practiceId)} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
           <input name="text" required placeholder="Prompt text" className={`${inputClass} sm:col-span-2`} />
@@ -335,7 +374,7 @@ export default async function PracticeDetailPage({
               {openFindings.map(finding => (
                 <tr key={finding.id} className="border-b border-zinc-100 dark:border-zinc-900">
                   <td className="py-2 pr-4 text-black dark:text-zinc-50">{finding.claim}</td>
-                  <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{finding.factValue ?? "—"}</td>
+                  <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{finding.factValue ?? "N/A"}</td>
                   <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{finding.severity}</td>
                   <td className="py-2">
                     <form action={handleUpdateFindingStatus.bind(null, finding.id)} className="flex items-center gap-2">
@@ -372,23 +411,7 @@ export default async function PracticeDetailPage({
         </form>
       </section>
 
-      {/* Invite client */}
-      <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Invite client</h2>
-        <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-          Grants dashboard access. The client signs in at /login with this email — no link is sent from here.
-        </p>
-        <form action={handleInviteClient.bind(null, practiceId)} className="flex gap-3">
-          <input
-            name="email"
-            type="email"
-            required
-            placeholder="client@practice.com"
-            className={`${inputClass} flex-1`}
-          />
-          <button type="submit" className={primaryButtonClass}>Invite</button>
-        </form>
-      </section>
+      <ClientAccess members={members} issue={handleIssueClientPassword.bind(null, practiceId)} />
 
       {/* Recent activity */}
       <section>
@@ -402,7 +425,7 @@ export default async function PracticeDetailPage({
                 <span className="text-zinc-400 dark:text-zinc-500">
                   {activity.createdAt.toISOString().slice(0, 16).replace("T", " ")}
                 </span>{" "}
-                — {activity.description}
+                · {activity.description}
               </li>
             ))}
           </ul>
