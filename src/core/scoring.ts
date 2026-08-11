@@ -26,9 +26,18 @@ const POSITION_WEIGHT: Record<Position, number> = {
 export function computeScore(input: ScoreInput): ScoreBreakdown {
   const { checks } = input;
 
-  // citationRate = mentions / total checks
-  const citationRate = checks.length
-    ? checks.filter((c) => c.mentioned).length / checks.length
+  // Branded prompts name the practice in the question ("How much does Botox
+  // cost at Glow MedSpa?"), so the answer names it back essentially every
+  // time. Counting that as a citation measures nothing: it is ~100% for every
+  // practice, visible or invisible. Branded checks exist to catch
+  // hallucinations and are scored through `accuracy` below, which is the only
+  // term they feed. Every visibility term here is computed over the prompts
+  // where being named actually had to be earned.
+  const visibility = checks.filter((c) => c.promptKind !== "branded");
+
+  // citationRate = mentions / non-branded checks
+  const citationRate = visibility.length
+    ? visibility.filter((c) => c.mentioned).length / visibility.length
     : 0;
 
   // positionQuality = average of position weights for category-only prompts
@@ -37,9 +46,10 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
     ? category.reduce((s, c) => s + POSITION_WEIGHT[c.position], 0) / category.length
     : 0;
 
-  // engineBreadth = engines with ≥1 mention / 4
+  // engineBreadth = engines with ≥1 non-branded mention / 4. An engine that
+  // named the practice only when handed its name has not covered it.
   const enginesWithMention = new Set(
-    checks.filter((c) => c.mentioned).map((c) => c.engine)
+    visibility.filter((c) => c.mentioned).map((c) => c.engine)
   );
   const engineBreadth = enginesWithMention.size / 4;
 
@@ -50,6 +60,9 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
 
   // score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))
   // Locked rule: zero citations => score 0; accuracy never lifts an invisible practice.
+  // This also covers a scan of nothing but branded prompts: `citationRate` is 0
+  // because there is no visibility evidence, so the score is 0 rather than a
+  // number invented out of guaranteed self-references.
   let score = citationRate === 0
     ? 0
     : Math.round(

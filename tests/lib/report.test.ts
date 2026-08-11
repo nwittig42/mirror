@@ -50,6 +50,32 @@ async function insertCheck(
 }
 
 describe("buildReportData", () => {
+  it("leaves branded checks out of the citation numbers the client reads", async () => {
+    // A branded prompt names the practice in the question, so the answer names
+    // it back every time. Counting those would report a practice that never
+    // surfaces in its niche as being cited most of the time.
+    const db = await makeTestDb();
+    const { practiceId, promptIds } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [
+        { text: "Best med spa in Santa Monica?", kind: "category" },
+        { text: "How much does Botox cost at Glow MedSpa?", kind: "branded" },
+      ],
+    });
+    const [categoryPrompt, brandedPrompt] = promptIds;
+
+    const scan = await insertScan(db, practiceId, new Date("2026-07-05T12:00:00Z"), 40);
+    await insertCheck(db, scan.id, categoryPrompt, { engine: "openai", mentioned: false, position: "absent" });
+    await insertCheck(db, scan.id, brandedPrompt, { engine: "openai", mentioned: true, position: "first" });
+
+    const report = await buildReportData(db, practiceId, "2026-07");
+
+    expect(report.perEngine).toEqual(expect.arrayContaining([
+      { engine: "ChatGPT", cited: 0, total: 1 },
+    ]));
+    expect(report.citationPct).toBe(0);
+  });
+
   it("computes per-engine cited/total across two scans in the month", async () => {
     const db = await makeTestDb();
     const { practiceId, promptIds } = await seedPractice(db, {
@@ -137,7 +163,7 @@ describe("buildReportData", () => {
     const report = await buildReportData(db, practiceId, "2026-07");
 
     expect(report.verdict).toBe(
-      "AI engines named Glow MedSpa in 75% of patient-question checks in July 2026, up from 50% last month.",
+      "AI engines named Glow MedSpa in 75% of answers to questions that didn't name them, in July 2026, up from 50% last month.",
     );
     expect(report.prevMonthScore).toBe(30);
   });
@@ -157,7 +183,7 @@ describe("buildReportData", () => {
     const report = await buildReportData(db, practiceId, "2026-07");
 
     expect(report.verdict).toBe(
-      "AI engines named Glow MedSpa in 50% of patient-question checks in July 2026.",
+      "AI engines named Glow MedSpa in 50% of answers to questions that didn't name them, in July 2026.",
     );
     expect(report.prevMonthScore).toBeNull();
   });

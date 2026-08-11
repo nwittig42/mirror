@@ -66,7 +66,11 @@ describe("runScan", () => {
     const throwingJudge = async (): Promise<never> => { throw new Error("judge blew up"); };
     const { scanId, score } = await runScan(db, practiceId, adapters, throwingJudge);
     expect(scanId).toBeTruthy();
-    expect(score).toBeGreaterThan(0);
+    // The only prompt here is branded, and branded prompts are excluded from
+    // the visibility terms (they name the practice in the question, so the
+    // answer names it back regardless). With no non-branded check to score,
+    // there is no visibility evidence and the score is 0. See computeScore.
+    expect(score).toBe(0);
     const scan = await db.query.scans.findFirst();
     expect(scan?.status).toBe("complete");
     // A judge failure must not count as a clean branded check: the failed

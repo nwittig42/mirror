@@ -3,6 +3,7 @@ import type { Db } from "@/db";
 import { nameVariations, practiceMembers, practices, scans, users } from "@/db/schema";
 import { getLatestScan, getChecksForScan, getOpenFindings } from "@/lib/queries";
 import { loadEnv } from "@/lib/env";
+import { escapeHtml } from "@/lib/html";
 import { logActivity } from "@/services/activity";
 import { extractSnippet } from "@/core/mention";
 
@@ -29,27 +30,17 @@ const ENGINE_DISPLAY_NAMES: Record<string, string> = {
 const row = (content: string): string =>
   `<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5e5;font-family:sans-serif;font-size:15px;color:#111;">${content}</td></tr>`;
 
-/**
- * Escapes the five HTML-significant characters. Every dynamic string
- * interpolated into `composePulse`'s HTML output MUST pass through this —
- * `bestQuote.snippet` in particular is raw third-party LLM output, not
- * trusted content, so it can contain arbitrary markup (including script
- * tags) unless neutralized here.
- */
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+// Every dynamic string interpolated into `composePulse`'s HTML output MUST
+// pass through escapeHtml. `bestQuote.snippet` in particular is raw
+// third-party LLM output, not trusted content, so it can contain arbitrary
+// markup (including script tags) unless neutralized. Shared with
+// audit-request.ts, which has the same requirement for visitor-typed input.
 
 /**
  * Pure composer for the weekly client "Pulse" email: an inline-styled HTML
  * table with at most 6 content rows (score/delta, cited-checks count,
  * verbatim quote, open-findings count, CTA). Kept pure (no DB/network) so
- * it's cheaply unit-testable — `sendPulse` below does the I/O.
+ * it's cheaply unit-testable. `sendPulse` below does the I/O.
  */
 export function composePulse(args: PulseArgs): { subject: string; html: string } {
   const subject = `What AI told patients about ${args.practiceName} this week`;
@@ -60,7 +51,12 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
   const deltaText = delta === null || delta === 0 ? "" : ` (${delta > 0 ? "+" : ""}${delta})`;
   rows.push(row(`<strong>Score: ${args.score}${deltaText}</strong>`));
 
-  rows.push(row(`AI answered ${args.cited} of ${args.total} checks with your practice cited.`));
+  // Says what the denominator is. The count deliberately excludes questions
+  // that named the practice, since those are answered with the name every time
+  // and would overstate visibility.
+  rows.push(row(
+    `Named in ${args.cited} of ${args.total} answers to questions that didn't mention you by name.`,
+  ));
 
   if (args.bestQuote) {
     const engineName = ENGINE_DISPLAY_NAMES[args.bestQuote.engine] ?? escapeHtml(args.bestQuote.engine);
@@ -69,7 +65,7 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
 
   if (args.openFindings > 0) {
     const plural = args.openFindings === 1 ? "issue" : "issues";
-    rows.push(row(`${args.openFindings} open accuracy ${plural} — we're on it.`));
+    rows.push(row(`${args.openFindings} open accuracy ${plural}. We're on it.`));
   }
 
   const dashboardUrl = `${args.appUrl}/dashboard/${encodeURIComponent(args.slug)}`;
@@ -78,7 +74,7 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
   ));
 
   const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">${escapeHtml(args.practiceName)} — Weekly Pulse</div>` +
+    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">${escapeHtml(args.practiceName)} · Weekly Pulse</div>` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;">` +
     rows.join("") +
     `</table></body></html>`;
@@ -97,7 +93,7 @@ export type PulseTransport = (args: PulseTransportArgs) => Promise<void>;
 
 /**
  * Real transport: constructs the Resend SDK and sends. The `import("resend")`
- * only happens when THIS function actually runs — `sendPulse` only calls it
+ * only happens when THIS function actually runs. `sendPulse` only calls it
  * when the caller hasn't injected its own `transport`, so tests that pass a
  * fake transport (e.g. `runWeeklyScans` tests, via a fake `send`) never
  * construct the Resend SDK.
@@ -112,7 +108,7 @@ const defaultTransport: PulseTransport = async ({ to, subject, html, from }) => 
  * Loads the latest complete scan for a practice, composes the Pulse email,
  * and sends it to every user linked via practice_members. Skips silently if
  * there's no complete scan yet (e.g. first cron run before onboarding
- * finishes). Send failures are logged as an activity and swallowed — a
+ * finishes). Send failures are logged as an activity and swallowed, because a
  * flaky email provider should never fail the cron loop for other practices.
  *
  * `transport` defaults to the real lazy-Resend implementation above; tests
@@ -146,16 +142,23 @@ export async function sendPulse(
 
   const prevScore = recentScans.length > 1 ? (recentScans[1].score ?? null) : null;
 
-  const cited = checks.filter(c => c.mentioned).length;
-  const total = checks.length;
+  // Branded prompts name the practice in the question, so the answer names it
+  // back whether or not anyone could actually find them. Counting those would
+  // report a practice that never surfaces as being cited most of the time.
+  const visibilityChecks = checks.filter(c => c.promptKind !== "branded");
+  const cited = visibilityChecks.filter(c => c.mentioned).length;
+  const total = visibilityChecks.length;
 
   // Same name set `checks.mentioned` is derived from in scan-runner
-  // (practice name + all variations) — matters because a check can be
+  // (practice name + all variations). Matters because a check can be
   // `mentioned: true` purely off a variation match, with the practice's
   // canonical name never appearing verbatim in that answer.
   const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
 
-  const firstMentioned = checks.find(c => c.mentioned);
+  // Prefer a mention the practice earned. Quoting a branded answer directly
+  // under a "named in 0 of N answers" line reads as a contradiction, since
+  // that quote only exists because the question supplied the name.
+  const firstMentioned = visibilityChecks.find(c => c.mentioned) ?? checks.find(c => c.mentioned);
   const snippet = firstMentioned ? extractSnippet(firstMentioned.answerText, practiceNames) : null;
   const bestQuote = firstMentioned && snippet ? { engine: firstMentioned.engine, snippet } : null;
 

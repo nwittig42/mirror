@@ -12,7 +12,10 @@ describe("composePulse", () => {
     const { html } = composePulse(base);
     expect(html).toContain("42");
     expect(html).toContain("+4");
-    expect(html).toContain("6 of 40 checks");
+    expect(html).toContain("Named in 6 of 40 answers");
+    // The denominator has to be explained, or the client reads it as every
+    // check that ran rather than only the ones that didn't name them.
+    expect(html).toContain("didn&apos;t mention you by name".replace("&apos;", "'"));
   });
   it("renders the verbatim quote when present", () =>
     expect(composePulse(base).html).toContain("natural results"));

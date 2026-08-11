@@ -6,7 +6,7 @@ import { sendPulse } from "@/services/pulse-email";
 
 describe("sendPulse", () => {
   // sendPulse reads APP_URL/EMAIL_FROM via loadEnv() to build composePulse's
-  // args even when a fake `transport` is injected — these env vars aren't
+  // args even when a fake `transport` is injected, because these env vars aren't
   // read by the fake transport, but loadEnv() validates the whole schema.
   beforeEach(() => {
     process.env.DATABASE_URL = "postgres://x";
@@ -31,7 +31,7 @@ describe("sendPulse", () => {
     });
 
     // A second name variation, beyond the one seedPractice auto-adds
-    // ("Glow MedSpa" itself) — the check below mentions ONLY this variation,
+    // ("Glow MedSpa" itself). The check below mentions ONLY this variation,
     // never the canonical practice name verbatim, to lock in the fix where
     // extractSnippet must search all variations, not just practice.name.
     await db.insert(schema.nameVariations).values({ practiceId, text: "GlowSpa" });
@@ -65,6 +65,44 @@ describe("sendPulse", () => {
     expect(call.subject).toContain("Glow MedSpa");
     expect(call.html).toContain("Many patients love GlowSpa for natural results");
     expect(call.html).toContain("1 open accuracy issue");
+  });
+
+  it("counts only checks from prompts that didn't name the practice", async () => {
+    // The branded check below is a guaranteed mention: the question named the
+    // practice. Counting it would tell a client who never surfaces in search
+    // that AI cited them half the time.
+    const db = await makeTestDb();
+    const { practiceId, promptIds } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      slug: "glow",
+      prompts: [
+        { text: "Best med spa in Santa Monica for Botox", kind: "category" },
+        { text: "How much does Botox cost at Glow MedSpa?", kind: "branded" },
+      ],
+      members: ["client@glow.example"],
+    });
+    const [categoryPrompt, brandedPrompt] = promptIds;
+
+    const [scan] = await db.insert(schema.scans).values({
+      practiceId, status: "complete", score: 12, startedAt: new Date(), finishedAt: new Date(),
+    }).returning();
+    await db.insert(schema.checks).values([
+      {
+        scanId: scan.id, promptId: categoryPrompt, engine: "openai",
+        answerText: "Try Radiance Aesthetics or Dermacare.", mentioned: false, position: "absent",
+      },
+      {
+        scanId: scan.id, promptId: brandedPrompt, engine: "openai",
+        answerText: "Glow MedSpa charges $13 per unit.", mentioned: true, position: "first",
+      },
+    ]);
+
+    const transport = vi.fn().mockResolvedValue(undefined);
+    await sendPulse(db, practiceId, transport);
+
+    const html = transport.mock.calls[0][0].html;
+    expect(html).toContain("0 of 1");
+    expect(html).not.toContain("1 of 2");
   });
 
   it("skips silently when there is no complete scan", async () => {

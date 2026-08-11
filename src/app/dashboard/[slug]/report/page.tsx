@@ -59,7 +59,7 @@ export default async function ReportPage({
       </div>
 
       <h1 className="mb-8 hidden text-xl font-semibold text-black print:block">
-        {practice.name} — {monthLabel} report
+        {practice.name} · {monthLabel} report
       </h1>
 
       {/* 1. Verdict */}
@@ -71,7 +71,7 @@ export default async function ReportPage({
       <section className="mb-10 break-inside-avoid">
         <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Score</h2>
         <p className="mb-4 text-3xl font-semibold text-black dark:text-zinc-50">
-          {report.score ?? "—"}
+          {report.score ?? "N/A"}
           {report.score !== null && report.prevMonthScore !== null && (
             <span className="ml-2 text-base font-normal text-zinc-500 dark:text-zinc-400">
               ({report.score - report.prevMonthScore >= 0 ? "+" : ""}
@@ -129,7 +129,7 @@ export default async function ReportPage({
             {openFindings.map(f => (
               <li key={f.id} className="text-sm text-zinc-700 dark:text-zinc-300">
                 {f.claim}
-                {f.factValue ? ` — should be: ${f.factValue}` : ""} ({f.severity})
+                {f.factValue ? `, should be: ${f.factValue}` : ""} ({f.severity})
               </li>
             ))}
           </ul>
@@ -138,7 +138,11 @@ export default async function ReportPage({
 
       {/* 4. Per-engine table */}
       <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Per-engine citation rate</h2>
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Per-engine citation rate</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Counts only questions that did not name you. Questions asking about you by name are
+          answered with your name every time, so they measure accuracy, not visibility.
+        </p>
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-zinc-200 text-left text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
@@ -190,7 +194,7 @@ export default async function ReportPage({
           <blockquote className="border-l-2 border-zinc-300 pl-4 text-sm text-zinc-700 italic dark:border-zinc-700 dark:text-zinc-300">
             &ldquo;{report.bestQuote.snippet}&rdquo;
             <footer className="mt-1 text-xs text-zinc-500 not-italic dark:text-zinc-400">
-              — {report.bestQuote.engine}, on &ldquo;{report.bestQuote.prompt}&rdquo;
+              · {report.bestQuote.engine}, on &ldquo;{report.bestQuote.prompt}&rdquo;
             </footer>
           </blockquote>
         </section>

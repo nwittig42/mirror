@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, checks, findings, nameVariations, practices, scans } from "@/db/schema";
+import { activities, checks, findings, nameVariations, practices, prompts, scans } from "@/db/schema";
 import { getChecksForScan } from "@/lib/queries";
 import { extractSnippet } from "@/core/mention";
 import { ENGINES, ENGINE_LABELS } from "@/core/types";
@@ -11,6 +11,8 @@ export interface ReportData {
   prevMonthScore: number | null;
   trend: { date: string; score: number }[];
   perEngine: { engine: string; cited: number; total: number }[];
+  /** % of non-branded checks in the month where an engine named the practice. */
+  citationPct: number;
   accuracyLedger: { found: number; fixed: number; verified: number; open: number };
   activities: string[];
   bestQuote: { engine: string; prompt: string; snippet: string } | null;
@@ -26,11 +28,11 @@ function currentMonthISO(): string {
 
 /**
  * Validates the `?month=` search param against "YYYY-MM" (01-12). Missing or
- * malformed input (e.g. "garbage", "2026", "2026-13" — all user-reachable via
+ * malformed input (e.g. "garbage", "2026", "2026-13", all user-reachable via
  * a shareable URL) falls back silently to the current UTC month, the same
  * default used when the param is absent. `monthBounds`/`formatMonthLabel`
  * both assume a value that has already passed through here or is otherwise
- * known-valid — they'll throw on garbage input (e.g. an Invalid Date's
+ * known-valid; they'll throw on garbage input (e.g. an Invalid Date's
  * `toLocaleString` raises `RangeError`), so callers reading `month` from a
  * request must always route it through this first.
  */
@@ -60,16 +62,32 @@ function inRange(d: Date, start: Date, end: Date): boolean {
   return d >= start && d < end;
 }
 
-/** All checks belonging to any of `scanIds` — skips the query (and an invalid empty `IN ()`) when there are none. */
-async function checksForScans(db: Db, scanIds: string[]): Promise<(typeof checks.$inferSelect)[]> {
+/** All checks belonging to any of `scanIds`. Skips the query (and an invalid empty `IN ()`) when there are none. */
+/**
+ * Checks for a set of scans, carrying the kind of prompt each one answered.
+ * The kind is needed because branded prompts are excluded from every citation
+ * number the client sees: they name the practice in the question, so the
+ * answer names it back regardless of how visible the practice actually is.
+ */
+async function checksForScans(
+  db: Db,
+  scanIds: string[],
+): Promise<{ engine: string; mentioned: boolean; promptKind: string }[]> {
   if (scanIds.length === 0) return [];
-  return db.select().from(checks).where(inArray(checks.scanId, scanIds));
+  return db.select({
+    engine: checks.engine,
+    mentioned: checks.mentioned,
+    promptKind: prompts.kind,
+  })
+    .from(checks)
+    .innerJoin(prompts, eq(checks.promptId, prompts.id))
+    .where(inArray(checks.scanId, scanIds));
 }
 
 /**
  * Builds every number the printable monthly client report needs, scoped to
  * completed scans whose `startedAt` falls within the given calendar month
- * (UTC). Every field is traceable to stored checks/findings/activities — no
+ * (UTC). Every field is traceable to stored checks/findings/activities, with no
  * estimates. Degrades gracefully (nulls/empty arrays/zero counts) when a
  * practice has no completed scans in the requested month.
  */
@@ -105,8 +123,13 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     checksForScans(db, prevMonthScans.map(s => s.id)),
   ]);
 
+  // Branded prompts are excluded from every number below. See checksForScans:
+  // they are a hallucination test, not evidence that anyone can find you.
+  const inMonthVisibility = inMonthChecks.filter(c => c.promptKind !== "branded");
+  const prevMonthVisibility = prevMonthChecks.filter(c => c.promptKind !== "branded");
+
   const perEngine = ENGINES.map(engine => {
-    const engineChecks = inMonthChecks.filter(c => c.engine === engine);
+    const engineChecks = inMonthVisibility.filter(c => c.engine === engine);
     return {
       engine: ENGINE_LABELS[engine],
       cited: engineChecks.filter(c => c.mentioned).length,
@@ -114,12 +137,12 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     };
   });
 
-  const totalChecks = inMonthChecks.length;
-  const citedChecks = inMonthChecks.filter(c => c.mentioned).length;
+  const totalChecks = inMonthVisibility.length;
+  const citedChecks = inMonthVisibility.filter(c => c.mentioned).length;
   const pct = totalChecks > 0 ? Math.round((100 * citedChecks) / totalChecks) : 0;
 
-  const prevTotalChecks = prevMonthChecks.length;
-  const prevCitedChecks = prevMonthChecks.filter(c => c.mentioned).length;
+  const prevTotalChecks = prevMonthVisibility.length;
+  const prevCitedChecks = prevMonthVisibility.filter(c => c.mentioned).length;
   const prevPct = prevTotalChecks > 0 ? Math.round((100 * prevCitedChecks) / prevTotalChecks) : 0;
 
   const monthLabel = formatMonthLabel(monthISO);
@@ -127,7 +150,10 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
   if (totalChecks === 0) {
     verdict = `No AI-visibility checks were run for ${practice.name} in ${monthLabel}.`;
   } else {
-    const base = `AI engines named ${practice.name} in ${pct}% of patient-question checks in ${monthLabel}`;
+    // Spells out the denominator. "Checks" alone reads as every check that
+    // ran, which is not what this is: questions naming the practice are
+    // excluded, because they are answered with the name every time.
+    const base = `AI engines named ${practice.name} in ${pct}% of answers to questions that didn't name them, in ${monthLabel}`;
     if (prevMonthScans.length === 0) {
       verdict = `${base}.`;
     } else {
@@ -160,6 +186,7 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     prevMonthScore,
     trend,
     perEngine,
+    citationPct: pct,
     accuracyLedger: { found, fixed, verified, open },
     activities: activityRows.map(a => a.description),
     bestQuote,
