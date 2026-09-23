@@ -7,10 +7,11 @@ import { runWeeklyScans } from "@/services/weekly-scan";
 
 // Vercel needs an explicit maxDuration to let this route run long enough for
 // a full round of practice scans (each scan fires every prompt at every
-// engine, sequentially per prompt). 800s requires a paid Vercel plan; the
-// free tier caps functions at 10s (Hobby) / 60s (some configs), which is not
-// enough headroom for more than a couple of practices.
-export const maxDuration = 800;
+// engine, sequentially per prompt). 800s requires a paid Vercel plan. The
+// Hobby plan caps every function at 60s, which is not enough for even one
+// practice, so on Hobby this cron will time out mid-scan and leave the
+// `scans` row stuck `running`. Raise to 800 on Pro (README ship checklist).
+export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

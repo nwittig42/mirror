@@ -14,9 +14,10 @@ const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 // actually renders the "Run scan now" form). Set here too so this rule
 // holds regardless of which admin page ends up invoking scan actions.
 // Mirrors the cron route's identical setting
-// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
-// plan (see README ship checklist).
-export const maxDuration = 800;
+// (`src/app/api/cron/weekly-scan/route.ts`). 60s is the Hobby-plan ceiling;
+// a real scan takes 3-7 minutes, so on Hobby this is cut short on purpose
+// rather than failing the build. Raise to 800 on Pro (README ship checklist).
+export const maxDuration = 60;
 
 async function handleCreatePractice(formData: FormData): Promise<void> {
   "use server";

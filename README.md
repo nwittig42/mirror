@@ -56,7 +56,7 @@ npm run dev
   - `ALERT_EMAIL` (optional; where internal accuracy alerts go, falls back to `OPERATOR_EMAIL`)
   - `LEADS_EMAIL` (optional; where `/book` audit requests go, falls back to `OPERATOR_EMAIL`)
   - `CALENDLY_URL` (optional; scheduling link shown after `/book` is submitted. Unset, the form falls back to a "we'll email you" panel and no scheduler renders)
-- [ ] Vercel project is on a **paid plan**. The cron route and the admin scan-trigger pages set `maxDuration = 800` for the ~2-minute scan, which the free Hobby tier's 10s/60s function limit cannot satisfy
+- [ ] Vercel project is on a **paid plan**, and the four `maxDuration` exports are raised back up. The scan routes currently declare `maxDuration = 60`, the Hobby ceiling, so that the project deploys on the free plan. A real scan takes 3 to 7 minutes, so **on Hobby the weekly cron and the admin "Run scan now" button both time out mid-scan and leave the `scans` row stuck `running`**. Run scans locally (`npx tsx --env-file=.env.local scripts/scan-once.ts <slug>`) until the plan is upgraded. On Pro, restore `800` in `src/app/api/cron/weekly-scan/route.ts`, `src/app/admin/page.tsx`, `src/app/admin/practices/[id]/page.tsx`, and `300` in `src/app/api/cron/weekly-pulse/route.ts`
 - [ ] `vercel deploy`
 - [ ] Both cron jobs visible in the Vercel dashboard (scan Thursday, pulse Friday)
 - [ ] `npm run seed` run against the prod database

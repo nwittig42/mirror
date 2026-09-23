@@ -23,9 +23,10 @@ type FindingStatus = (typeof findingStatusEnum.enumValues)[number];
 // toward the *invoking route's* maxDuration, so without this export Vercel
 // kills the scan mid-run on the default limit, leaving the `scans` row
 // stuck `running` forever. Mirrors the identical setting on the cron route
-// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
-// plan (see README ship checklist).
-export const maxDuration = 800;
+// (`src/app/api/cron/weekly-scan/route.ts`). 60s is the Hobby-plan ceiling;
+// a real scan takes 3-7 minutes, so on Hobby this is cut short on purpose
+// rather than failing the build. Raise to 800 on Pro (README ship checklist).
+export const maxDuration = 60;
 
 const MAX_ACTIVE_PROMPTS = 10;
 
