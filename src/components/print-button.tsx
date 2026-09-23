@@ -1,6 +1,6 @@
 "use client";
 
-/** Triggers the browser's native print dialog — the report's deliverable PDF is Print > Save as PDF, no PDF library involved. */
+/** Triggers the browser's native print dialog. The report's deliverable PDF is Print > Save as PDF, no PDF library involved. */
 export function PrintButton() {
   return (
     <button

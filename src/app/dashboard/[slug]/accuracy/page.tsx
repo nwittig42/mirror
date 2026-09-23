@@ -27,7 +27,7 @@ export default async function AccuracyPage({ params }: { params: Promise<{ slug:
 
       {allFindings.length === 0 ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          No accuracy issues found — your fact sheet and AI answers agree.
+          No accuracy issues found. Your fact sheet and AI answers agree.
         </p>
       ) : (
         <div className="space-y-10">

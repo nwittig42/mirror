@@ -16,14 +16,20 @@ const findingSchema = z.array(z.object({
   severity: z.enum(["critical", "major", "minor"]),
 }));
 
-function extractJsonArray(raw: string): string | null {
+/**
+ * Finds the first substring of `raw` that parses as JSON and satisfies
+ * `schema`. Tries a ```json fence, then a plain fence, then a balanced-bracket
+ * scan. Shared by every LLM output parser in core, since the models wrap
+ * arrays in prose and fences unpredictably.
+ */
+export function extractJsonArray(raw: string, schema: z.ZodTypeAny = findingSchema): string | null {
   // First, try to extract from ```json ... ``` code fence
   const jsonFenceMatch = raw.match(/```json\s*([\s\S]*?)\s*```/);
   if (jsonFenceMatch) {
     const candidate = jsonFenceMatch[1];
     try {
       const parsed = JSON.parse(candidate);
-      const validated = findingSchema.safeParse(parsed);
+      const validated = schema.safeParse(parsed);
       if (validated.success) return candidate;
     } catch {
       // Fall through to general scanning
@@ -36,7 +42,7 @@ function extractJsonArray(raw: string): string | null {
     const candidate = plainFenceMatch[1];
     try {
       const parsed = JSON.parse(candidate);
-      const validated = findingSchema.safeParse(parsed);
+      const validated = schema.safeParse(parsed);
       if (validated.success) return candidate;
     } catch {
       // Fall through to general scanning
@@ -69,7 +75,7 @@ function extractJsonArray(raw: string): string | null {
             const candidate = raw.substring(i, j + 1);
             try {
               const parsed = JSON.parse(candidate);
-              const validated = findingSchema.safeParse(parsed);
+              const validated = schema.safeParse(parsed);
               if (validated.success) return candidate;
             } catch {
               // Candidate didn't parse or failed schema validation, keep scanning

@@ -6,13 +6,14 @@ import { after } from "next/server";
 import { getDb } from "@/db";
 import {
   practices, practiceMembers, nameVariations, competitors, facts, prompts, findings, users,
-  factCategoryEnum, promptKindEnum, findingStatusEnum,
+  activities, factCategoryEnum, promptKindEnum, findingStatusEnum,
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import { generateTempPassword, hashPassword } from "@/lib/password";
 import { runScan } from "@/services/scan-runner";
 import { getAdapters } from "@/engines";
 import { judgeAnswer } from "@/services/hallucination-judge";
+import { extractCompetitors } from "@/services/competitor-extractor";
 import { logActivity } from "@/services/activity";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
@@ -97,6 +98,31 @@ export async function addCompetitor(practiceId: string, name: string): Promise<v
   revalidatePath(`/admin/practices/${practiceId}`);
 }
 
+/**
+ * Operators only: hides a competitor (usually a wrong discovery such as a
+ * directory or a product) so it neither counts in reports nor gets re-added
+ * by the next scan's extractor.
+ */
+export async function hideCompetitor(competitorId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [row] = await db.select().from(competitors).where(eq(competitors.id, competitorId));
+  if (!row) return;
+  await db.update(competitors).set({ status: "ignored" }).where(eq(competitors.id, competitorId));
+  await logActivity(db, row.practiceId, `Hid competitor: ${row.name}`);
+  revalidatePath(`/admin/practices/${row.practiceId}`);
+}
+
+/** Operators only: undoes hideCompetitor. */
+export async function restoreCompetitor(competitorId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [row] = await db.select().from(competitors).where(eq(competitors.id, competitorId));
+  if (!row) return;
+  await db.update(competitors).set({ status: "active" }).where(eq(competitors.id, competitorId));
+  revalidatePath(`/admin/practices/${row.practiceId}`);
+}
+
 /** Operators only: adds an alternate spelling/name the practice may be mentioned by. */
 export async function addNameVariation(practiceId: string, text: string): Promise<void> {
   await requireOperator();
@@ -158,6 +184,60 @@ export async function issueClientPassword(
   return { email: normalized, password };
 }
 
+const MAX_WORK_LOG_LENGTH = 300;
+
+/**
+ * Revalidates the client's dashboard as well as the admin page, so a work-log
+ * line the operator just wrote is visible to the client on their next load
+ * rather than after the cache happens to expire.
+ */
+async function revalidateForPractice(db: ReturnType<typeof getDb>, practiceId: string): Promise<void> {
+  revalidatePath(`/admin/practices/${practiceId}`);
+  const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
+  if (practice) {
+    revalidatePath(`/dashboard/${practice.slug}`);
+    revalidatePath(`/dashboard/${practice.slug}/report`);
+  }
+}
+
+/**
+ * Operators only: writes a line to the client-visible work log — the answer to
+ * "what am I paying for", shown on the client's dashboard and printed in their
+ * monthly report.
+ *
+ * Itemise atomically: "Updated 14 Google service entries", not "updated
+ * Google". A month of work should read as fifteen to twenty-five lines.
+ */
+export async function logWork(practiceId: string, description: string): Promise<void> {
+  await requireOperator();
+  const trimmed = description.trim();
+  if (!trimmed) throw new Error("Describe the work before logging it.");
+  if (trimmed.length > MAX_WORK_LOG_LENGTH) {
+    throw new Error(`Keep a work-log line under ${MAX_WORK_LOG_LENGTH} characters.`);
+  }
+
+  const db = getDb();
+  await logActivity(db, practiceId, trimmed, "client");
+  await revalidateForPractice(db, practiceId);
+}
+
+/**
+ * Operators only: removes a work-log line, for the typo that has already been
+ * published to a client.
+ *
+ * Deliberately refuses internal rows: the diagnostic trail is evidence about
+ * what the system did, and an operator should not be able to quietly erase a
+ * scan failure from it.
+ */
+export async function deleteWorkLogEntry(activityId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [row] = await db.select().from(activities).where(eq(activities.id, activityId));
+  if (!row || row.visibility !== "client") return;
+  await db.delete(activities).where(eq(activities.id, activityId));
+  await revalidateForPractice(db, row.practiceId);
+}
+
 /** Operators only: sets the "next month" note shown on the client's printable monthly report. */
 export async function updateReportNotes(practiceId: string, text: string): Promise<void> {
   await requireOperator();
@@ -178,7 +258,7 @@ export async function triggerScan(practiceId: string): Promise<void> {
   const db = getDb();
   // Scan runs post-response via after(); on plain Node servers it runs in-process.
   after(() =>
-    runScan(db, practiceId, getAdapters(), judgeAnswer).catch((err) => {
+    runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       void logActivity(db, practiceId, `scan failed: ${message}`);
     }),

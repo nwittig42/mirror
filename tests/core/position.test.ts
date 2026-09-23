@@ -36,3 +36,18 @@ describe("classifyPosition", () => {
     expect(r.competitorsMentioned).toEqual(["Skin Bar LA"]);
   });
 });
+
+describe("classifyPosition namedOrder", () => {
+  it("returns every business named in order of first appearance, practice included", () => {
+    const { namedOrder } = classifyPosition(
+      "Skin Bar LA is great. Glow MedSpa is also solid, as is Nuvo Aesthetics. Skin Bar LA again.",
+      ["Glow MedSpa"], ["Skin Bar LA", "Nuvo Aesthetics"],
+    );
+    expect(namedOrder).toEqual(["Skin Bar LA", "Glow MedSpa", "Nuvo Aesthetics"]);
+  });
+
+  it("uses the practice's canonical name even when a variation matched", () => {
+    const { namedOrder } = classifyPosition("Try Glow Med Spa.", ["Glow MedSpa", "Glow Med Spa"], []);
+    expect(namedOrder).toEqual(["Glow MedSpa"]);
+  });
+});

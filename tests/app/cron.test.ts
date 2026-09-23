@@ -11,7 +11,7 @@ const fakeAdapter = (name: string, answer: string): EngineAdapter =>
 // Hoisted to the top of the module by Vitest regardless of where it's
 // written (see the vi.mock docs), so it's placed here at top level to match
 // actual execution order. Only the "runs the scan loop" test below relies on
-// these — the route's own getAdapters()/judgeAnswer are replaced with fakes
+// these. The route's own getAdapters()/judgeAnswer are replaced with fakes
 // so the test never calls a real LLM vendor.
 vi.mock("@/engines", () => ({
   getAdapters: () => [fakeAdapter("openai", "Glow MedSpa is great.")],
@@ -21,7 +21,7 @@ vi.mock("@/services/hallucination-judge", () => ({
 }));
 
 describe("runWeeklyScans", () => {
-  it("scans every active practice, creates a scan row, and sends a pulse email per practice", async () => {
+  it("scans every active practice, creates a scan row, and offers each one to the alert sender", async () => {
     const db = await makeTestDb();
     const { practiceId } = await seedPractice(db, {
       name: "Glow MedSpa",
@@ -32,6 +32,7 @@ describe("runWeeklyScans", () => {
     const results = await runWeeklyScans(
       db,
       [fakeAdapter("openai", "Glow MedSpa is great.")],
+      async () => [],
       async () => [],
       fakeSend,
     );
@@ -44,7 +45,59 @@ describe("runWeeklyScans", () => {
     expect(scans[0].status).toBe("complete");
 
     expect(fakeSend).toHaveBeenCalledTimes(1);
-    expect(fakeSend).toHaveBeenCalledWith(db, practiceId);
+    expect(fakeSend).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({ id: practiceId, name: "Glow MedSpa" }),
+      [],
+    );
+  });
+
+  // The client-facing Pulse must not ride along with the scan; it runs on its
+  // own cron the next morning so the operator has a window to fix what the
+  // scan found. Guards against someone folding sendPulse back into this loop.
+  it("does not send the client Pulse", async () => {
+    const db = await makeTestDb();
+    await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [{ text: "Best med spa in Santa Monica", kind: "category" }],
+    });
+
+    const pulse = await import("@/services/pulse-email");
+    const spy = vi.spyOn(pulse, "sendPulse");
+
+    await runWeeklyScans(
+      db,
+      [fakeAdapter("openai", "Glow MedSpa is great.")],
+      async () => [],
+      async () => [],
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("reports how many findings were alertable, not how many were opened", async () => {
+    const db = await makeTestDb();
+    await seedPractice(db, {
+      name: "Glow MedSpa",
+      facts: [{ label: "Botox price", value: "$14/unit", category: "pricing" }],
+      prompts: [{ text: "How much is Botox at Glow MedSpa?", kind: "branded" }],
+    });
+
+    const results = await runWeeklyScans(
+      db,
+      [fakeAdapter("openai", "Glow MedSpa charges $9/unit and closes at 3pm.")],
+      async () => [
+        { claim: "Botox is $9/unit", severity: "critical", factLabel: "Botox price" },
+        { claim: "Closes at 3pm", severity: "minor", factLabel: null },
+      ],
+      async () => [],
+      vi.fn().mockResolvedValue(undefined),
+    );
+
+    // Two findings opened, but only the critical one pages the operator.
+    expect(results[0]).toMatchObject({ alerted: 1 });
   });
 
   it("a failing practice doesn't abort the loop for the others", async () => {
@@ -58,16 +111,17 @@ describe("runWeeklyScans", () => {
       prompts: [{ text: "Best med spa downtown", kind: "category" }],
     });
 
-    const fakeSend = vi.fn().mockImplementation(async (_db, practiceId: string) => {
+    const fakeSend = vi.fn().mockImplementation(async (_db, practice: { id: string }) => {
       // Fail the send for the second practice scanned; runScan itself always
       // succeeds here, so this exercises the "send fails, loop continues"
       // path distinctly from a scan failure.
-      if (practiceId !== okId) throw new Error("send boom");
+      if (practice.id !== okId) throw new Error("send boom");
     });
 
     const results = await runWeeklyScans(
       db,
       [fakeAdapter("openai", "hello")],
+      async () => [],
       async () => [],
       fakeSend,
     );
@@ -112,7 +166,7 @@ describe("GET /api/cron/weekly-scan", () => {
 
   it("runs the scan loop when the bearer token matches", async () => {
     // `beforeEach` calls vi.resetModules(), which invalidates the module
-    // registry — a statically-imported "@/db" at file scope would be a
+    // registry, because a statically-imported "@/db" at file scope would be a
     // *different* module instance than the one the freshly-`import()`ed
     // route resolves, so `setDbForTests` wouldn't be visible to it. Both
     // sides are re-imported dynamically here to share the same instance.

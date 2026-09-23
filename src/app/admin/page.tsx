@@ -8,13 +8,13 @@ import { createPractice } from "@/app/admin/actions";
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
 // A server action invoked from a page runs under that *page's* route
-// segment config, not the action module's — so `triggerScan`'s ~2-minute
+// segment config, not the action module's, so `triggerScan`'s ~2-minute
 // after() scan needs whichever admin page called it to allow enough
 // duration, same as `src/app/admin/practices/[id]/page.tsx` (the page that
 // actually renders the "Run scan now" form). Set here too so this rule
 // holds regardless of which admin page ends up invoking scan actions.
 // Mirrors the cron route's identical setting
-// (`src/app/api/cron/weekly-scan/route.ts`) — 800s requires a paid Vercel
+// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
 // plan (see README ship checklist).
 export const maxDuration = 800;
 
@@ -39,7 +39,7 @@ export default async function AdminPage() {
   return (
     <div className="mx-auto max-w-4xl px-6 py-10">
       <header className="mb-8">
-        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{appName} — Practices</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{appName} · Practices</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           Manage the practices, prompts, and fact sheets that {appName} monitors.
         </p>
@@ -101,7 +101,7 @@ export default async function AdminPage() {
                     </Link>
                   </td>
                   <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{practice.slug}</td>
-                  <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{practice.website ?? "—"}</td>
+                  <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{practice.website ?? "N/A"}</td>
                   <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">
                     {practice.active ? "Active" : "Inactive"}
                   </td>

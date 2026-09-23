@@ -3,7 +3,7 @@ import type { Position } from "@/core/types";
 
 export function classifyPosition(
   answer: string, practiceVariations: string[], competitorNames: string[],
-): { position: Position; competitorsMentioned: string[] } {
+): { position: Position; competitorsMentioned: string[]; namedOrder: string[] } {
   // Get all matches with their span information
   const allMatches = findMatches(answer, [...practiceVariations, ...competitorNames]);
 
@@ -73,5 +73,10 @@ export function classifyPosition(
   const idx = entities.indexOf("__PRACTICE__");
   const position: Position = idx === -1 ? "absent" : idx === 0 ? "first" : idx <= 2 ? "top3" : "mentioned";
 
-  return { position, competitorsMentioned };
+  // Every business named, in order of first appearance, with the practice
+  // under its canonical (first) name. This is what the head-to-head competitor
+  // table renders; `position` alone loses which competitors came first.
+  const namedOrder = entities.map(e => (e === "__PRACTICE__" ? practiceVariations[0] : e));
+
+  return { position, competitorsMentioned, namedOrder };
 }

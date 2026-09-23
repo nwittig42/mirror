@@ -1,10 +1,12 @@
+import Image from "next/image";
+
 /**
  * The Mirror monogram, redrawn as vector.
  *
  * The supplied logo file is a raster lockup with the ivory sheet baked into
  * its background, so it cannot sit on the ink footer or scale to a favicon.
  * This reproduces the same idea in SVG: one M outline painted twice through
- * opposing clip paths — solid on the left half, hairline on the right — over a
+ * opposing clip paths: solid on the left half, hairline on the right, over a
  * bronze baseline, with a muted reflection beneath it. The mismatch between
  * the two halves is the product thesis: the reflection is never quite the
  * original.
@@ -89,34 +91,49 @@ export function MirrorMark({
 }
 
 /**
- * Wordmark + monogram lockup. `tone` swaps the ink for ivory so the same
- * component works on the light header and the dark footer.
+ * The supplied lockup artwork, keyed off its ivory sheet so it composites on
+ * any background. Two tones ship as separate files rather than a CSS filter
+ * because the ivory cut keeps the bronze rule and reflection intact, which an
+ * invert would destroy.
+ *
+ * `height` is the rendered height of the artwork. The word "Mirror" occupies
+ * the middle 49% of that box; the rest is the monogram's reflection. So a 40px
+ * lockup reads at roughly the same weight as 26px display type.
+ *
+ * The artwork also exists with the tagline baked in (mirror-lockup*.png), but
+ * that crop sets the tagline at a fifth of the wordmark's size, which needs a
+ * ~105px lockup to stay legible. On screen we use the tagline-free crop and
+ * set the tagline as real text instead.
  */
+const LOCKUP = {
+  ink: "/mirror-wordmark.png",
+  ivory: "/mirror-wordmark-ivory.png",
+} as const;
+
+const LOCKUP_RATIO = 1140 / 336;
+
 export function MirrorLockup({
-  height = 30,
+  height = 40,
   tone = "ink",
   tagline = false,
+  priority = false,
 }: {
   height?: number;
   tone?: "ink" | "ivory";
   tagline?: boolean;
+  priority?: boolean;
 }) {
-  const color = tone === "ink" ? "#1a1a18" : "#f7f5f0";
   return (
-    <span style={{ display: "inline-flex", flexDirection: "column", gap: 6 }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 12, color }}>
-        <span
-          style={{
-            fontFamily: "var(--font-display), Georgia, serif",
-            fontSize: height,
-            lineHeight: 1,
-            letterSpacing: "-0.01em",
-          }}
-        >
-          Mirror
-        </span>
-        <MirrorMark height={height * 1.15} reflection={false} />
-      </span>
+    // The monogram's reflection runs to the bottom edge of the artwork, so the
+    // tagline needs more clearance than a normal baseline gap would give.
+    <span style={{ display: "inline-flex", flexDirection: "column", gap: 9 }}>
+      <Image
+        src={LOCKUP[tone]}
+        alt="Mirror"
+        width={Math.round(height * LOCKUP_RATIO)}
+        height={height}
+        priority={priority}
+      />
       {tagline && (
         <span
           style={{
@@ -126,7 +143,8 @@ export function MirrorLockup({
             color: tone === "ink" ? "#78746c" : "rgba(247,245,240,0.6)",
           }}
         >
-          See what AI tells your patients
+          See what AI tells your patients.{" "}
+          <span style={{ color: "#a8763e" }}>Own your GEO.</span>
         </span>
       )}
     </span>

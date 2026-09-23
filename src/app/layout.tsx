@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 // Marketing typography, matched to the logo lockup: a high-contrast serif for
 // display and a letterspaced grotesque for eyebrows and body. The app shell
-// still runs on Geist — these two are only referenced by the marketing page.
+// still runs on Geist. These two are only referenced by the marketing page.
 const playfair = Playfair_Display({
   variable: "--font-display",
   subsets: ["latin"],
@@ -28,7 +28,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Mirror — See what AI tells your patients",
+  title: "Mirror: See what AI tells your patients",
   description:
     "Mirror monitors AI-visibility for aesthetic medical practices across ChatGPT, Claude, Gemini, and Perplexity, catching hallucinations before patients do.",
 };

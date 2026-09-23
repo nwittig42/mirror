@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <!-- Favicon: the Mirror monogram alone, no wordmark. Ivory-on-ink tile so the
+       mark holds its edges against both light and dark browser chrome.
+       The split paint (solid left / hairline right) is the same idea as
+       MirrorMark, with the stroke thickened ~3x because the component's 2.5
+       hairline disappears once the tile is scaled to 16px. -->
+  <rect width="120" height="120" rx="26" fill="#1a1a18"/>
+  <g transform="translate(22 26) scale(0.6333)">
+    <clipPath id="l"><rect x="0" y="0" width="60" height="104"/></clipPath>
+    <clipPath id="r"><rect x="60" y="0" width="60" height="104"/></clipPath>
+    <path d="M0 0 H26 L60 58 L94 0 H120 V104 H104 V26 L66 92 H54 L16 26 V104 H0 Z" fill="#f7f5f0" clip-path="url(#l)"/>
+    <path d="M0 0 H26 L60 58 L94 0 H120 V104 H104 V26 L66 92 H54 L16 26 V104 H0 Z" stroke="#f7f5f0" stroke-width="8" fill="none" clip-path="url(#r)"/>
+    <rect x="0" y="105" width="120" height="5" fill="#a8763e"/>
+  </g>
+</svg>

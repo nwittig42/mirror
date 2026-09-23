@@ -108,8 +108,11 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
       gte(scans.startedAt, prevStart), lt(scans.startedAt, prevEnd),
     )).orderBy(asc(scans.startedAt)),
     db.select().from(findings).where(eq(findings.practiceId, practiceId)),
+    // Client-visible rows only: the monthly report is the client's answer to
+    // "what am I paying for", not a dump of the operator's diagnostics.
     db.select().from(activities).where(and(
-      eq(activities.practiceId, practiceId), gte(activities.createdAt, start), lt(activities.createdAt, end),
+      eq(activities.practiceId, practiceId), eq(activities.visibility, "client"),
+      gte(activities.createdAt, start), lt(activities.createdAt, end),
     )).orderBy(desc(activities.createdAt)).limit(ACTIVITY_CAP),
   ]);
 

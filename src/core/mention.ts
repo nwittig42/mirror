@@ -41,7 +41,7 @@ export function findMatches(answer: string, names: string[]): Match[] {
  * match of any of `names` in `answer` (via `findMatches`, for consistent
  * matching semantics with `checks.mentioned`), then returns the ". "
  * -delimited sentence that contains that match, truncated to ~160 chars.
- * Not NLP — good enough to surface a relevant verbatim snippet (weekly Pulse
+ * Not NLP, just good enough to surface a relevant verbatim snippet (weekly Pulse
  * email, monthly client report) without another judge/LLM round trip. Falls
  * back to `null` when none of `names` appear anywhere in `answer`.
  */

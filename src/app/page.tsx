@@ -3,20 +3,21 @@ import type { Metadata } from "next";
 import { MirrorLockup } from "@/components/mirror-mark";
 
 /**
- * Public marketing page — the only unauthenticated route besides /login.
+ * Public marketing page. Unauthenticated alongside /login and /book (the
+ * audit-request form every CTA below points at).
  * The signed-in role router that used to live here now sits at /app.
  *
  * Copy follows the ICP vocabulary locked in docs/plans: the entity is a
  * "practice" (never brand/business), readers of AI answers are "patients"
  * (never users/customers), staff are "providers", offerings are "treatments".
  *
- * Deliberately static — no session read, no database call. It renders for a
+ * Deliberately static: no session read, no database call. It renders for a
  * cold visitor with no DATABASE_URL reachable, which is what makes it safe to
  * hand to a prospect mid-call.
  */
 
 export const metadata: Metadata = {
-  title: "Mirror — See what AI tells your patients",
+  title: "Mirror: See what AI tells your patients",
   description:
     "Mirror monitors what ChatGPT, Claude, Gemini, and Perplexity tell patients about your practice, catches the errors, and fixes them at the source.",
 };
@@ -29,7 +30,7 @@ const STATS = [
   },
   {
     n: "0.664",
-    label: "correlation between mentions of a practice and its AI visibility — against 0.218 for backlinks",
+    label: "correlation between mentions of a practice and its AI visibility, against 0.218 for backlinks",
     src: "Citation-study patterns, see our operating manual",
   },
   {
@@ -68,7 +69,7 @@ const ADVANTAGES = [
     body: (
       <>
         <strong>The answer is editable.</strong> Engines lean on your own site, your directory listings, and what other
-        people write about you. All three can be corrected — that is the work.
+        people write about you. All three can be corrected. That is the work.
       </>
     ),
   },
@@ -78,17 +79,17 @@ const STEPS = [
   {
     num: "01",
     title: "We build your Fact Sheet",
-    body: "Every provider and verified credential, every treatment under its real brand name, your hours and pricing — and the list of what you explicitly do not offer.",
+    body: "Every provider and verified credential, every treatment under its real brand name, your hours and pricing, and the list of what you explicitly do not offer.",
     bullets: [
       "Credentials checked against the state medical and nursing boards",
-      "Name variations captured — patients search for the provider as often as the practice",
+      "Name variations captured, because patients search for the provider as often as the practice",
       "The not-offered list is the bait an engine hallucinates into",
     ],
   },
   {
     num: "02",
     title: "We scan four engines, every week",
-    body: "A fixed battery of prompts — your neighborhood, your hero treatments, and direct questions about your practice by name — run against all four answer engines.",
+    body: "A fixed battery of prompts: your neighborhood, your hero treatments, and direct questions about your practice by name, run against all four answer engines.",
     bullets: [
       "Whether you were named, and where in the answer",
       "Which competitors were named beside you",
@@ -119,7 +120,7 @@ const INCLUDED = [
   },
   {
     title: "AI Visibility Score",
-    body: "One number across citation rate, position, and breadth — with accuracy as a hard ceiling on it.",
+    body: "One number across citation rate, position, and breadth, with accuracy as a hard ceiling on it.",
   },
   {
     title: "Competitor share of voice",
@@ -138,7 +139,7 @@ const INCLUDED = [
 const FAQ = [
   {
     q: "How is this different from SEO?",
-    a: "SEO competes for a position in a list of links. This competes to be named inside a written answer, which usually cites three or four sources and nothing else. The inputs overlap — your own pages matter to both — but the target and the measurement are different.",
+    a: "SEO competes for a position in a list of links. This competes to be named inside a written answer, which usually cites three or four sources and nothing else. The inputs overlap, and your own pages matter to both, but the target and the measurement are different.",
   },
   {
     q: "Can you actually change what ChatGPT says?",
@@ -146,11 +147,11 @@ const FAQ = [
   },
   {
     q: "What counts as a hallucination?",
-    a: "Any claim in an engine's answer that contradicts your Fact Sheet — a treatment you do not offer, a credential you do not hold, an address or price that is out of date. Because you approve the Fact Sheet, you decide what the truth is before we start measuring against it.",
+    a: "Any claim in an engine's answer that contradicts your Fact Sheet: a treatment you do not offer, a credential you do not hold, an address or price that is out of date. Because you approve the Fact Sheet, you decide what the truth is before we start measuring against it.",
   },
   {
     q: "How long before anything changes?",
-    a: "The baseline scan is immediate — you will see what the engines say about you today. Corrections at the source typically take one to two scan cycles to appear in answers, and the ninety-day trend is where the question of whether it is working actually gets settled.",
+    a: "The baseline scan is immediate. You will see what the engines say about you today. Corrections at the source typically take one to two scan cycles to appear in answers, and the ninety-day trend is where the question of whether it is working actually gets settled.",
   },
   {
     q: "Do you work with practices outside Los Angeles?",
@@ -160,7 +161,7 @@ const FAQ = [
 
 /* A real-shaped example of what a scan returns: a verbatim answer with the
    false clause marked and the Fact Sheet contradiction stated underneath.
-   The practice is fictional — this is an illustration of the output format,
+   The practice is fictional. This is an illustration of the output format,
    not a captured result, and the proof section says so in visible copy. */
 function AnswerCard() {
   return (
@@ -192,7 +193,7 @@ export default function LandingPage() {
       {/* ---------- header ---------- */}
       <header className="mk-header">
         <Link href="/" aria-label="Mirror home" style={{ textDecoration: "none" }}>
-          <MirrorLockup height={26} />
+          <MirrorLockup height={40} priority />
         </Link>
         <nav className="mk-nav">
           <a href="#how">How it works</a>
@@ -201,37 +202,48 @@ export default function LandingPage() {
           <a href="#faq">FAQ</a>
           <Link href="/login">Log in</Link>
         </nav>
-        <a href="#audit" className="mk-btn mk-btn-sm">
-          Request an audit
-        </a>
+        <Link href="/book" className="mk-btn mk-btn-sm">
+          Book your audit
+        </Link>
       </header>
 
       <main style={{ flex: 1 }}>
         {/* ---------- hero ---------- */}
         <section className="mk-hero">
+          <video
+            className="mk-hero-video"
+            src="/hero-loop.mp4"
+            poster="/hero-loop.jpg"
+            autoPlay
+            muted
+            loop
+            playsInline
+            aria-hidden="true"
+            tabIndex={-1}
+          />
           <div className="mk-inner mk-hero-grid">
             <div>
               <span className="mk-eyebrow">AI visibility for aesthetic practices</span>
               <h1 className="mk-display mk-h1" style={{ marginTop: 18 }}>
-                See what AI tells
+                Your patients ask
                 <br />
-                your patients.
+                AI first.
               </h1>
               <p className="mk-lede">
-                Every week, Mirror asks ChatGPT, Claude, Gemini, and Perplexity the questions your patients are already
-                asking — then shows you exactly what they answered, what they got wrong, and what it takes to change
-                it.
+                Make sure it says the right things about your practice. Every week, Mirror asks ChatGPT, Claude,
+                Gemini, and Perplexity the questions your patients are already asking, then shows you exactly what
+                they answered, what they got wrong, and what it takes to change it.
               </p>
               <div className="btns">
-                <a href="#audit" className="mk-btn">
+                <Link href="/book" className="mk-btn">
                   See your practice’s answers
-                </a>
+                </Link>
                 <a href="#how" className="mk-btn-sec">
                   How it works
                 </a>
               </div>
               <p className="trust">
-                <span>Free audit on your real practice</span>
+                <span>30 minutes, on a call, on your real practice</span>
                 <span aria-hidden="true" style={{ color: "#a8763e" }}>
                   ·
                 </span>
@@ -272,18 +284,18 @@ export default function LandingPage() {
             <div>
               <span className="mk-eyebrow">The shift</span>
               <h2 className="mk-display mk-h2" style={{ marginTop: 14 }}>
-                Your next patient is asking a machine about you right now.
+                And nobody is checking the answer.
               </h2>
               <hr className="mk-rule" />
               <p className="mk-lede" style={{ fontSize: 17 }}>
                 They will not see your homepage first. They will see a paragraph written about you by a system you have
-                never audited, drawn from sources you have never checked. Mirror is how you read that paragraph — and
+                never audited, drawn from sources you have never checked. Mirror is how you read that paragraph, and
                 how you correct it.
               </p>
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
-                <a href="#audit" className="mk-btn">
-                  Request an audit
-                </a>
+                <Link href="/book" className="mk-btn">
+                  See your practice’s answers
+                </Link>
                 <a href="#faq" className="mk-btn-sec">
                   Read the FAQ
                 </a>
@@ -401,7 +413,7 @@ export default function LandingPage() {
               <hr className="mk-rule" />
               <p className="mk-lede" style={{ fontSize: 17 }}>
                 Ranking well while being described falsely is not a win. A practice with an open inaccuracy cannot score
-                above 70 in Mirror, however often it gets cited — because a patient who arrives expecting a treatment
+                above 70 in Mirror, however often it gets cited, because a patient who arrives expecting a treatment
                 you do not offer is a worse outcome than one who never heard of you.
               </p>
               <p className="mk-body">
@@ -461,13 +473,14 @@ export default function LandingPage() {
           <div className="mk-inner narrow" style={{ textAlign: "center" }}>
             <h2 className="mk-display mk-h2">Find out what they’re saying about you.</h2>
             <p className="mk-lede" style={{ margin: "20px auto 0", textAlign: "center" }}>
-              We will run your practice through all four engines and send you the verbatim answers, the contradictions,
-              and your baseline score. No engagement required to see it.
+              We run your practice through all four engines before we speak, then take thirty minutes to walk you
+              through the verbatim answers, the contradictions, and your baseline score. No engagement required to see
+              it.
             </p>
             <div style={{ display: "flex", gap: 12, marginTop: 34, justifyContent: "center", flexWrap: "wrap" }}>
-              <a className="mk-btn" href="mailto:hello@example.com?subject=Mirror%20audit%20request">
-                Request your free audit
-              </a>
+              <Link className="mk-btn" href="/book">
+                See your practice’s answers
+              </Link>
               <a className="mk-btn-sec" href="#how">
                 See how it works
               </a>
@@ -480,7 +493,7 @@ export default function LandingPage() {
       <footer className="mk-footer">
         <div className="mk-footer-grid">
           <div>
-            <MirrorLockup height={24} tone="ivory" tagline />
+            <MirrorLockup height={38} tone="ivory" tagline />
           </div>
           <div className="col">
             <span className="head">Product</span>
@@ -492,7 +505,7 @@ export default function LandingPage() {
           <div className="col">
             <span className="head">Practice</span>
             <Link href="/login">Client log in</Link>
-            <a href="#audit">Request an audit</a>
+            <Link href="/book">Book your audit call</Link>
           </div>
         </div>
         <div className="mk-footer-legal">

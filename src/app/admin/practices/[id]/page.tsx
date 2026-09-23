@@ -9,8 +9,8 @@ import {
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import {
-  addFact, archiveFact, addPrompt, togglePrompt, addCompetitor, addNameVariation,
-  issueClientPassword, triggerScan, updateFindingStatus, updateReportNotes,
+  addFact, archiveFact, addPrompt, togglePrompt, addCompetitor, hideCompetitor, restoreCompetitor, addNameVariation,
+  issueClientPassword, triggerScan, updateFindingStatus, updateReportNotes, logWork, deleteWorkLogEntry,
 } from "@/app/admin/actions";
 import { ClientAccess, type IssueResult } from "./client-access";
 
@@ -74,6 +74,16 @@ async function handleAddPrompt(practiceId: string, formData: FormData): Promise<
   await addPrompt(practiceId, { text: text.trim(), kind: kind as PromptKind });
 }
 
+async function handleHideCompetitor(competitorId: string): Promise<void> {
+  "use server";
+  await hideCompetitor(competitorId);
+}
+
+async function handleRestoreCompetitor(competitorId: string): Promise<void> {
+  "use server";
+  await restoreCompetitor(competitorId);
+}
+
 async function handleAddCompetitor(practiceId: string, formData: FormData): Promise<void> {
   "use server";
   const name = formData.get("name");
@@ -119,6 +129,18 @@ async function handleUpdateReportNotes(practiceId: string, formData: FormData): 
   await updateReportNotes(practiceId, text.trim());
 }
 
+async function handleLogWork(practiceId: string, formData: FormData): Promise<void> {
+  "use server";
+  const description = formData.get("description");
+  if (typeof description !== "string" || !description.trim()) return;
+  await logWork(practiceId, description);
+}
+
+async function handleDeleteWorkLogEntry(activityId: string): Promise<void> {
+  "use server";
+  await deleteWorkLogEntry(activityId);
+}
+
 async function handleTriggerScan(practiceId: string): Promise<void> {
   "use server";
   await triggerScan(practiceId);
@@ -148,7 +170,7 @@ export default async function PracticeDetailPage({
   if (!practice) notFound();
 
   const [
-    factRows, promptRows, competitorRows, variationRows, openFindings, recentActivities, memberRows,
+    factRows, promptRows, competitorRows, variationRows, openFindings, workLog, diagnostics, memberRows,
   ] = await Promise.all([
     db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "active"))),
     db.select().from(prompts).where(eq(prompts.practiceId, practiceId)),
@@ -156,7 +178,11 @@ export default async function PracticeDetailPage({
     db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
     db.select().from(findings).where(and(eq(findings.practiceId, practiceId), eq(findings.status, "open")))
       .orderBy(desc(findings.createdAt)),
-    db.select().from(activities).where(eq(activities.practiceId, practiceId))
+    db.select().from(activities)
+      .where(and(eq(activities.practiceId, practiceId), eq(activities.visibility, "client")))
+      .orderBy(desc(activities.createdAt)).limit(30),
+    db.select().from(activities)
+      .where(and(eq(activities.practiceId, practiceId), eq(activities.visibility, "internal")))
       .orderBy(desc(activities.createdAt)).limit(20),
     db.select({
       id: users.id,
@@ -168,6 +194,9 @@ export default async function PracticeDetailPage({
       .innerJoin(users, eq(practiceMembers.userId, users.id))
       .where(eq(practiceMembers.practiceId, practiceId)),
   ]);
+
+  const activeCompetitors = competitorRows.filter(c => c.status === "active");
+  const hiddenCompetitors = competitorRows.filter(c => c.status === "ignored");
 
   // The hash itself must not reach the client bundle, so the row is reduced to
   // the one bit the panel actually renders: whether a password exists.
@@ -303,24 +332,63 @@ export default async function PracticeDetailPage({
 
       {/* Competitors */}
       <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Competitors</h2>
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Competitors</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Names you add are a starting seed. Every scan also records any business the engines
+          recommend and adds it here as &ldquo;found by scan&rdquo;. Hide anything that is not a real
+          competitor (a directory, a product) and scans will stop counting it.
+        </p>
         <form action={handleAddCompetitor.bind(null, practiceId)} className="mb-4 flex gap-3">
           <input name="name" required placeholder="Competitor name" className={`${inputClass} flex-1`} />
           <button type="submit" className={primaryButtonClass}>Add competitor</button>
         </form>
-        {competitorRows.length === 0 ? (
+        {activeCompetitors.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No competitors yet.</p>
         ) : (
           <ul className="flex flex-wrap gap-2">
-            {competitorRows.map(competitor => (
+            {activeCompetitors.map(competitor => (
               <li
                 key={competitor.id}
-                className="rounded-full border border-zinc-200 px-3 py-1 text-sm text-black dark:border-zinc-800 dark:text-zinc-50"
+                className="flex items-center gap-2 rounded-full border border-zinc-200 py-1 pl-3 pr-1 text-sm text-black dark:border-zinc-800 dark:text-zinc-50"
               >
                 {competitor.name}
+                {competitor.source === "discovered" && (
+                  <span className="text-xs text-zinc-500 dark:text-zinc-400">found by scan</span>
+                )}
+                <form action={handleHideCompetitor.bind(null, competitor.id)}>
+                  <button
+                    type="submit"
+                    title="Hide this competitor"
+                    className="rounded-full px-2 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-black dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+                  >
+                    Hide
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
+        )}
+        {hiddenCompetitors.length > 0 && (
+          <details className="mt-3">
+            <summary className="cursor-pointer text-xs text-zinc-500 dark:text-zinc-400">
+              {hiddenCompetitors.length} hidden
+            </summary>
+            <ul className="mt-2 flex flex-wrap gap-2">
+              {hiddenCompetitors.map(competitor => (
+                <li
+                  key={competitor.id}
+                  className="flex items-center gap-2 rounded-full border border-dashed border-zinc-300 py-1 pl-3 pr-1 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400"
+                >
+                  {competitor.name}
+                  <form action={handleRestoreCompetitor.bind(null, competitor.id)}>
+                    <button type="submit" className="rounded-full px-2 text-xs hover:text-black dark:hover:text-zinc-50">
+                      Restore
+                    </button>
+                  </form>
+                </li>
+              ))}
+            </ul>
+          </details>
         )}
       </section>
 
@@ -413,14 +481,62 @@ export default async function PracticeDetailPage({
 
       <ClientAccess members={members} issue={handleIssueClientPassword.bind(null, practiceId)} />
 
-      {/* Recent activity */}
-      <section>
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Recent activity</h2>
-        {recentActivities.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No activity yet.</p>
+      {/* Work log — the client reads this one */}
+      <section className="mb-10">
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Work log</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          The client sees these on their dashboard and in their monthly report. Itemise atomically:
+          &ldquo;Updated 14 Google service entries&rdquo;, not &ldquo;updated Google&rdquo;.
+        </p>
+        <form action={handleLogWork.bind(null, practiceId)} className="mb-4 flex gap-2">
+          <input
+            name="description"
+            required
+            maxLength={300}
+            placeholder="Claimed the Bing Places listing"
+            className={`${inputClass} flex-1`}
+          />
+          <button type="submit" className={primaryButtonClass}>Log work</button>
+        </form>
+        {workLog.length === 0 ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            Nothing logged yet, so the client&apos;s dashboard shows an empty work log.
+          </p>
         ) : (
           <ul className="space-y-2">
-            {recentActivities.map(activity => (
+            {workLog.map(entry => (
+              <li key={entry.id} className="flex items-baseline justify-between gap-4 text-sm">
+                <span className="text-zinc-600 dark:text-zinc-400">
+                  <span className="text-zinc-400 dark:text-zinc-500">
+                    {entry.createdAt.toISOString().slice(0, 10)}
+                  </span>{" "}
+                  · {entry.description}
+                </span>
+                <form action={handleDeleteWorkLogEntry.bind(null, entry.id)}>
+                  <button
+                    type="submit"
+                    className="text-xs text-zinc-500 underline-offset-2 hover:text-red-600 hover:underline dark:text-zinc-400"
+                  >
+                    Remove
+                  </button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Diagnostics — operator only */}
+      <section>
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Diagnostics</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Internal only. Scan warnings, failures, and account events. The client never sees these.
+        </p>
+        {diagnostics.length === 0 ? (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">Nothing recorded.</p>
+        ) : (
+          <ul className="space-y-2">
+            {diagnostics.map(activity => (
               <li key={activity.id} className="text-sm text-zinc-600 dark:text-zinc-400">
                 <span className="text-zinc-400 dark:text-zinc-500">
                   {activity.createdAt.toISOString().slice(0, 16).replace("T", " ")}

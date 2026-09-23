@@ -48,7 +48,7 @@ export function FindingCard({ claim, factValue, severity, status, engine, create
         </div>
         <div>
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Fact sheet says</p>
-          <p className="mt-1 text-sm text-black dark:text-zinc-50">{factValue ?? "—"}</p>
+          <p className="mt-1 text-sm text-black dark:text-zinc-50">{factValue ?? "N/A"}</p>
         </div>
       </div>
       <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">

@@ -4,7 +4,7 @@ import {
   CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
 
-// Single restrained accent — no gradients, no rainbow. One series needs no
+// Single restrained accent: no gradients, no rainbow. One series needs no
 // legend box; the section title above the chart already names it.
 const ACCENT = "#4f46e5";
 const GRID_COLOR = "#e4e4e7"; // zinc-200, subtle

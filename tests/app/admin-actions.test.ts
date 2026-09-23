@@ -7,7 +7,7 @@ import * as schema from "@/db/schema";
 // Admin actions call `requireOperator()` first, which normally reads the
 // Auth.js session cookie via `auth()`. Outside of a real request there is no
 // session to read, so we replace it with a no-op that resolves to a fake
-// operator session — every action under test is exercised as if an operator
+// operator session. Every action under test is exercised as if an operator
 // is already signed in. `next/cache`'s `revalidatePath` also asserts it's
 // running inside a Next.js request/render scope (it throws
 // "Invariant: static generation store missing" otherwise), so it's stubbed
@@ -19,7 +19,7 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { addFact, updateFindingStatus } from "@/app/admin/actions";
+import { addFact, updateFindingStatus, logWork, deleteWorkLogEntry } from "@/app/admin/actions";
 
 describe("admin actions", () => {
   describe("addFact", () => {
@@ -100,5 +100,93 @@ describe("admin actions", () => {
       const activities = await db.select().from(schema.activities).where(eq(schema.activities.practiceId, practiceId));
       expect(activities.some(a => a.description === `Reopened: ${finding.claim}`)).toBe(true);
     });
+  });
+});
+
+describe("logWork", () => {
+  it("records a client-visible work-log entry", async () => {
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+
+    await logWork(practiceId, "Updated 14 Google service entries");
+
+    const rows = await db.select().from(schema.activities)
+      .where(eq(schema.activities.practiceId, practiceId));
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      description: "Updated 14 Google service entries", visibility: "client",
+    });
+  });
+
+  it("rejects a blank description rather than publishing an empty line", async () => {
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+
+    await expect(logWork(practiceId, "   ")).rejects.toThrow();
+
+    const rows = await db.select().from(schema.activities);
+    expect(rows).toHaveLength(0);
+  });
+});
+
+describe("deleteWorkLogEntry", () => {
+  it("removes a client-visible entry", async () => {
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const [entry] = await db.insert(schema.activities)
+      .values({ practiceId, description: "Typo'd line", visibility: "client" }).returning();
+
+    await deleteWorkLogEntry(entry.id);
+
+    const rows = await db.select().from(schema.activities);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("leaves internal diagnostics alone", async () => {
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const [entry] = await db.insert(schema.activities)
+      .values({ practiceId, description: "scan warning: gemini failed", visibility: "internal" }).returning();
+
+    await deleteWorkLogEntry(entry.id);
+
+    const rows = await db.select().from(schema.activities);
+    expect(rows).toHaveLength(1);
+  });
+});
+
+describe("competitor visibility", () => {
+  it("hideCompetitor marks the row ignored so scans stop matching and re-adding it", async () => {
+    const { hideCompetitor } = await import("@/app/admin/actions");
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const [row] = await db.insert(schema.competitors)
+      .values({ practiceId, name: "Yelp", source: "discovered" }).returning();
+
+    await hideCompetitor(row.id);
+
+    const [after] = await db.select().from(schema.competitors).where(eq(schema.competitors.id, row.id));
+    expect(after.status).toBe("ignored");
+    const activities = await db.select().from(schema.activities).where(eq(schema.activities.practiceId, practiceId));
+    expect(activities.some(a => a.description === "Hid competitor: Yelp")).toBe(true);
+  });
+
+  it("restoreCompetitor makes a hidden row active again", async () => {
+    const { restoreCompetitor } = await import("@/app/admin/actions");
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const [row] = await db.insert(schema.competitors)
+      .values({ practiceId, name: "Skin Bar LA", source: "discovered", status: "ignored" }).returning();
+
+    await restoreCompetitor(row.id);
+
+    const [after] = await db.select().from(schema.competitors).where(eq(schema.competitors.id, row.id));
+    expect(after.status).toBe("active");
   });
 });

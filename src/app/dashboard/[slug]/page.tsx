@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requirePracticeAccess } from "@/lib/auth";
 import { getDb } from "@/db";
 import {
@@ -15,7 +16,11 @@ interface Activity {
 
 function ActivityList({ activities }: { activities: Activity[] }) {
   if (activities.length === 0) {
-    return <p className="text-sm text-zinc-600 dark:text-zinc-400">No activity yet.</p>;
+    return (
+      <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        Nothing logged yet. Your first week&apos;s work will show up here.
+      </p>
+    );
   }
   return (
     <ul className="space-y-2">
@@ -24,7 +29,7 @@ function ActivityList({ activities }: { activities: Activity[] }) {
           <span className="text-zinc-400 dark:text-zinc-500">
             {a.createdAt.toISOString().slice(0, 16).replace("T", " ")}
           </span>{" "}
-          — {a.description}
+          · {a.description}
         </li>
       ))}
     </ul>
@@ -45,11 +50,11 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
         <DashboardHeader slug={slug} practiceName={practice.name} active="overview" />
         <div className="rounded-lg border border-zinc-200 p-8 text-center dark:border-zinc-800">
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Your first scan is running — check back soon.
+            Your first scan is running. Check back soon.
           </p>
         </div>
         <section className="mt-10">
-          <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Latest activity</h2>
+          <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">What we&apos;ve done</h2>
           <ActivityList activities={activities} />
         </section>
       </div>
@@ -88,7 +93,15 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
       </section>
 
       <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Competitor pressure</h2>
+        <div className="mb-3 flex items-baseline justify-between">
+          <h2 className="text-sm font-medium text-black dark:text-zinc-50">Competitor pressure</h2>
+          <Link
+            href={`/dashboard/${slug}/competitors`}
+            className="text-xs text-zinc-500 underline-offset-2 hover:text-black hover:underline dark:text-zinc-400 dark:hover:text-zinc-50"
+          >
+            See the full comparison
+          </Link>
+        </div>
         {competitorPressure.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No competitors mentioned in the latest scan.</p>
         ) : (
@@ -106,7 +119,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
       </section>
 
       <section>
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Latest activity</h2>
+        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">What we&apos;ve done</h2>
         <ActivityList activities={activities} />
       </section>
     </div>

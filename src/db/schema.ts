@@ -10,6 +10,7 @@ export const positionEnum = pgEnum("position", ["first", "top3", "mentioned", "a
 export const severityEnum = pgEnum("severity", ["critical", "major", "minor"]);
 export const findingStatusEnum = pgEnum("finding_status", ["open", "fixed", "verified", "dismissed"]);
 export const scanStatusEnum = pgEnum("scan_status", ["running", "complete", "failed"]);
+export const activityVisibilityEnum = pgEnum("activity_visibility", ["internal", "client"]);
 
 export const users = pgTable("users", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -93,6 +94,14 @@ export const competitors = pgTable("competitors", {
   id: uuid("id").defaultRandom().primaryKey(),
   practiceId: uuid("practice_id").notNull().references(() => practices.id),
   name: text("name").notNull(),
+  // 'operator' = typed in admin; 'discovered' = an engine recommended it and
+  // the scan's extractor picked it up. Discovered names are what make the
+  // competitor report real rather than limited to what we already knew.
+  source: text("source").notNull().default("operator"), // 'operator' | 'discovered'
+  // 'ignored' hides a wrong discovery (a directory, a product) and keeps the
+  // scan from re-adding it next week.
+  status: text("status").notNull().default("active"), // 'active' | 'ignored'
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const facts = pgTable("facts", {
@@ -138,6 +147,9 @@ export const checks = pgTable("checks", {
   mentioned: boolean("mentioned").notNull(),
   position: positionEnum("position").notNull(),
   competitorsMentioned: jsonb("competitors_mentioned").$type<string[]>().notNull().default([]),
+  // Every business the answer named, practice included, in order of first
+  // appearance. Feeds the head-to-head competitor table.
+  namedOrder: jsonb("named_order").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -158,5 +170,13 @@ export const activities = pgTable("activities", {
   id: uuid("id").defaultRandom().primaryKey(),
   practiceId: uuid("practice_id").notNull().references(() => practices.id),
   description: text("description").notNull(),
+  // Who this line is for. 'internal' is the operator's diagnostic trail (scan
+  // warnings, judge failures, credential issuance); 'client' is the work log
+  // shown on the dashboard and printed in the monthly report.
+  //
+  // The default is deliberately 'internal', so a new logActivity() call site
+  // added anywhere in the codebase cannot accidentally publish to a client.
+  // Reaching the client is opt-in, one call site at a time.
+  visibility: activityVisibilityEnum("visibility").notNull().default("internal"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

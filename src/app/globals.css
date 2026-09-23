@@ -31,7 +31,7 @@ body {
    Everything below is scoped under .mk so it cannot leak into the signed-in
    app, which keeps Geist + Tailwind's zinc scale. The palette is taken from
    the logo lockup: near-black ink on warm ivory with a single bronze accent.
-   The page is deliberately light-only — it opts out of the dark-mode block
+   The page is deliberately light-only. It opts out of the dark-mode block
    above by setting its own background, because the brand is an ivory sheet
    and a dark inversion reads as a different company.
    ========================================================================== */
@@ -115,7 +115,7 @@ body {
   margin: 10px 0 0;
 }
 
-/* A hairline rule under a section heading — the logo's gold baseline, reused
+/* A hairline rule under a section heading, the logo's gold baseline, reused
    as the page's one recurring ornament. */
 .mk-rule {
   width: 56px;
@@ -239,8 +239,45 @@ body {
 
 /* ---------- hero ---------- */
 .mk-hero {
+  position: relative;
+  overflow: hidden;
   padding: 84px var(--gut) 76px;
+  /* The poster doubles as the reduced-motion still and as the paint before the
+     video's first frame decodes, so the hero never flashes flat ivory. */
+  background: var(--ivory) url("/hero-loop.jpg") center / cover no-repeat;
+}
+/* Defocused b-roll: a patient asking an assistant, then walking into the
+   practice it named. The blur and the warm grade are baked into the file
+   rather than applied with filter: blur(), which would repaint the whole
+   plate on the GPU every frame. That is expensive on low-end devices, and
+   baking it also drops the file from 12 MB to 358 KB. */
+.mk-hero-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+/* The plate is decorative and must never cost the headline its contrast, so
+   it reads through 74% ivory. */
+.mk-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
   background: var(--ivory);
+  opacity: 0.74;
+  z-index: 1;
+  pointer-events: none;
+}
+.mk-hero > .mk-inner {
+  position: relative;
+  z-index: 2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-hero-video {
+    display: none;
+  }
 }
 .mk-hero-grid {
   display: grid;
@@ -300,7 +337,7 @@ body {
   line-height: 1.75;
   color: var(--ink-soft);
 }
-/* The hallucinated clause. Underline rather than highlighter fill — a
+/* The hallucinated clause. Underline rather than highlighter fill, because a
    marker-pen yellow would fight the palette and cheapen the page. */
 .mk-false {
   color: var(--flag);
@@ -645,6 +682,147 @@ body {
   color: rgba(247, 245, 240, 0.45);
 }
 
+/* ---------- booking form (/book) ---------- */
+/* The form column is fixed rather than fractional: past ~520px the inputs read
+   as a settings screen instead of a request, and the pitch column is what
+   should absorb extra width. */
+.mk-book-grid {
+  display: grid;
+  grid-template-columns: 1fr 480px;
+  gap: 72px;
+  align-items: start;
+}
+
+.mk-book-steps {
+  list-style: none;
+  margin: 40px 0 0;
+  padding: 0;
+}
+.mk-book-steps li {
+  display: flex;
+  gap: 18px;
+  padding: 18px 0;
+  border-top: 1px solid var(--line);
+}
+.mk-book-steps li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.mk-book-steps .num {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  color: var(--gold);
+  padding-top: 3px;
+  /* Fixed width, not intrinsic: "1" is narrower than "2" in this face, so
+     without it each step's copy starts at a slightly different x. */
+  flex: 0 0 22px;
+}
+.mk-book-steps strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+.mk-book-steps p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+  margin: 0;
+}
+
+.mk-form-card {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 36px;
+}
+
+.mk-field {
+  margin-bottom: 20px;
+}
+.mk-field label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 7px;
+}
+.mk-field label .opt {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.mk-input {
+  width: 100%;
+  font: inherit;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  padding: 12px 14px;
+  transition: border-color 160ms ease;
+}
+.mk-input::placeholder {
+  color: #a9a49a;
+}
+.mk-input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+.mk-input-bad {
+  border-color: var(--flag);
+}
+.mk-field-hint {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 7px 0 0;
+}
+.mk-field-error {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--flag);
+  margin: 7px 0 0;
+}
+.mk-form-alert {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--flag);
+  background: rgba(163, 58, 42, 0.06);
+  border: 1px solid rgba(163, 58, 42, 0.25);
+  border-radius: 2px;
+  padding: 12px 14px;
+  margin-bottom: 24px;
+}
+.mk-form-alert a {
+  color: inherit;
+}
+.mk-btn-block {
+  display: block;
+  width: 100%;
+  text-align: center;
+  margin-top: 4px;
+}
+.mk-btn-block:disabled {
+  opacity: 0.55;
+  cursor: default;
+  background: var(--ink);
+  color: var(--ivory);
+}
+
+/* Honeypot. Positioned off-canvas rather than display:none, which some bots
+   are wise to; tabIndex={-1} and aria-hidden keep it away from real visitors. */
+.mk-trap {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   .mk {
@@ -652,9 +830,15 @@ body {
   }
   .mk-hero-grid,
   .mk-split,
-  .mk-step {
+  .mk-step,
+  .mk-book-grid {
     grid-template-columns: 1fr;
     gap: 40px;
+  }
+  /* The card's own border already separates it from the page at this width;
+     36px of inset on a 320px screen is most of the screen. */
+  .mk-form-card {
+    padding: 26px 20px;
   }
   .mk-step.reversed .copy {
     order: 0;

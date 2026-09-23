@@ -2,16 +2,17 @@ import Link from "next/link";
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
-type Tab = "overview" | "answers" | "accuracy" | "report";
+type Tab = "overview" | "answers" | "competitors" | "accuracy" | "report";
 
 const TABS: { key: Tab; label: string; suffix: string }[] = [
   { key: "overview", label: "Overview", suffix: "" },
   { key: "answers", label: "Answers", suffix: "/answers" },
+  { key: "competitors", label: "Competitors", suffix: "/competitors" },
   { key: "accuracy", label: "Accuracy", suffix: "/accuracy" },
   { key: "report", label: "Report", suffix: "/report" },
 ];
 
-/** Shared header + tab nav for the three client dashboard pages. */
+/** Shared header + tab nav for the client dashboard pages. */
 export function DashboardHeader({
   slug, practiceName, active,
 }: {

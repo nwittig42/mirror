@@ -227,17 +227,38 @@ describe("buildReportData", () => {
     const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
 
     await db.insert(schema.activities).values({
-      practiceId, description: "Out of month", createdAt: new Date("2026-06-15T00:00:00Z"),
+      practiceId, description: "Out of month", visibility: "client",
+      createdAt: new Date("2026-06-15T00:00:00Z"),
     });
     await db.insert(schema.activities).values({
-      practiceId, description: "Early July", createdAt: new Date("2026-07-01T00:00:00Z"),
+      practiceId, description: "Early July", visibility: "client",
+      createdAt: new Date("2026-07-01T00:00:00Z"),
     });
     await db.insert(schema.activities).values({
-      practiceId, description: "Late July", createdAt: new Date("2026-07-25T00:00:00Z"),
+      practiceId, description: "Late July", visibility: "client",
+      createdAt: new Date("2026-07-25T00:00:00Z"),
     });
 
     const report = await buildReportData(db, practiceId, "2026-07");
 
     expect(report.activities).toEqual(["Late July", "Early July"]);
+  });
+
+  it("leaves internal activities out of the client's report", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+
+    await db.insert(schema.activities).values({
+      practiceId, description: "Claimed the Bing Places listing", visibility: "client",
+      createdAt: new Date("2026-07-10T00:00:00Z"),
+    });
+    await db.insert(schema.activities).values({
+      practiceId, description: "scan warning: gemini failed on prompt X", visibility: "internal",
+      createdAt: new Date("2026-07-11T00:00:00Z"),
+    });
+
+    const report = await buildReportData(db, practiceId, "2026-07");
+
+    expect(report.activities).toEqual(["Claimed the Bing Places listing"]);
   });
 });

@@ -26,7 +26,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
 
       {!latestScan ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          Your first scan is running — check back soon.
+          Your first scan is running. Check back soon.
         </p>
       ) : checks.length === 0 ? (
         <p className="text-sm text-zinc-600 dark:text-zinc-400">No answers recorded for the latest scan.</p>

@@ -1,7 +1,7 @@
 /**
  * Live smoke test for all four engine adapters. Requires real API keys in
  * the environment (see src/lib/env.ts for the full required set). Not run
- * in CI or `npm run test` — this hits real vendor endpoints and costs money.
+ * in CI or `npm run test`. This hits real vendor endpoints and costs money.
  *
  * Usage: npx tsx scripts/smoke-engines.ts
  */

@@ -30,7 +30,7 @@ describe("env", () => {
   });
 
   // Trigger condition: this only throws when NODE_ENV is "production" AND
-  // AUTH_URL is set — the latter is what distinguishes a real deployment
+  // AUTH_URL is set. The latter is what distinguishes a real deployment
   // (which sets AUTH_URL per .env.example) from `next build`, which also
   // runs with NODE_ENV=production but never sets AUTH_URL. Without the
   // AUTH_URL gate, this guard would break every production build.

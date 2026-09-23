@@ -23,4 +23,17 @@ describe("schema", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].citations).toEqual(["https://yelp.com/biz/glow"]);
   });
+
+  it("defaults a new activity to internal visibility", async () => {
+    const db = await makeTestDb();
+    const [practice] = await db.insert(schema.practices)
+      .values({ name: "Glow MedSpa", slug: "glow-visibility" }).returning();
+
+    await db.insert(schema.activities).values({
+      practiceId: practice.id, description: "scan warning: gemini failed",
+    });
+
+    const [row] = await db.select().from(schema.activities);
+    expect(row.visibility).toBe("internal");
+  });
 });

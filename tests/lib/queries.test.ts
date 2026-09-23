@@ -166,13 +166,29 @@ describe("getActivities", () => {
     const db = await makeTestDb();
     const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
     await db.insert(schema.activities).values([
-      { practiceId, description: "first", createdAt: new Date("2026-01-01") },
-      { practiceId, description: "second", createdAt: new Date("2026-01-02") },
-      { practiceId, description: "third", createdAt: new Date("2026-01-03") },
+      { practiceId, description: "first", visibility: "client", createdAt: new Date("2026-01-01") },
+      { practiceId, description: "second", visibility: "client", createdAt: new Date("2026-01-02") },
+      { practiceId, description: "third", visibility: "client", createdAt: new Date("2026-01-03") },
     ]);
 
     const result = await getActivities(db, practiceId, 2);
     expect(result.map(a => a.description)).toEqual(["third", "second"]);
+  });
+
+  it("omits internal activities, which are operator-only diagnostics", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    await db.insert(schema.activities).values([
+      { practiceId, description: "Updated 14 Google service entries", visibility: "client",
+        createdAt: new Date("2026-01-01") },
+      { practiceId, description: "scan warning: gemini failed on prompt X", visibility: "internal",
+        createdAt: new Date("2026-01-02") },
+      { practiceId, description: "Issued a temporary password to owner@glow.example", visibility: "internal",
+        createdAt: new Date("2026-01-03") },
+    ]);
+
+    const result = await getActivities(db, practiceId, 10);
+    expect(result.map(a => a.description)).toEqual(["Updated 14 Google service entries"]);
   });
 });
 

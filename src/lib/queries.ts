@@ -41,6 +41,7 @@ export async function getChecksForScan(db: Db, scanId: string) {
     mentioned: checks.mentioned,
     position: checks.position,
     competitorsMentioned: checks.competitorsMentioned,
+    namedOrder: checks.namedOrder,
     createdAt: checks.createdAt,
     promptText: prompts.text,
     promptKind: prompts.kind,
@@ -60,7 +61,7 @@ export async function getOpenFindings(db: Db, practiceId: string) {
 
 /**
  * Every finding for a practice regardless of status, joined with the
- * originating check's engine — the accuracy ledger groups these by status
+ * originating check's engine. The accuracy ledger groups these by status
  * client-side (open/fixed/verified/dismissed).
  */
 export async function getFindingsForPractice(db: Db, practiceId: string) {
@@ -82,10 +83,15 @@ export async function getFindingsForPractice(db: Db, practiceId: string) {
     .orderBy(desc(findings.createdAt));
 }
 
-/** Most recent `limit` activity-log rows for a practice, newest first. */
+/**
+ * Most recent `limit` *client-visible* activity-log rows for a practice,
+ * newest first. Internal rows (scan warnings, judge failures, password
+ * issuance) are excluded: this feeds the client dashboard, and the operator
+ * reads the unfiltered log on the admin practice page instead.
+ */
 export async function getActivities(db: Db, practiceId: string, limit: number) {
   return db.select().from(activities)
-    .where(eq(activities.practiceId, practiceId))
+    .where(and(eq(activities.practiceId, practiceId), eq(activities.visibility, "client")))
     .orderBy(desc(activities.createdAt))
     .limit(limit);
 }

@@ -1,34 +1,34 @@
-# Mirror — AI Visibility Platform for Aesthetic Practices (MVP) Implementation Plan
+# Mirror: AI Visibility Platform for Aesthetic Practices (MVP) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build the client-facing GEO monitoring platform for the LA med-spa service: fact-sheet ground truth, weekly citation scans across ChatGPT/Claude/Gemini/Perplexity, hallucination detection, an AI Visibility Score, a client dashboard, weekly pulse emails, and a printable monthly report.
 
-**Architecture:** Next.js App Router monolith. Pure-function core (mention detection, position classification, scoring) fully unit-tested; engine adapters wrap the four vendor APIs behind one interface; a scan runner orchestrates prompts × engines into `checks`, runs the hallucination judge against the fact sheet, and snapshots a score per scan. Two roles: `operator` (you — full admin) and `client` (read-mostly dashboard scoped to their practice). Vercel cron triggers weekly scans; Resend sends magic links + pulse emails.
+**Architecture:** Next.js App Router monolith. Pure-function core (mention detection, position classification, scoring) fully unit-tested; engine adapters wrap the four vendor APIs behind one interface; a scan runner orchestrates prompts × engines into `checks`, runs the hallucination judge against the fact sheet, and snapshots a score per scan. Two roles: `operator` (you, full admin) and `client` (read-mostly dashboard scoped to their practice). Vercel cron triggers weekly scans; Resend sends magic links + pulse emails.
 
 **Tech Stack:** Next.js 15 (App Router, TypeScript), Drizzle ORM + Postgres (Neon in prod, PGlite in tests), Auth.js v5 (Resend magic links + operator credentials), Tailwind CSS, Recharts (trend chart), Resend (email), Vitest (tests), Zod (validation). Engine APIs: OpenAI Responses (`web_search` tool), Anthropic Messages (`web_search` tool), Google `@google/genai` (googleSearch grounding), Perplexity (`sonar-pro`).
 
 ## Global Constraints
 
-- **Product working name: "Mirror"** (tagline: "See what AI tells your patients"). Used in the UI header, email from-name, and report header via `NEXT_PUBLIC_APP_NAME` env (default `"Mirror"`). The string "VentureCite" must never appear anywhere in code, UI, tests, or docs. Working name only — check trademark/domain before external branding.
+- **Product working name: "Mirror"** (tagline: "See what AI tells your patients"). Used in the UI header, email from-name, and report header via `NEXT_PUBLIC_APP_NAME` env (default `"Mirror"`). The string "VentureCite" must never appear anywhere in code, UI, tests, or docs. Working name only. Check trademark/domain before external branding.
 - **ICP vocabulary (locked, client-facing copy):** the domain entity is a **practice** (never "brand" or "business"); readers of AI answers are **patients** (never "buyers"/"users"/"customers"); people at the practice are **providers**; offerings are **treatments**. Internal identifiers follow suit (`practices` table, `practiceId`, etc.).
 - Node >= 20; TypeScript `strict: true`; no `any` in `src/core/**`.
-- All business logic in `src/core/**` must be pure functions (no I/O) — this is the tested surface.
+- All business logic in `src/core/**` must be pure functions (no I/O). This is the tested surface.
 - Engine model IDs come from env with defaults: `OPENAI_MODEL=gpt-5.1`, `ANTHROPIC_MODEL=claude-sonnet-5`, `GEMINI_MODEL=gemini-2.5-flash`, `PERPLEXITY_MODEL=sonar-pro`, `JUDGE_MODEL=claude-haiku-4-5-20251001`. Never hardcode a model ID outside `src/lib/env.ts`.
-- Score formula (locked, from strategy Doc 3): `score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))`, then **cap at 70 if any OPEN critical finding exists**. Explicit floor rule: if `citationRate = 0`, score = 0 — the accuracy component never lifts an invisible practice (spec-owner ruling, 2026-07-28).
+- Score formula (locked, from strategy Doc 3): `score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))`, then **cap at 70 if any OPEN critical finding exists**. Explicit floor rule: if `citationRate = 0`, score = 0. The accuracy component never lifts an invisible practice (spec-owner ruling, 2026-07-28).
 - Position weights (locked): first = 1.0, top3 = 0.7, mentioned = 0.4, absent = 0. Position is computed over `kind='category'` prompts only.
 - Severity bands (locked): `critical` = credentials/safety/fabricated service; `major` = pricing/hours/location; `minor` = stale or incomplete detail.
-- Every scan-visible number must trace to a stored `check` row. No estimated metrics anywhere in the UI. Copy rule: the UI never says "rank" or "ranking" — always "named / cited / shortlisted".
+- Every scan-visible number must trace to a stored `check` row. No estimated metrics anywhere in the UI. Copy rule: the UI never says "rank" or "ranking", always "named / cited / shortlisted".
 - Client role can never see: other practices, operator notes, raw API costs, prompt editing. Enforced server-side (queries filtered by `practice_members`), not just hidden in UI.
 - Commits: conventional (`feat:`, `test:`, `chore:`); commit at the end of every task at minimum.
-- Known limitation (document, don't fight): API answers approximate but do not exactly equal consumer app answers — same tradeoff every commercial GEO tool makes. README must state this.
+- Known limitation (document, don't fight): API answers approximate but do not exactly equal consumer app answers, same tradeoff every commercial GEO tool makes. README must state this.
 
 ## File Structure
 
 ```
 geo-platform/
   src/
-    core/                      # PURE logic — no I/O, fully unit-tested
+    core/                      # PURE logic, no I/O, fully unit-tested
       mention.ts               # practice/competitor mention detection
       position.ts              # first/top3/mentioned/absent classification
       scoring.ts               # score formula + component breakdown
@@ -77,7 +77,7 @@ geo-platform/
 - Test: `tests/lib/env.test.ts`
 
 **Interfaces:**
-- Produces: `env` object — `env.DATABASE_URL: string`, `env.OPENAI_API_KEY: string`, `env.OPENAI_MODEL: string` (default `"gpt-5.1"`), same pattern for ANTHROPIC/GEMINI/PERPLEXITY, `env.JUDGE_MODEL` (default `"claude-haiku-4-5-20251001"`), `env.RESEND_API_KEY`, `env.CRON_SECRET`, `env.AUTH_SECRET`, `env.APP_URL`.
+- Produces: `env` object, `env.DATABASE_URL: string`, `env.OPENAI_API_KEY: string`, `env.OPENAI_MODEL: string` (default `"gpt-5.1"`), same pattern for ANTHROPIC/GEMINI/PERPLEXITY, `env.JUDGE_MODEL` (default `"claude-haiku-4-5-20251001"`), `env.RESEND_API_KEY`, `env.CRON_SECRET`, `env.AUTH_SECRET`, `env.APP_URL`.
 
 - [ ] **Step 1: Scaffold**
 
@@ -119,7 +119,7 @@ describe("env", () => {
 });
 ```
 
-- [ ] **Step 3: Run test — expect FAIL** (`npx vitest run tests/lib/env.test.ts`; module not found)
+- [ ] **Step 3: Run test: expect FAIL** (`npx vitest run tests/lib/env.test.ts`; module not found)
 
 - [ ] **Step 4: Implement `src/lib/env.ts`**
 
@@ -155,9 +155,9 @@ export function loadEnv(): Env {
 }
 ```
 
-- [ ] **Step 5: Run test — expect PASS.** Write `.env.example` listing every key above with placeholder values, and a README section "Known limitation: API vs consumer answers" (one paragraph: scans call the four vendors' APIs with web search enabled; results closely track but do not exactly equal the consumer apps — the standard tradeoff all GEO monitoring tools make).
+- [ ] **Step 5: Run test: expect PASS.** Write `.env.example` listing every key above with placeholder values, and a README section "Known limitation: API vs consumer answers" (one paragraph: scans call the four vendors' APIs with web search enabled; results closely track but do not exactly equal the consumer apps, the standard tradeoff all GEO monitoring tools make).
 
-- [ ] **Step 6: Commit** — `git add -A && git commit -m "feat: env validation with model defaults"`
+- [ ] **Step 6: Commit**: `git add -A && git commit -m "feat: env validation with model defaults"`
 
 ---
 
@@ -232,7 +232,7 @@ describe("schema", () => {
 });
 ```
 
-- [ ] **Step 2: Run — expect FAIL** (schema module missing)
+- [ ] **Step 2: Run: expect FAIL** (schema module missing)
 
 - [ ] **Step 3: Implement `src/db/schema.ts`**
 
@@ -353,9 +353,9 @@ export const activities = pgTable("activities", {
 
 Also create `src/core/types.ts` exactly as in the Interfaces block, `src/db/index.ts` (Neon client via `drizzle-orm/neon-http` using `loadEnv().DATABASE_URL`), and `drizzle.config.ts` pointing at `src/db/schema.ts`, out dir `drizzle/`.
 
-- [ ] **Step 4: Run — expect PASS.** Then `npx drizzle-kit generate` to produce the initial migration.
+- [ ] **Step 4: Run: expect PASS.** Then `npx drizzle-kit generate` to produce the initial migration.
 
-- [ ] **Step 5: Commit** — `feat: domain types and database schema`
+- [ ] **Step 5: Commit**: `feat: domain types and database schema`
 
 ---
 
@@ -392,7 +392,7 @@ describe("detectNames", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
 - [ ] **Step 3: Implement**
 
@@ -418,7 +418,7 @@ export function detectNames(answer: string, names: string[]): string[] {
 }
 ```
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: mention and name detection`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: mention and name detection`
 
 ---
 
@@ -428,7 +428,7 @@ export function detectNames(answer: string, names: string[]): string[] {
 
 **Interfaces:**
 - Consumes: `detectNames` from Task 3.
-- Produces: `classifyPosition(answer: string, practiceVariations: string[], competitorNames: string[]): { position: Position; competitorsMentioned: string[] }`. Rule: absent if practice not mentioned; among all mentioned entities (practice counts once, at its earliest variation hit) ordered by first appearance — practice index 0 → `first`, index ≤ 2 → `top3`, else `mentioned`.
+- Produces: `classifyPosition(answer: string, practiceVariations: string[], competitorNames: string[]): { position: Position; competitorsMentioned: string[] }`. Rule: absent if practice not mentioned; among all mentioned entities (practice counts once, at its earliest variation hit) ordered by first appearance, practice index 0 → `first`, index ≤ 2 → `top3`, else `mentioned`.
 
 - [ ] **Step 1: Failing tests**
 
@@ -454,7 +454,7 @@ describe("classifyPosition", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
 - [ ] **Step 3: Implement**
 
@@ -482,7 +482,7 @@ export function classifyPosition(
 }
 ```
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: position classification`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: position classification`
 
 ---
 
@@ -547,7 +547,7 @@ describe("computeScore", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
 - [ ] **Step 3: Implement**
 
@@ -585,7 +585,7 @@ export function computeScore(input: ScoreInput): ScoreBreakdown {
 }
 ```
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: visibility score formula with accuracy cap`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: visibility score formula with accuracy cap`
 
 ---
 
@@ -620,7 +620,7 @@ describe("parseJudgeOutput", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
 - [ ] **Step 3: Implement**
 
@@ -650,7 +650,7 @@ export function parseJudgeOutput(raw: string): JudgeFinding[] {
 }
 ```
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: judge output parser`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: judge output parser`
 
 ---
 
@@ -671,9 +671,9 @@ export interface EngineAdapter { name: Engine; run(prompt: string): Promise<Engi
 export function getAdapters(): EngineAdapter[]  // all four, order: openai, anthropic, gemini, perplexity
 ```
 
-All adapters use raw `fetch` (no SDKs — keeps mapping explicit and mockable). Each maps the vendor response to `{ answer, citations }`. On HTTP error, throw `EngineError(engine, status, bodySnippet)`.
+All adapters use raw `fetch` (no SDKs, keeps mapping explicit and mockable). Each maps the vendor response to `{ answer, citations }`. On HTTP error, throw `EngineError(engine, status, bodySnippet)`.
 
-- [ ] **Step 1: Failing mapping tests** — mock `fetch` per adapter with a captured real response shape:
+- [ ] **Step 1: Failing mapping tests**: mock `fetch` per adapter with a captured real response shape:
 
 ```ts
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -702,9 +702,9 @@ describe("perplexity adapter", () => {
 // gemini (candidates[0].content.parts[].text joined; groundingMetadata.groundingChunks[].web.uri).
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
-- [ ] **Step 3: Implement the four adapters.** Reference request bodies (verify against current vendor docs at implementation time — they drift):
+- [ ] **Step 3: Implement the four adapters.** Reference request bodies (verify against current vendor docs at implementation time; they drift):
 
 ```ts
 // src/engines/perplexity.ts
@@ -731,12 +731,12 @@ export const perplexityAdapter: EngineAdapter = {
 ```
 
 ```ts
-// src/engines/openai.ts — POST https://api.openai.com/v1/responses
+// src/engines/openai.ts, POST https://api.openai.com/v1/responses
 // body: { model: env.OPENAI_MODEL, tools: [{ type: "web_search" }], input: prompt }
 // answer: data.output.find(o => o.type === "message")?.content?.[0]?.text ?? ""
 // citations: that content[0].annotations?.filter(a => a.type === "url_citation").map(a => a.url) ?? []
 
-// src/engines/anthropic.ts — POST https://api.anthropic.com/v1/messages
+// src/engines/anthropic.ts, POST https://api.anthropic.com/v1/messages
 // headers: x-api-key, anthropic-version: "2023-06-01"
 // body: { model: env.ANTHROPIC_MODEL, max_tokens: 1500,
 //   tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
@@ -744,7 +744,7 @@ export const perplexityAdapter: EngineAdapter = {
 // answer: data.content.filter(b => b.type === "text").map(b => b.text).join("")
 // citations: unique data.content.flatMap(b => (b.citations ?? []).map(c => c.url)).filter(Boolean)
 
-// src/engines/gemini.ts — POST
+// src/engines/gemini.ts, POST
 // https://generativelanguage.googleapis.com/v1beta/models/{env.GEMINI_MODEL}:generateContent?key={env.GEMINI_API_KEY}
 // body: { contents: [{ parts: [{ text: prompt }] }], tools: [{ googleSearch: {} }] }
 // answer: data.candidates?.[0]?.content?.parts?.map(p => p.text).join("") ?? ""
@@ -761,11 +761,11 @@ export class EngineError extends Error {
 }
 ```
 
-- [ ] **Step 4: Run mapping tests — PASS.**
+- [ ] **Step 4: Run mapping tests: PASS.**
 
-- [ ] **Step 5: Write `scripts/smoke-engines.ts`** — iterates `getAdapters()`, runs one live prompt ("best med spa in Santa Monica for Botox"), prints engine name, first 200 chars, citation count. Run manually with real keys: `npx tsx scripts/smoke-engines.ts`. This is the ground-truth check on response shapes; fix any mapping drift found. Do not wire into CI.
+- [ ] **Step 5: Write `scripts/smoke-engines.ts`**: iterates `getAdapters()`, runs one live prompt ("best med spa in Santa Monica for Botox"), prints engine name, first 200 chars, citation count. Run manually with real keys: `npx tsx scripts/smoke-engines.ts`. This is the ground-truth check on response shapes; fix any mapping drift found. Do not wire into CI.
 
-- [ ] **Step 6: Commit** — `feat: four engine adapters with unified interface`
+- [ ] **Step 6: Commit**: `feat: four engine adapters with unified interface`
 
 ---
 
@@ -799,9 +799,9 @@ it("sends facts and answer, returns parsed findings", async () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**
+- [ ] **Step 2: Run: FAIL.**
 
-- [ ] **Step 3: Implement.** The judge prompt is the product-critical artifact — use exactly this:
+- [ ] **Step 3: Implement.** The judge prompt is the product-critical artifact. Use exactly this:
 
 ```ts
 // src/services/hallucination-judge.ts
@@ -839,7 +839,7 @@ export async function judgeAnswer(args: {
 }
 ```
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: hallucination judge with locked audit prompt`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: hallucination judge with locked audit prompt`
 
 ---
 
@@ -849,21 +849,21 @@ export async function judgeAnswer(args: {
 
 **Interfaces:**
 - Consumes: adapters (`EngineAdapter[]`), `classifyPosition`, `detectMention`, `computeScore`, `judgeAnswer`, db + schema.
-- Produces: `runScan(db: Db, practiceId: string, adapters: EngineAdapter[], judge: typeof judgeAnswer): Promise<{ scanId: string; score: number }>`. Adapters and judge are injected — tests pass fakes; production callers pass `getAdapters()` and `judgeAnswer`.
+- Produces: `runScan(db: Db, practiceId: string, adapters: EngineAdapter[], judge: typeof judgeAnswer): Promise<{ scanId: string; score: number }>`. Adapters and judge are injected, tests pass fakes; production callers pass `getAdapters()` and `judgeAnswer`.
 
 Behavior spec:
 1. Create `scans` row (status `running`).
 2. Load active prompts, name variations (practice name always included), competitors, active facts.
-3. For each prompt × each adapter (sequentially per engine to respect rate limits; engines in parallel with `Promise.allSettled`): call `run()`, then `detectMention` + `classifyPosition`, insert `checks` row. A rejected engine call inserts nothing and is recorded in the activity log as `"scan warning: <engine> failed on prompt <text>"` — a partial scan is still a scan.
+3. For each prompt × each adapter (sequentially per engine to respect rate limits; engines in parallel with `Promise.allSettled`): call `run()`, then `detectMention` + `classifyPosition`, insert `checks` row. A rejected engine call inserts nothing and is recorded in the activity log as `"scan warning: <engine> failed on prompt <text>"`, a partial scan is still a scan.
 4. For every check on a `branded` prompt that has `answerText`, call the judge; insert `findings` rows (status `open`), deduplicating: skip insert if an `open` finding with the same `claim` already exists for the practice.
 5. Compute `computeScore` over this scan's checks + the practice's open findings; update the `scans` row (status `complete`, component scores stored ×100 as integers, `finishedAt`).
-6. Write activity: `"Weekly scan complete — score N (M/K checks cited)"`.
+6. Write activity: `"Weekly scan complete: score N (M/K checks cited)"`.
 
 - [ ] **Step 1: Failing integration test (PGlite + fake adapters + fake judge)**
 
 ```ts
 import { describe, it, expect } from "vitest";
-// setup helper reused from tests/db/schema.test.ts — extract to tests/helpers/db.ts in this task
+// setup helper reused from tests/db/schema.test.ts. Extract to tests/helpers/db.ts in this task
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
@@ -910,7 +910,7 @@ it("survives one engine failing", async () => {
 });
 ```
 
-- [ ] **Step 2: Extract `tests/helpers/db.ts`** (`makeTestDb` = the PGlite+pushSchema helper from Task 2; `seedPractice` inserts practice, name variation = practice name, prompts, facts, competitors and returns ids). Run tests — FAIL.
+- [ ] **Step 2: Extract `tests/helpers/db.ts`** (`makeTestDb` = the PGlite+pushSchema helper from Task 2; `seedPractice` inserts practice, name variation = practice name, prompts, facts, competitors and returns ids). Run tests, FAIL.
 
 - [ ] **Step 3: Implement `runScan` exactly per the behavior spec above.** Shape:
 
@@ -935,9 +935,9 @@ export async function runScan(db: Db, practiceId: string, adapters: EngineAdapte
 }
 ```
 
-(Implementer: complete the elided queries and the judge/score/update blocks per the behavior spec — every referenced function already exists from Tasks 3–8.)
+(Implementer: complete the elided queries and the judge/score/update blocks per the behavior spec, every referenced function already exists from Tasks 3–8.)
 
-- [ ] **Step 4: Run — PASS.**  **Step 5: Commit** — `feat: scan runner orchestration`
+- [ ] **Step 4: Run: PASS.**  **Step 5: Commit**: `feat: scan runner orchestration`
 
 ---
 
@@ -948,7 +948,7 @@ export async function runScan(db: Db, practiceId: string, adapters: EngineAdapte
 - Test: `tests/lib/authz.test.ts`
 
 **Interfaces:**
-- Produces: `auth()` session helper (Auth.js v5); session user carries `{ id, email, role }`. `requireOperator()` and `requirePracticeAccess(slug)` server helpers in `src/lib/auth.ts` — every admin page calls the first, every dashboard page calls the second. `requirePracticeAccess` returns the practice row if the user is operator OR a `practice_members` row links them; otherwise `notFound()`.
+- Produces: `auth()` session helper (Auth.js v5); session user carries `{ id, email, role }`. `requireOperator()` and `requirePracticeAccess(slug)` server helpers in `src/lib/auth.ts`, every admin page calls the first, every dashboard page calls the second. `requirePracticeAccess` returns the practice row if the user is operator OR a `practice_members` row links them; otherwise `notFound()`.
 
 - [ ] **Step 1: Failing test for the pure authorization rule**
 
@@ -966,11 +966,11 @@ describe("canAccessPractice", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**  **Step 3: Implement** `canAccessPractice` (pure), then Auth.js config: Resend email provider (magic links — clients), Credentials provider checking `OPERATOR_EMAIL`/`OPERATOR_PASSWORD_HASH` env (add both to `env.ts` as optional with defaults for dev), Drizzle adapter, `session.user.role` from `users.role`. `middleware.ts`: redirect unauthenticated to `/login`; `/admin/**` additionally requires `role === "operator"`. Login page: email field → magic link, plus operator password form.
+- [ ] **Step 2: Run: FAIL.**  **Step 3: Implement** `canAccessPractice` (pure), then Auth.js config: Resend email provider (magic links, clients), Credentials provider checking `OPERATOR_EMAIL`/`OPERATOR_PASSWORD_HASH` env (add both to `env.ts` as optional with defaults for dev), Drizzle adapter, `session.user.role` from `users.role`. `middleware.ts`: redirect unauthenticated to `/login`; `/admin/**` additionally requires `role === "operator"`. Login page: email field → magic link, plus operator password form.
 
-- [ ] **Step 4: Tests PASS + manual check** — `npm run dev`, log in as operator, visit `/admin` (works) and confirm a client session gets 404 on `/admin`.
+- [ ] **Step 4: Tests PASS + manual check**: `npm run dev`, log in as operator, visit `/admin` (works) and confirm a client session gets 404 on `/admin`.
 
-- [ ] **Step 5: Commit** — `feat: auth with operator and client roles`
+- [ ] **Step 5: Commit**: `feat: auth with operator and client roles`
 
 ---
 
@@ -983,10 +983,10 @@ describe("canAccessPractice", () => {
 **Interfaces:**
 - Produces server actions (all call `requireOperator()` first): `createPractice(form: { name; slug; website })`, `addFact(practiceId, { category; label; value })`, `archiveFact(factId)`, `addPrompt(practiceId, { text; kind })`, `togglePrompt(promptId)`, `addCompetitor(practiceId, name)`, `addNameVariation(practiceId, text)`, `inviteClient(practiceId, email)` (creates client user + practice_members + sends magic link), `triggerScan(practiceId)` (calls `runScan` with real adapters + judge), `updateFindingStatus(findingId, status)` (sets `resolvedAt` when status ∈ fixed/verified/dismissed, writes activity `"Fixed: <claim>"`).
 
-- [ ] **Step 1: Failing tests** for `addFact`, `updateFindingStatus` (assert row states + activity row written; import actions with a test db injected via a `getDb()` indirection — add `src/db/index.ts` export `setDbForTests(db)` used only under `NODE_ENV=test`).
-- [ ] **Step 2: Run — FAIL.**  **Step 3: Implement actions + pages.** Practice detail page sections, in order: Fact Sheet table (category-grouped, add/archive inline), Prompts (10 max active — enforce in `addPrompt`, error "Deactivate a prompt first" beyond 10), Competitors, Name variations, **Run scan now** button (calls `triggerScan`, streams nothing — shows "Scan started; refresh in ~2 min"), Open findings table with status dropdown per row. Plain Tailwind tables; no component library.
+- [ ] **Step 1: Failing tests** for `addFact`, `updateFindingStatus` (assert row states + activity row written; import actions with a test db injected via a `getDb()` indirection. Add `src/db/index.ts` export `setDbForTests(db)` used only under `NODE_ENV=test`).
+- [ ] **Step 2: Run: FAIL.**  **Step 3: Implement actions + pages.** Practice detail page sections, in order: Fact Sheet table (category-grouped, add/archive inline), Prompts (10 max active; enforce in `addPrompt`, error "Deactivate a prompt first" beyond 10), Competitors, Name variations, **Run scan now** button (calls `triggerScan`, streams nothing, shows "Scan started; refresh in ~2 min"), Open findings table with status dropdown per row. Plain Tailwind tables; no component library.
 - [ ] **Step 4: Tests PASS + manual walkthrough** (create practice → add 2 facts, 2 prompts → trigger scan with real keys → see checks in db via `npx drizzle-kit studio`).
-- [ ] **Step 5: Commit** — `feat: admin practice management and scan trigger`
+- [ ] **Step 5: Commit**: `feat: admin practice management and scan trigger`
 
 ---
 
@@ -1001,12 +1001,12 @@ describe("canAccessPractice", () => {
 - Produces `src/lib/queries.ts`: `getLatestScan(db, practiceId)`, `getScoreTrend(db, practiceId, weeks: number): { date: string; score: number }[]`, `getChecksForScan(db, scanId)` (joined with prompt text), `getOpenFindings(db, practiceId)`, `getActivities(db, practiceId, limit)`, `getCompetitorPressure(db, scanId): { name: string; mentions: number }[]` (count of appearances in `competitorsMentioned` across the scan's checks, desc).
 
 - [ ] **Step 1: Failing tests** for `getScoreTrend` (returns completed scans only, ascending by date) and `getCompetitorPressure` (correct counts/order) against PGlite seeded via `tests/helpers/db.ts`.
-- [ ] **Step 2: Run — FAIL.**  **Step 3: Implement queries, then pages:**
-  - **Command center** (`/dashboard/[slug]`): verdict line (template: `"AI engines named {practice} in {cited} of {total} checks this week."`), three KPI tiles (Score + delta vs previous scan; This week's cited checks; Open accuracy issues), trend chart (Recharts line, last 12 scans — **invoke the `dataviz` skill before writing this component** and follow its palette/axis rules), competitor pressure list, latest activity (5 rows).
-  - **Answers** (`/answers`): every check from the latest scan as an `answer-card`: prompt text, engine badge, full verbatim `answerText` with practice-name mentions `<mark>`-highlighted (reuse the word-boundary regex from `core/mention.ts` — export `highlightRanges(answer, variations): {start,end}[]` there, with a unit test, rather than re-implementing), citation links, position chip.
-  - **Accuracy** (`/accuracy`): findings grouped by status — open (red), fixed (amber), verified (green) — each card: claim vs fact side by side, severity, platform, dates. Footer copy (exact): *"Accuracy issues cap your visibility score at 70 until resolved."*
+- [ ] **Step 2: Run: FAIL.**  **Step 3: Implement queries, then pages:**
+  - **Command center** (`/dashboard/[slug]`): verdict line (template: `"AI engines named {practice} in {cited} of {total} checks this week."`), three KPI tiles (Score + delta vs previous scan; This week's cited checks; Open accuracy issues), trend chart (Recharts line, last 12 scans, **invoke the `dataviz` skill before writing this component** and follow its palette/axis rules), competitor pressure list, latest activity (5 rows).
+  - **Answers** (`/answers`): every check from the latest scan as an `answer-card`: prompt text, engine badge, full verbatim `answerText` with practice-name mentions `<mark>`-highlighted (reuse the word-boundary regex from `core/mention.ts`, export `highlightRanges(answer, variations): {start,end}[]` there, with a unit test, rather than re-implementing), citation links, position chip.
+  - **Accuracy** (`/accuracy`): findings grouped by status, open (red), fixed (amber), verified (green), each card: claim vs fact side by side, severity, platform, dates. Footer copy (exact): *"Accuracy issues cap your visibility score at 70 until resolved."*
 - [ ] **Step 4: Tests PASS; manual walkthrough as a client user** (magic link → dashboard renders with seeded scan; `/admin` 404s).
-- [ ] **Step 5: Commit** — `feat: client dashboard with score, answers, accuracy ledger`
+- [ ] **Step 5: Commit**: `feat: client dashboard with score, answers, accuracy ledger`
 
 ---
 
@@ -1018,7 +1018,7 @@ describe("canAccessPractice", () => {
 
 **Interfaces:**
 - Consumes: `runScan`, queries from Task 12, Resend.
-- Produces: `composePulse(args: { practiceName: string; score: number; prevScore: number | null; cited: number; total: number; bestQuote: { engine: string; snippet: string } | null; openFindings: number; appUrl: string; slug: string }): { subject: string; html: string }` (pure — testable), and `sendPulse(db, practiceId)` (composes from latest scan + sends to all practice members via Resend).
+- Produces: `composePulse(args: { practiceName: string; score: number; prevScore: number | null; cited: number; total: number; bestQuote: { engine: string; snippet: string } | null; openFindings: number; appUrl: string; slug: string }): { subject: string; html: string }` (pure, testable), and `sendPulse(db, practiceId)` (composes from latest scan + sends to all practice members via Resend).
 
 - [ ] **Step 1: Failing tests for `composePulse`**
 
@@ -1046,7 +1046,7 @@ describe("composePulse", () => {
 });
 ```
 
-- [ ] **Step 2: Run — FAIL.**  **Step 3: Implement** `composePulse` (inline-styled HTML table email, ≤6 content rows, dashboard CTA link `${appUrl}/dashboard/${slug}`), `sendPulse` (Resend `emails.send`, from `pulse@` domain env-configurable — add optional `EMAIL_FROM` to env with dev default `onboarding@resend.dev`), and the cron route:
+- [ ] **Step 2: Run: FAIL.**  **Step 3: Implement** `composePulse` (inline-styled HTML table email, ≤6 content rows, dashboard CTA link `${appUrl}/dashboard/${slug}`), `sendPulse` (Resend `emails.send`, from `pulse@` domain env-configurable; add optional `EMAIL_FROM` to env with dev default `onboarding@resend.dev`), and the cron route:
 
 ```ts
 // src/app/api/cron/weekly-scan/route.ts
@@ -1066,10 +1066,10 @@ export async function GET(req: Request) {
 }
 ```
 
-`vercel.json`: `{ "crons": [{ "path": "/api/cron/weekly-scan", "schedule": "0 14 * * 4" }] }` (Thursday 14:00 UTC = 6/7am PT, so Friday-morning pulse emails land after you've reviewed — adjust once live).
+`vercel.json`: `{ "crons": [{ "path": "/api/cron/weekly-scan", "schedule": "0 14 * * 4" }] }` (Thursday 14:00 UTC = 6/7am PT, so Friday-morning pulse emails land after you've reviewed; adjust once live).
 
 - [ ] **Step 4: Tests PASS; manual:** `curl -H "Authorization: Bearer $CRON_SECRET" localhost:3000/api/cron/weekly-scan` with one active seeded practice and real keys → verify scan row + email received.
-- [ ] **Step 5: Commit** — `feat: weekly cron scan and pulse email`
+- [ ] **Step 5: Commit**: `feat: weekly cron scan and pulse email`
 
 ---
 
@@ -1083,9 +1083,9 @@ export async function GET(req: Request) {
 - Produces `buildReportData(db, practiceId, monthISO: string)` → `{ verdict: string; score: number; prevMonthScore: number | null; trend: {date,score}[]; perEngine: { engine: string; cited: number; total: number }[]; accuracyLedger: { found: number; fixed: number; verified: number; open: number }; activities: string[]; bestQuote: { engine; prompt; snippet } | null }`. Verdict template (locked): `"AI engines named {practice} in {pct}% of patient-question checks in {month}, {direction} from {prevPct}% last month."` (omit comparison clause when no prior month).
 
 - [ ] **Step 1: Failing tests** for `buildReportData`: per-engine cited/total math from seeded checks across two scans in the month; accuracy ledger counts by status; verdict string for both with-prior and no-prior cases.
-- [ ] **Step 2: Run — FAIL.**  **Step 3: Implement** `report.ts` + the page: single-column, sections in the locked report order from strategy Doc 3 (verdict → score+trend → accuracy ledger → per-engine table → activity list → next month placeholder text editable via a `reportNotes` column added to `practices` (migrate) → best-quote blockquote). Add `@media print` CSS: hide nav, white background, page margins — the deliverable PDF is browser Print-to-PDF; no PDF library.
+- [ ] **Step 2: Run: FAIL.**  **Step 3: Implement** `report.ts` + the page: single-column, sections in the locked report order from strategy Doc 3 (verdict → score+trend → accuracy ledger → per-engine table → activity list → next month placeholder text editable via a `reportNotes` column added to `practices` (migrate) → best-quote blockquote). Add `@media print` CSS: hide nav, white background, page margins. The deliverable PDF is browser Print-to-PDF; no PDF library.
 - [ ] **Step 4: Tests PASS; manual:** print preview looks clean at A4/Letter.
-- [ ] **Step 5: Commit** — `feat: printable monthly report`
+- [ ] **Step 5: Commit**: `feat: printable monthly report`
 
 ---
 
@@ -1093,11 +1093,11 @@ export async function GET(req: Request) {
 
 **Files:** Create `scripts/seed.ts`; Modify `README.md`, `package.json` (scripts)
 
-- [ ] **Step 1: `scripts/seed.ts`** — creates the operator user (from `OPERATOR_EMAIL`), one demo practice ("Glow MedSpa", slug `glow`) with: 8 facts across categories (include one `not_offered`: "Surgical procedures — NOT offered"), the 10-prompt starter battery from strategy Doc 1 §Section-4-derived set (6 category / 2 branded / 2 informational, Santa Monica placeholders), 3 competitors, 2 name variations. Idempotent (upsert by slug). `npm run seed`.
-- [ ] **Step 2: `package.json` scripts** — `"test": "vitest run"`, `"seed": "tsx scripts/seed.ts"`, `"smoke": "tsx scripts/smoke-engines.ts"`, `"db:push": "drizzle-kit push"`, `"db:studio": "drizzle-kit studio"`.
-- [ ] **Step 3: README ship checklist** (write it as a literal checklist): Neon database created + `DATABASE_URL` set → `npm run db:push` → all 8 env keys in Vercel → `vercel deploy` → cron visible in Vercel dashboard → seed run against prod db → operator login works → `npm run smoke` passes all 4 engines → trigger first real scan from `/admin` → invite first client email. Include the cost note: at 10 prompts × 4 engines × ~weekly, expect roughly 40 search-enabled calls + ~8 judge calls per practice per week — budget a few dollars per practice per month; recheck vendor pricing at deploy time.
-- [ ] **Step 4: Full test suite green** — `npm test` (expect ~30 tests passing). Fix anything red.
-- [ ] **Step 5: Commit** — `chore: seed, scripts, ship checklist` — then tag `v0.1.0`.
+- [ ] **Step 1: `scripts/seed.ts`**: creates the operator user (from `OPERATOR_EMAIL`), one demo practice ("Glow MedSpa", slug `glow`) with: 8 facts across categories (include one `not_offered`: "Surgical procedures, NOT offered"), the 10-prompt starter battery from strategy Doc 1 §Section-4-derived set (6 category / 2 branded / 2 informational, Santa Monica placeholders), 3 competitors, 2 name variations. Idempotent (upsert by slug). `npm run seed`.
+- [ ] **Step 2: `package.json` scripts**: `"test": "vitest run"`, `"seed": "tsx scripts/seed.ts"`, `"smoke": "tsx scripts/smoke-engines.ts"`, `"db:push": "drizzle-kit push"`, `"db:studio": "drizzle-kit studio"`.
+- [ ] **Step 3: README ship checklist** (write it as a literal checklist): Neon database created + `DATABASE_URL` set → `npm run db:push` → all 8 env keys in Vercel → `vercel deploy` → cron visible in Vercel dashboard → seed run against prod db → operator login works → `npm run smoke` passes all 4 engines → trigger first real scan from `/admin` → invite first client email. Include the cost note: at 10 prompts × 4 engines × ~weekly, expect roughly 40 search-enabled calls + ~8 judge calls per practice per week. Budget a few dollars per practice per month; recheck vendor pricing at deploy time.
+- [ ] **Step 4: Full test suite green**: `npm test` (expect ~30 tests passing). Fix anything red.
+- [ ] **Step 5: Commit**: `chore: seed, scripts, ship checklist`, then tag `v0.1.0`.
 
 ---
 
@@ -1105,5 +1105,5 @@ export async function GET(req: Request) {
 
 - **Spec coverage:** fact sheet (T2/T11), 4-engine scans (T7/T9), hallucination detection (T6/T8/T9), score with cap (T5), client dashboard + verbatim answers + accuracy ledger (T12), weekly automation + pulse email (T13), monthly report (T14), roles/multi-tenancy (T10), ops (T15). Reference-platform-guide features deliberately deferred post-MVP: content generation ("Act"), Reddit/HN mention scanning, keywords discovery, auto-competitor discovery, AI tutor, guided tour, score-breakdown modal. These are listed so nobody "helpfully" scope-creeps them in.
 - **Type consistency check:** `EngineAnswer`/`EngineAdapter` (T2/T7) flow into `runScan` (T9); `JudgeFinding` (T6) flows T8→T9; `ScoreBreakdown` component names match `scans` columns (T2/T5/T9); `composePulse`/`buildReportData` consume only fields produced by T12 queries.
-- **Known risk flagged, not hidden:** vendor API response shapes drift — that's what `scripts/smoke-engines.ts` (T7 step 5) exists for; mapping tests pin our parsing, the smoke script pins reality.
+- **Known risk flagged, not hidden:** vendor API response shapes drift. That's what `scripts/smoke-engines.ts` (T7 step 5) exists for; mapping tests pin our parsing, the smoke script pins reality.
 ```
