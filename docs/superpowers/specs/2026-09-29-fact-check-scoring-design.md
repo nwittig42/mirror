@@ -117,6 +117,10 @@ New column: `findings.last_seen_scan_id` (uuid, nullable, references
 - Report score breakdown (P03 and equivalents) shows overall = 70% visibility
   + 30% facts, with visibility's three parts underneath. When the cap applies,
   show "capped at 70 because of a serious wrong fact" so the numbers reconcile.
+- Under the overall score, a plain line explains the weights, e.g.
+  "Overall = 70% visibility (62) + 30% fact accuracy (80) = 67". Variants for
+  fact score N/A ("Overall = visibility, no facts were checked this scan"),
+  never named ("Overall is 0 because AI never named you"), and the cap.
 - Fact list ("checked / right"): only facts mentioned this scan. Right =
   confirmed and not wrong this scan; wrong = open findings seen this scan.
   Older unseen open findings are not in the client report.
