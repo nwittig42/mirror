@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { composeAlert, alertableFindings, sendAlert } from "@/services/alert-email";
+import { composeAlert, composeBlockedAlert, composeDispatchAlert, composeProspectAlert, alertableFindings, sendAlert } from "@/services/alert-email";
 import type { NewFinding } from "@/services/scan-runner";
 
 const finding = (over: Partial<NewFinding> = {}): NewFinding => ({
@@ -172,5 +172,46 @@ describe("sendAlert", () => {
       .where(eq(schema.activities.practiceId, practiceId));
     expect(activities.some(a => a.description.includes("alert email failed"))).toBe(true);
     expect(activities.some(a => a.description.includes("resend down"))).toBe(true);
+  });
+});
+
+describe("composeBlockedAlert", () => {
+  it("says the scan was held back and why, escaping the reason", () => {
+    const { subject, html } = composeBlockedAlert({
+      practiceName: "Glow MedSpa", slug: "glow", appUrl: "https://app.example.com",
+      reason: "Only 40% of answers came back. <Gemini> didn't respond.",
+    });
+    expect(subject).toBe("Mirror: scan blocked for Glow MedSpa");
+    expect(html).toContain("&lt;Gemini&gt;");
+    expect(html).toContain("Last week's score stays up");
+  });
+});
+
+describe("composeDispatchAlert", () => {
+  it("lists the practices whose scan never started", () => {
+    const out = composeDispatchAlert([
+      { practice: "glow", dispatched: false, error: "Error: scan-practice 401" },
+      { practice: "skinbar", dispatched: true },
+    ]);
+    expect(out?.subject).toBe("Mirror: 1 weekly scan didn't start");
+    expect(out?.html).toContain("glow");
+    expect(out?.html).not.toContain("skinbar");
+  });
+  it("is null when every scan started", () => {
+    expect(composeDispatchAlert([{ practice: "glow", dispatched: true }])).toBeNull();
+  });
+});
+
+describe("composeProspectAlert", () => {
+  it("says the report is ready and links straight to the customer", () => {
+    const out = composeProspectAlert({ practiceName: "Glow <MedSpa>", practiceId: "p1", status: "ready", note: null, appUrl: "https://app.example" });
+    expect(out.subject).toBe("Report ready: Glow <MedSpa>. Review it before the call");
+    expect(out.html).toContain("Glow &lt;MedSpa&gt;");
+    expect(out.html).toContain("https://app.example/admin/practices/p1/overview");
+  });
+  it("says what needs a look when setup hit a problem", () => {
+    const out = composeProspectAlert({ practiceName: "Glow", practiceId: "p1", status: "needs_attention", note: "Their website couldn't be read.", appUrl: "https://app.example" });
+    expect(out.subject).toBe("Needs a look: Glow's report");
+    expect(out.html).toContain("couldn&#39;t be read");
   });
 });

@@ -41,6 +41,9 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
               answerText={check.answerText}
               citations={check.citations}
               practiceNames={practiceNames}
+              searchQueries={check.searchQueries}
+              tone={check.tone}
+              toneReason={check.toneReason}
             />
           ))}
         </div>

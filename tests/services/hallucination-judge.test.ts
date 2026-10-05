@@ -19,15 +19,15 @@ describe("hallucination-judge", () => {
 
   it("sends facts and answer, returns parsed findings", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      content: [{ type: "text", text: `[{"claim":"Botox is $9/unit","factLabel":"Botox price","severity":"major"}]` }],
+      content: [{ type: "text", text: `{"wrong":[{"claim":"Botox is $9/unit","factLabel":"Botox price","severity":"major"}],"right":[]}` }],
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     const { judgeAnswer } = await import("@/services/hallucination-judge");
-    const findings = await judgeAnswer({
+    const verdict = await judgeAnswer({
       answer: "At Glow MedSpa, Botox is $9/unit.",
       facts: [{ label: "Botox price", value: "$13/unit", category: "pricing" }],
     });
-    expect(findings[0].severity).toBe("major");
+    expect(verdict.wrong[0].severity).toBe("major");
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(body.messages[0].content).toContain("$13/unit");   // facts made it into the prompt
   });

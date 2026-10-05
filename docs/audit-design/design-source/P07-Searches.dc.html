@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What AI searched for</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #EDE9FE; color: #6D28D9">Why they’re winning</span>
+      <h1 class="h1">What AI searched for</h1>
+      <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #475569; max-width: 580px">Before answering, some assistants search the web like a person would. These are the real searches they ran, and they show which pages AI is looking for.</p>
+    </div>
+
+    <p class="take">{{searchTake}}</p>
+    <sc-if value="{{hasSearches}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 8px">
+        <sc-for list="{{searches}}" as="s" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 12px; border: 2px solid #E2E8F0; border-radius: 999px; padding: 8px 10px 8px 18px; background: #FFFFFF">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+            <span style="flex-grow: 1; font-size: 15px; font-weight: 600">{{s.q}}</span>
+            <div style="display: flex; gap: 4px">
+              <sc-for list="{{s.tools}}" as="t" hint-placeholder-count="2">
+                <span style="display: flex; align-items: center; gap: 5px; padding: 3px 9px 3px 3px; border-radius: 99px; background: #F1F5F9; font-size: 11.5px; font-weight: 700"><span style="width: 18px; height: 18px; border-radius: 9px; background: {{t.color}}; color: #FFFFFF; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{t.short}}</span>{{t.name}}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{noSearches}}" hint-placeholder-val="{{false}}">
+      <div style="border: 2px dashed #CBD5E1; border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 700">No searches recorded</span>
+        <span class="small">The assistants answered from what they already knew, without searching first. That makes the sites on page 06 even more important.</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{hasSearches}}" hint-placeholder-val="{{true}}">
+      <div style="display: grid; grid-template-columns: 300px 1fr; gap: 24px; align-items: start">
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="label">Words AI kept adding</span>
+          <div style="position: relative; height: 250px; background: #F8FAFC; border-radius: 18px">
+            <sc-for list="{{words}}" as="w" hint-placeholder-count="4">
+              <span style="position: absolute; left: {{w.x}}px; top: {{w.y}}px; width: {{w.size}}px; height: {{w.size}}px; border-radius: 50%; background: {{w.color}}; color: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; font-weight: 800; font-size: {{w.font}}px; line-height: 1.1">{{w.word}}<span style="font-size: 10px; font-weight: 700; opacity: 0.85">#{{w.rank}}</span></span>
+            </sc-for>
+          </div>
+          <span class="small">Bigger bubble = added more often.</span>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 10px">
+          <span class="label">The pages AI is looking for</span>
+          <sc-for list="{{pages}}" as="p" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: 1fr 110px; gap: 12px; align-items: center; padding: 10px 12px; border-radius: 12px; background: {{p.soft}}">
+              <div style="display: flex; flex-direction: column; gap: 2px">
+                <span style="font-size: 11px; font-weight: 800; color: {{p.wordColor}}">“{{p.word}}”</span>
+                <span style="font-size: 14px; font-weight: 700">{{p.page}}</span>
+                <span class="small" style="color: #475569">{{p.why}}</span>
+              </div>
+              <span style="justify-self: end; display: flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 800; padding: 4px 10px; border-radius: 99px; background: {{p.bg}}; color: #FFFFFF">{{p.icon}} {{p.status}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <div style="background: #EFF6FF; border-radius: 16px; padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5v.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">What this means</span>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.5; color: #1E293B">AI shops the way your customers do: it wants current prices, reviews and hours. If your site doesn’t answer those clearly, AI finds the answer somewhere else, sometimes an old or wrong one.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>07 · What AI searched for</span><span style="font-weight: 700; color: #0F172A">7 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showEmpty":{"editor":"boolean","default":false,"section":"Preview"},"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const empty = this.props.showEmpty ?? false;
+    const T = {
+      ChatGPT: { name: 'ChatGPT', short: 'Ch', color: '#0F766E' }, Claude: { name: 'Claude', short: 'Cl', color: '#D97757' },
+      Gemini: { name: 'Gemini', short: 'Ge', color: '#4F46E5' }, Grok: { name: 'Grok', short: 'Gr', color: '#111827' },
+      Perplexity: { name: 'Perplexity', short: 'Pe', color: '#7C3AED' }
+    };
+    const searches = (empty ? [] : [
+      { q: 'best med spa santa monica reviews', tools: ['ChatGPT', 'Perplexity', 'Grok'] },
+      { q: 'botox prices santa monica 2026', tools: ['ChatGPT'] },
+      { q: 'med spa near me open saturday', tools: ['Perplexity', 'Gemini'] }
+    ]).map((s) => ({ ...s, tools: s.tools.map((t) => T[t]) }));
+    // bubble layout: fixed spots, biggest first
+    const spots = [
+      { x: 22, y: 22, size: 124, font: 17 }, { x: 160, y: 30, size: 104, font: 15 },
+      { x: 60, y: 150, size: 88, font: 14 }, { x: 166, y: 138, size: 84, font: 11 }
+    ];
+    const colors = ['#7C3AED', '#0D9488', '#E8590C', '#DB2777'];
+    const words = (empty ? [] : ['reviews', 'prices', '2026', 'open saturday'])
+      .slice(0, spots.length).map((word, i) => ({ word, rank: i + 1, color: colors[i], ...spots[i] }));
+    const S = {
+      missing: { status: 'Missing', icon: '✕', bg: '#DC2626', soft: '#FEF2F2', wordColor: '#B91C1C' },
+      partial: { status: 'Partly there', icon: '!', bg: '#D97706', soft: '#FFFBEB', wordColor: '#B45309' },
+      ok: { status: 'Have it', icon: '✓', bg: '#16A34A', soft: '#F0FDF4', wordColor: '#15803D' }
+    };
+    const pages = (empty ? [] : [
+      { word: 'prices', page: 'A current price list', why: 'Botox per unit, fillers, facials, in plain text.', kind: 'missing' },
+      { word: '2026', page: '“Updated Sept 2026” on key pages', why: 'Tells AI your prices and hours are current.', kind: 'missing' },
+      { word: 'reviews', page: 'A reviews page', why: 'Your ratings, linked to Yelp and Google reviews.', kind: 'partial' },
+      { word: 'open saturday', page: 'Hours, stated plainly', why: 'The same on your site and Google listing.', kind: 'partial' }
+    ]).map((p) => ({ ...p, ...S[p.kind] }));
+    return {
+      searches, words, pages,
+      hasSearches: searches.length > 0, noSearches: searches.length === 0,
+      searchTake: searches.length
+        ? 'AI searched for prices, reviews and Saturday hours before naming anyone.'
+        : 'No web searches were recorded in this scan.'
+    };
+  }
+}
+</script>
+</body>
+</html>

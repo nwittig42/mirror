@@ -3,7 +3,7 @@ import { composePulse } from "@/services/pulse-email";
 
 const base = { practiceName: "Glow MedSpa", score: 42, prevScore: 38, cited: 6, total: 40,
   bestQuote: { engine: "perplexity", snippet: "Glow MedSpa is known for natural results" },
-  openFindings: 0, appUrl: "https://app.example", slug: "glow" };
+  openFindings: 0, appUrl: "https://app.example", slug: "glow", coverageNote: null };
 
 describe("composePulse", () => {
   it("subject follows the locked format", () =>
@@ -33,5 +33,15 @@ describe("composePulse", () => {
     });
     expect(html).not.toContain("<script>alert(1)</script>");
     expect(html).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+  });
+});
+
+describe("composePulse coverage note", () => {
+  it("says when the scan was short", () => {
+    const { html } = composePulse({ ...base, coverageNote: "Based on 4 of 5 AI tools. Gemini didn't respond." });
+    expect(html).toContain("Based on 4 of 5 AI tools. Gemini didn&#39;t respond.");
+  });
+  it("says nothing when every tool answered", () => {
+    expect(composePulse(base).html).not.toContain("Based on");
   });
 });

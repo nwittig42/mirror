@@ -168,3 +168,40 @@ describe("sendAuditRequest", () => {
     await expect(sendAuditRequest(VALID, failing)).rejects.toThrow("resend down");
   });
 });
+
+describe("audit confirmation", () => {
+  beforeEach(() => {
+    vi.resetModules();
+    process.env.DATABASE_URL = "postgres://x";
+    process.env.OPENAI_API_KEY = "k";
+    process.env.ANTHROPIC_API_KEY = "k";
+    process.env.GEMINI_API_KEY = "k";
+    process.env.PERPLEXITY_API_KEY = "k";
+    process.env.RESEND_API_KEY = "k";
+    process.env.CRON_SECRET = "s";
+    process.env.AUTH_SECRET = "s";
+    process.env.APP_URL = "http://localhost:3000";
+    process.env.EMAIL_FROM = "mirror@example.com";
+    process.env.LEADS_EMAIL = "sales@mirror.example";
+  });
+
+  const req = {
+    practiceName: "Glow <b>MedSpa</b>", websiteUrl: "https://glow.example", contactName: "Dr. Kim",
+    email: "kim@glow.example", phone: "", bestTimes: "",
+  };
+
+  it("escapes the visitor's input and names the practice", async () => {
+    const { composeAuditConfirmation } = await import("@/services/audit-request");
+    const { subject, html } = composeAuditConfirmation(req, "Mirror");
+    expect(subject).toContain("Glow <b>MedSpa</b>");
+    expect(html).toContain("Glow &lt;b&gt;MedSpa&lt;/b&gt;");
+    expect(html).not.toContain("<b>MedSpa</b>");
+  });
+
+  it("goes to the prospect with replies routed to the sales inbox", async () => {
+    const { sendAuditConfirmation } = await import("@/services/audit-request");
+    const calls: { to: string[]; replyTo: string }[] = [];
+    await sendAuditConfirmation(req, async args => { calls.push(args); });
+    expect(calls).toEqual([expect.objectContaining({ to: ["kim@glow.example"], replyTo: "sales@mirror.example" })]);
+  });
+});

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>What AI gets wrong about you</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: center">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #FEE2E2; color: #B91C1C">What AI gets wrong</span>
+        <h1 class="h1">What AI gets wrong about you</h1>
+        <p class="take">{{take}}</p>
+      </div>
+      <div style="display: flex; gap: 14px; align-items: center; background: #F8FAFC; border-radius: 18px; padding: 14px">
+        <div style="position: relative; width: 96px; height: 96px; flex-shrink: 0">
+          <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
+            <circle cx="48" cy="48" r="38" fill="none" stroke="#FFFFFF" stroke-width="12"></circle>
+            <circle cx="48" cy="48" r="38" fill="none" stroke-width="12" transform="rotate(-90 48 48)" style="stroke: {{acc.color}}; stroke-dasharray: {{acc.dash}}"></circle>
+          </svg>
+          <div style="position: absolute; left: 0; top: 0; width: 96px; height: 96px; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 26px; font-weight: 800; line-height: 1">{{acc.score}}</span><span style="font-size: 10px; color: #64748B">accuracy</span></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{counts}}" as="c" hint-placeholder-count="3">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700"><span style="min-width: 24px; height: 24px; border-radius: 7px; background: {{c.bg}}; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{c.n}}</span>{{c.name}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <sc-if value="{{hasErrors}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 14px">
+        <sc-for list="{{errors}}" as="e" hint-placeholder-count="3">
+          <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 1px 2px rgba(15,23,42,0.05)">
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+              <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: {{e.sevBg}}; color: {{e.sevFg}}">{{e.severity}}</span>
+              <sc-if value="{{e.isPrice}}" hint-placeholder-val="{{false}}"><span style="font-size: 11px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 10px; border-radius: 99px; border: 2px solid #DC2626; color: #B91C1C">$ Price</span></sc-if>
+              <span style="font-size: 14px; font-weight: 800; margin-left: 4px">{{e.topic}}</span>
+              <span style="margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #475569">Said by <span style="width: 20px; height: 20px; border-radius: 6px; background: {{e.color}}; color: #FFFFFF; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{e.short}}</span>{{e.tool}}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 28px 1fr; gap: 8px; align-items: center">
+              <div style="background: #FEF2F2; border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start">
+                <span style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 12px; background: #DC2626; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12"></path><path d="M18 6L6 18"></path></svg></span>
+                <div style="display: flex; flex-direction: column; gap: 2px"><span class="label" style="color: #B91C1C">AI said</span><span style="font-size: 15px; line-height: 1.35">“{{e.said}}”</span></div>
+              </div>
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h13"></path><path d="M13 6l6 6-6 6"></path></svg>
+              <div style="background: #F0FDF4; border-radius: 12px; padding: 12px 14px; display: flex; gap: 10px; align-items: flex-start">
+                <span style="flex-shrink: 0; width: 24px; height: 24px; border-radius: 12px; background: #16A34A; display: flex; align-items: center; justify-content: center"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <div style="display: flex; flex-direction: column; gap: 2px"><span class="label" style="color: #15803D">The truth</span><span style="font-size: 15px; line-height: 1.35; font-weight: 800">{{e.truth}}</span></div>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center">
+              <span class="label">Where AI read it</span>
+              <sc-for list="{{e.sources}}" as="s" hint-placeholder-count="1">
+                <span style="font-size: 12.5px; padding: 3px 10px; border-radius: 99px; background: #F1F5F9; font-weight: 700">{{s}}</span>
+              </sc-for>
+              <sc-if value="{{e.noSource}}" hint-placeholder-val="{{false}}"><span class="small">Not shown. The assistant didn’t list a source.</span></sc-if>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{noErrors}}" hint-placeholder-val="{{false}}">
+      <div style="background: #F0FDF4; border-radius: 18px; padding: 36px 24px; display: flex; flex-direction: column; gap: 8px; align-items: center; text-align: center">
+        <span style="width: 48px; height: 48px; border-radius: 24px; background: #16A34A; display: flex; align-items: center; justify-content: center"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+        <span style="font-size: 17px; font-weight: 800">No wrong facts found</span>
+        <span class="small" style="max-width: 420px; color: #475569">Every fact we checked about your prices, hours and services was correct. We’ll keep watching as AI tools update.</span>
+      </div>
+    </sc-if>
+
+    <div style="background: #EFF6FF; border-radius: 16px; padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5v.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">What this means</span>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.5; color: #1E293B">Wrong facts cost you twice: a customer arrives expecting the wrong price or a service you don’t offer, and AI keeps repeating the mistake until the site it read is fixed. Fixing your own site alone isn’t enough.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>08 · What AI gets wrong about you</span><span style="font-weight: 700; color: #0F172A">8 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showEmpty":{"editor":"boolean","default":false,"section":"Preview"},"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const empty = this.props.showEmpty ?? false;
+    const T = {
+      ChatGPT: { short: 'Ch', color: '#0F766E' }, Claude: { short: 'Cl', color: '#D97757' },
+      Gemini: { short: 'Ge', color: '#4F46E5' }, Grok: { short: 'Gr', color: '#111827' }, Perplexity: { short: 'Pe', color: '#7C3AED' }
+    };
+    const SEV = {
+      critical: { rank: 0, sevBg: '#DC2626', sevFg: '#FFFFFF' },
+      major: { rank: 1, sevBg: '#F59E0B', sevFg: '#0F172A' },
+      minor: { rank: 2, sevBg: '#E2E8F0', sevFg: '#334155' }
+    };
+    const raw = empty ? [] : [
+      { tool: 'Perplexity', topic: 'Services', said: 'Offers laser hair removal.', truth: 'Not offered.', severity: 'critical', isPrice: false, sources: ['yelp.com'] },
+      { tool: 'Claude', topic: 'Hours', said: 'Open Sundays.', truth: 'Closed Sundays.', severity: 'major', isPrice: false, sources: [] },
+      { tool: 'ChatGPT', topic: 'Botox price', said: 'Botox is $9 per unit.', truth: '$13 per unit.', severity: 'major', isPrice: true, sources: ['oldblog.example'] }
+    ];
+    // price errors first, then by severity
+    const errors = raw
+      .map((e) => ({ ...e, ...T[e.tool], ...SEV[e.severity], noSource: e.sources.length === 0 }))
+      .sort((a, b) => (b.isPrice - a.isPrice) || (a.rank - b.rank));
+    const n = (s) => errors.filter((e) => e.severity === s).length;
+    const counts = [
+      { name: 'Critical', n: n('critical'), bg: '#DC2626' },
+      { name: 'Major', n: n('major'), bg: '#D97706' },
+      { name: 'Minor', n: n('minor'), bg: '#94A3B8' }
+    ];
+    const score = empty ? 100 : 70;
+    const C = 2 * Math.PI * 38;
+    const color = score >= 70 ? '#16A34A' : score >= 40 ? '#F59E0B' : '#DC2626';
+    const prices = errors.filter((e) => e.isPrice).length;
+    let take = 'AI got every fact we checked right.';
+    if (errors.length) {
+      take = 'AI got ' + errors.length + ' fact' + (errors.length > 1 ? 's' : '') + ' wrong about you';
+      take += prices ? ', including your price. Price errors come first.' : '.';
+    }
+    return {
+      errors, counts, take, hasErrors: errors.length > 0, noErrors: errors.length === 0,
+      acc: { score, color, dash: (score / 100) * C + ' ' + C }
+    };
+  }
+}
+</script>
+</body>
+</html>

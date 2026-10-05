@@ -1,18 +1,22 @@
 import Link from "next/link";
 
-const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
-
-type Tab = "overview" | "answers" | "competitors" | "accuracy" | "report";
+type Tab = "overview" | "answers" | "competitors" | "sources" | "accuracy" | "audit" | "report" | "help";
 
 const TABS: { key: Tab; label: string; suffix: string }[] = [
-  { key: "overview", label: "Overview", suffix: "" },
+  { key: "overview", label: "Summary", suffix: "" },
   { key: "answers", label: "Answers", suffix: "/answers" },
   { key: "competitors", label: "Competitors", suffix: "/competitors" },
+  { key: "sources", label: "Sources", suffix: "/sources" },
   { key: "accuracy", label: "Accuracy", suffix: "/accuracy" },
-  { key: "report", label: "Report", suffix: "/report" },
+  { key: "audit", label: "Full report", suffix: "/audit" },
+  { key: "report", label: "Monthly report", suffix: "/report" },
+  { key: "help", label: "Help", suffix: "/help" },
 ];
 
-/** Shared header + tab nav for the client dashboard pages. */
+/**
+ * The customer dashboard's header, after Apple Fitness: today's date in grey,
+ * a large bold title, and the sections as pills.
+ */
 export function DashboardHeader({
   slug, practiceName, active,
 }: {
@@ -20,20 +24,20 @@ export function DashboardHeader({
   practiceName: string;
   active: Tab;
 }) {
+  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
   return (
-    <header className="mb-8">
-      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{appName}</p>
-      <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{practiceName}</h1>
-      <nav className="mt-4 flex gap-1 border-b border-zinc-200 print:hidden dark:border-zinc-800">
+    <header className="mb-6">
+      <p className="text-[13px] font-semibold text-[#8e8e93]">{today}</p>
+      <h1 className="text-[34px] font-bold leading-tight tracking-tight text-white">{practiceName}</h1>
+      <nav className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1 print:hidden" aria-label="Dashboard sections">
         {TABS.map(tab => (
           <Link
             key={tab.key}
             href={`/dashboard/${slug}${tab.suffix}`}
-            className={
-              active === tab.key
-                ? "border-b-2 border-black px-3 py-2 text-sm font-medium text-black dark:border-zinc-50 dark:text-zinc-50"
-                : "border-b-2 border-transparent px-3 py-2 text-sm font-medium text-zinc-500 hover:text-black dark:text-zinc-400 dark:hover:text-zinc-50"
-            }
+            aria-current={active === tab.key ? "page" : undefined}
+            className={`whitespace-nowrap rounded-full px-4 py-1.5 text-[15px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-white ${
+              active === tab.key ? "bg-white text-black" : "bg-[#1c1c1e] text-[#aeaeb2] hover:text-white"
+            }`}
           >
             {tab.label}
           </Link>

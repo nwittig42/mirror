@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Where AI looks and what to do</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Snapshot</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DCFCE7; color: #15803D">What to do</span>
+      <h1 class="h1">Where AI looks, and how to get in front of it</h1>
+    </div>
+    <p class="take">AI mostly reads articles and review sites. Your own website shows up in just 9% of answers.</p>
+
+    <div style="display: grid; grid-template-columns: 1fr 260px; gap: 18px; align-items: stretch">
+      <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 16px 18px; display: flex; gap: 20px; align-items: center">
+        <div style="position: relative; width: 150px; height: 150px; flex-shrink: 0">
+          <div style="width: 150px; height: 150px; border-radius: 75px; background: {{donut}}"></div>
+          <div style="position: absolute; left: 34px; top: 34px; width: 82px; height: 82px; border-radius: 41px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center">
+            <span style="font-size: 22px; font-weight: 800; line-height: 1; color: #B91C1C">9%</span>
+            <span style="font-size: 10px; color: #64748B; text-align: center; line-height: 1.2">your<br>website</span>
+          </div>
+        </div>
+        <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{types}}" as="t" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 12px 1fr 40px; gap: 8px; align-items: center">
+              <span style="width: 12px; height: 12px; border-radius: 3px; background: {{t.color}}"></span>
+              <span style="font-size: 13px; font-weight: {{t.weight}}; color: {{t.nameColor}}">{{t.name}}</span>
+              <span style="font-size: 13px; font-weight: 800; text-align: right">{{t.pct}}%</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="background: #F8FAFC; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+        <span class="label">Words AI added to its searches</span>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px">
+          <sc-for list="{{words}}" as="w" hint-placeholder-count="4">
+            <span style="padding: 7px 12px; border-radius: 99px; background: {{w.color}}; color: #FFFFFF; font-size: {{w.font}}px; font-weight: 800">{{w.word}}</span>
+          </sc-for>
+        </div>
+        <span class="small" style="color: #475569">These are the pages AI hopes to find: current prices, reviews and hours.</span>
+      </div>
+    </div>
+
+    <div style="border: 2px solid #7C3AED; border-radius: 18px; padding: 16px 18px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; gap: 10px; align-items: center">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.5" fill="#7C3AED"></circle></svg>
+        <span style="font-size: 15px; font-weight: 800">Your outreach list: sites AI read when a competitor won</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{outreach}}" as="o" hint-placeholder-count="5">
+          <div style="background: #F5F3FF; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 4px">
+            <span style="font-size: 13px; font-weight: 800">{{o.site}}</span>
+            <span style="font-size: 11.5px; line-height: 1.35; color: #334155">{{o.ask}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1"></div>
+
+    <div style="background: #2563EB; border-radius: 20px; padding: 24px 28px; display: flex; justify-content: space-between; align-items: center; gap: 24px">
+      <div style="display: flex; flex-direction: column; gap: 6px; max-width: 380px">
+        <span style="font-family: 'Newsreader', Georgia, serif; font-size: 26px; line-height: 1.2; color: #FFFFFF">Get named more often.</span>
+        <span style="font-size: 14px; line-height: 1.5; color: #DBEAFE">Mirror gets you onto the sites AI reads and builds the pages it searches for. We re-check in 90 days.</span>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end">
+        <a href="https://example.com/book" style="display: inline-flex; align-items: center; min-height: 46px; padding: 0 22px; border-radius: 12px; background: #FFFFFF; color: #1D4ED8; font-size: 15px; font-weight: 800; text-decoration: none">Book your kickoff →</a>
+        <span style="font-size: 12px; color: #DBEAFE">[Mirror contact name] · [email]</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; margin-top: 18px"><span>Visibility snapshot · Where AI looks</span><span style="font-weight: 700; color: #0F172A">5 / 5</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const COLORS = { 'Articles': '#7C3AED', 'Reviews and directories': '#0D9488', 'Reddit and social': '#E8590C', 'Your website': '#2563EB', 'Google': '#DB2777', 'Reference': '#94A3B8' };
+    const raw = [['Articles', 41], ['Reviews and directories', 27], ['Reddit and social', 14], ['Your website', 9], ['Google', 6], ['Reference', 3]];
+    const types = raw.map(([name, pct]) => { const me = name === 'Your website'; return { name, pct, color: COLORS[name], nameColor: me ? '#1D4ED8' : '#0F172A', weight: me ? 800 : 600 }; });
+    let at = 0; const stops = [];
+    types.forEach((t) => { stops.push(t.color + ' ' + at + '% ' + (at + t.pct - 0.6) + '%', '#FFFFFF ' + (at + t.pct - 0.6) + '% ' + (at + t.pct) + '%'); at += t.pct; });
+    const wc = ['#7C3AED', '#0D9488', '#E8590C', '#DB2777'];
+    return {
+      types, donut: 'conic-gradient(' + stops.join(', ') + ')',
+      words: ['reviews', 'prices', '2026', 'open saturday'].map((word, i) => ({ word, color: wc[i], font: 17 - i * 1.5 })),
+      outreach: [
+        { site: 'yelp.com', ask: 'Fix details, aim for “best of” lists.' },
+        { site: 'medspascout.com', ask: 'Get into their Santa Monica roundup.' },
+        { site: 'reddit.com', ask: 'Answer local threads openly.' },
+        { site: 'latimes.com', ask: 'Pitch a local story or roundup spot.' },
+        { site: 'realself.com', ask: 'Complete your profile, invite reviews.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

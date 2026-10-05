@@ -6,8 +6,13 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().min(1),
   GEMINI_API_KEY: z.string().min(1),
   PERPLEXITY_API_KEY: z.string().min(1),
+  // Optional: Grok joins the scan as a fifth engine only when this is set.
+  XAI_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().min(1),
   CRON_SECRET: z.string().min(1),
+  // Set by Vercel when Protection Bypass for Automation is on; lets the weekly
+  // cron call its own per-practice scan route on a protected deployment.
+  VERCEL_AUTOMATION_BYPASS_SECRET: z.string().optional(),
   AUTH_SECRET: z.string().min(1),
   // Pins Auth.js to a canonical URL (magic links, callback URLs) instead of
   // trusting the incoming request's Host header. See the README Security
@@ -21,7 +26,14 @@ const schema = z.object({
   // projects still resolve it.
   GEMINI_MODEL: z.string().default("gemini-3.6-flash"),
   PERPLEXITY_MODEL: z.string().default("sonar-pro"),
+  GROK_MODEL: z.string().default("grok-4"),
   JUDGE_MODEL: z.string().default("claude-haiku-4-5-20251001"),
+  // Times each prompt is asked of each engine per scan. Answers vary between
+  // identical requests, so the score is built from several runs. Each extra
+  // run adds roughly a third to scan time and engine cost.
+  SCAN_RUNS: z.coerce.number().int().min(1).max(5).default(3),
+  // Where client "Need help?" requests go. Falls back to OPERATOR_EMAIL.
+  SUPPORT_EMAIL: z.string().optional(),
   NEXT_PUBLIC_APP_NAME: z.string().default("Mirror"),
   EMAIL_FROM: z.string().default("onboarding@resend.dev"),
   // Where /book sends inbound audit requests. Optional because it is a sales

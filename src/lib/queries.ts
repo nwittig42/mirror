@@ -1,6 +1,40 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
-import { activities, checks, findings, prompts, scans } from "@/db/schema";
+import { displayScores } from "@/core/scoring";
+import { activities, checks, facts, findings, prompts, scans } from "@/db/schema";
+
+/**
+ * Most recent scan of any status (running, complete, blocked, failed). Tells
+ * "this week's scan didn't publish" apart from "this week's scan is last
+ * week's": getLatestScan alone can't.
+ */
+export async function getLatestScanAttempt(db: Db, practiceId: string) {
+  const [scan] = await db.select().from(scans)
+    .where(eq(scans.practiceId, practiceId))
+    .orderBy(desc(scans.startedAt))
+    .limit(1);
+  return scan ?? null;
+}
+
+/**
+ * Whether a scan of the given statuses started for this practice within the
+ * last `withinMs`. Guards against running two scans of one practice at once
+ * (a cron delivered twice, or "Run scan" pressed mid-scan), which would
+ * record the same new findings twice.
+ */
+export async function scanStartedWithin(
+  db: Db,
+  practiceId: string,
+  withinMs: number,
+  statuses: (typeof scans.$inferSelect.status)[] = ["running", "complete", "blocked", "failed"],
+): Promise<boolean> {
+  const [row] = await db.select({ id: scans.id }).from(scans).where(and(
+    eq(scans.practiceId, practiceId),
+    inArray(scans.status, statuses),
+    gt(scans.startedAt, new Date(Date.now() - withinMs)),
+  )).limit(1);
+  return !!row;
+}
 
 /** Most recent COMPLETE scan for a practice, or null if none has finished yet. */
 export async function getLatestScan(db: Db, practiceId: string) {
@@ -29,6 +63,15 @@ export async function getScoreTrend(
     .map(s => ({ date: s.startedAt.toISOString(), score: s.score ?? 0 }));
 }
 
+/** The last `limit` published scans, oldest first, with all three scores (older scans rebuilt). */
+export async function getScoreHistory(db: Db, practiceId: string, limit: number) {
+  const rows = await db.select().from(scans)
+    .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
+    .orderBy(desc(scans.startedAt))
+    .limit(limit);
+  return rows.reverse().map(s => ({ date: s.startedAt, ...displayScores(s) }));
+}
+
 /** Every check from a scan, joined with its prompt's text and kind, oldest first. */
 export async function getChecksForScan(db: Db, scanId: string) {
   return db.select({
@@ -42,6 +85,11 @@ export async function getChecksForScan(db: Db, scanId: string) {
     position: checks.position,
     competitorsMentioned: checks.competitorsMentioned,
     namedOrder: checks.namedOrder,
+    searchQueries: checks.searchQueries,
+    tone: checks.tone,
+    toneReason: checks.toneReason,
+    run: checks.run,
+    factsConfirmed: checks.factsConfirmed,
     createdAt: checks.createdAt,
     promptText: prompts.text,
     promptKind: prompts.kind,
@@ -73,12 +121,18 @@ export async function getFindingsForPractice(db: Db, practiceId: string) {
     factValue: findings.factValue,
     severity: findings.severity,
     status: findings.status,
+    lastSeenScanId: findings.lastSeenScanId,
     createdAt: findings.createdAt,
     resolvedAt: findings.resolvedAt,
     engine: checks.engine,
+    // The pages the engine read when it made the claim: the first place to
+    // look for where a wrong fact came from.
+    citations: checks.citations,
+    factCategory: facts.category,
   })
     .from(findings)
     .innerJoin(checks, eq(findings.checkId, checks.id))
+    .leftJoin(facts, eq(findings.factId, facts.id))
     .where(eq(findings.practiceId, practiceId))
     .orderBy(desc(findings.createdAt));
 }
@@ -118,4 +172,22 @@ export async function getCompetitorPressure(
   return Array.from(counts.entries())
     .map(([name, mentions]) => ({ name, mentions }))
     .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+}
+
+/**
+ * Score-band line for a scan: "Range 38-46 across 3 runs", or null for a
+ * single-run scan (or one from before runs were recorded).
+ */
+export function describeBand(scan: { runs: number; scoreLow: number | null; scoreHigh: number | null }): string | null {
+  if (scan.runs <= 1 || scan.scoreLow === null || scan.scoreHigh === null) return null;
+  if (scan.scoreLow === scan.scoreHigh) return `Same score on all ${scan.runs} runs`;
+  return `Range ${scan.scoreLow}-${scan.scoreHigh} across ${scan.runs} runs`;
+}
+
+/** Findings about price first, then by severity, so the most damaging reads first. */
+export function priceFirst<T extends { factCategory: string | null; severity: string }>(rows: T[]): T[] {
+  const rank = { critical: 0, major: 1, minor: 2 } as Record<string, number>;
+  return [...rows].sort((a, b) =>
+    Number(b.factCategory === "pricing") - Number(a.factCategory === "pricing") ||
+    (rank[a.severity] ?? 3) - (rank[b.severity] ?? 3));
 }

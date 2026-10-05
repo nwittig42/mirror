@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { runWeeklyScans } from "@/services/weekly-scan";
+import { runWeeklyScans, dispatchWeeklyScans, makeScanTrigger, staggerSeconds } from "@/services/weekly-scan";
+import { EngineError } from "@/engines/types";
 import type { EngineAdapter } from "@/engines/types";
 
 const fakeAdapter = (name: string, answer: string): EngineAdapter =>
@@ -17,7 +18,7 @@ vi.mock("@/engines", () => ({
   getAdapters: () => [fakeAdapter("openai", "Glow MedSpa is great.")],
 }));
 vi.mock("@/services/hallucination-judge", () => ({
-  judgeAnswer: async () => [],
+  judgeAnswer: async () => ({ wrong: [], right: [] }),
 }));
 
 describe("runWeeklyScans", () => {
@@ -32,7 +33,7 @@ describe("runWeeklyScans", () => {
     const results = await runWeeklyScans(
       db,
       [fakeAdapter("openai", "Glow MedSpa is great.")],
-      async () => [],
+      async () => ({ wrong: [], right: [] }),
       async () => [],
       fakeSend,
     );
@@ -68,7 +69,7 @@ describe("runWeeklyScans", () => {
     await runWeeklyScans(
       db,
       [fakeAdapter("openai", "Glow MedSpa is great.")],
-      async () => [],
+      async () => ({ wrong: [], right: [] }),
       async () => [],
       vi.fn().mockResolvedValue(undefined),
     );
@@ -88,10 +89,10 @@ describe("runWeeklyScans", () => {
     const results = await runWeeklyScans(
       db,
       [fakeAdapter("openai", "Glow MedSpa charges $9/unit and closes at 3pm.")],
-      async () => [
-        { claim: "Botox is $9/unit", severity: "critical", factLabel: "Botox price" },
-        { claim: "Closes at 3pm", severity: "minor", factLabel: null },
-      ],
+      async () => ({ wrong: [
+        { claim: "Botox is $9/unit", severity: "critical" as const, factLabel: "Botox price" },
+        { claim: "Closes at 3pm", severity: "minor" as const, factLabel: null },
+      ], right: [] }),
       async () => [],
       vi.fn().mockResolvedValue(undefined),
     );
@@ -121,7 +122,7 @@ describe("runWeeklyScans", () => {
     const results = await runWeeklyScans(
       db,
       [fakeAdapter("openai", "hello")],
-      async () => [],
+      async () => ({ wrong: [], right: [] }),
       async () => [],
       fakeSend,
     );
@@ -178,13 +179,84 @@ describe("GET /api/cron/weekly-scan", () => {
       prompts: [{ text: "Best med spa in Santa Monica", kind: "category" }],
     });
 
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    vi.stubGlobal("fetch", fetchMock);
     const { GET } = await import("@/app/api/cron/weekly-scan/route");
     const res = await GET(new Request("http://localhost/api/cron/weekly-scan", {
       headers: { authorization: "Bearer the-secret" },
     }));
+    vi.unstubAllGlobals();
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.results).toHaveLength(1);
+    expect(body.results).toEqual([expect.objectContaining({ dispatched: true })]);
+    // One request per practice to the per-practice scan route, with the secret.
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(String(url)).toMatch(/^http:\/\/localhost:3000\/api\/cron\/scan-practice\?id=/);
+    expect(init.headers.authorization).toBe("Bearer the-secret");
+  });
+
+  it("scan-practice rejects a bad token and an unknown practice", async () => {
+    const { setDbForTests } = await import("@/db");
+    setDbForTests(await makeTestDb());
+    const { GET } = await import("@/app/api/cron/scan-practice/route");
+    expect((await GET(new Request("http://localhost/api/cron/scan-practice?id=x"))).status).toBe(401);
+    const res = await GET(new Request("http://localhost/api/cron/scan-practice?id=00000000-0000-0000-0000-000000000000", {
+      headers: { authorization: "Bearer the-secret" },
+    }));
+    expect(res.status).toBe(404);
+  });
+
+  it("sends the blocked alert, not the findings alert, when a scan is blocked", async () => {
+    const db = await makeTestDb();
+    await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });
+    const down: EngineAdapter = { name: "openai", run: async () => { throw new EngineError("openai", 503, "down"); } };
+    const send = vi.fn().mockResolvedValue(undefined);
+    const sendBlocked = vi.fn().mockResolvedValue(undefined);
+    const results = await runWeeklyScans(db, [down], async () => ({ wrong: [], right: [] }), async () => [], send,
+      { retryDelaysMs: [], finalRetryDelayMs: 0 }, sendBlocked);
+    expect(results[0]).toMatchObject({ blocked: true });
+    expect(send).not.toHaveBeenCalled();
+    expect(sendBlocked).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("dispatchWeeklyScans", () => {
+  it("starts one scan per active practice and keeps going past a failure", async () => {
+    const db = await makeTestDb();
+    const a = await seedPractice(db, { name: "Glow MedSpa" });
+    const b = await seedPractice(db, { name: "Skin Bar LA" });
+    const c = await seedPractice(db, { name: "Closed Spa" });
+    await db.update(schema.practices).set({ active: false }).where(eq(schema.practices.id, c.practiceId));
+    const started: string[] = [];
+    const results = await dispatchWeeklyScans(db, async id => {
+      started.push(id);
+      if (id === a.practiceId) throw new Error("scan-practice 500");
+    });
+    expect(started.sort()).toEqual([a.practiceId, b.practiceId].sort());
+    expect(results.find(r => !r.dispatched)?.error).toMatch(/500/);
+    expect(results.filter(r => r.dispatched)).toHaveLength(1);
+  });
+});
+
+describe("makeScanTrigger", () => {
+  it("calls the per-practice route with the secret, a stagger, a timeout and the bypass header", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response(null, { status: 202 }));
+    const trigger = makeScanTrigger({ appUrl: "https://app.example/", cronSecret: "s3", bypassSecret: "bp", fetchImpl });
+    await trigger("p-1", 2);
+    const [url, init] = fetchImpl.mock.calls[0];
+    expect(url).toBe(`https://app.example/api/cron/scan-practice?id=p-1&delay=${staggerSeconds(2)}`);
+    expect(init.headers).toMatchObject({ authorization: "Bearer s3", "x-vercel-protection-bypass": "bp" });
+    expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+  it("fails loudly on a non-2xx answer", async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(new Response("no", { status: 401 }));
+    const trigger = makeScanTrigger({ appUrl: "https://app.example", cronSecret: "s", fetchImpl });
+    await expect(trigger("p", 0)).rejects.toThrow(/401/);
+  });
+  it("spreads starts out but keeps every scan inside its time budget", () => {
+    expect(staggerSeconds(0)).toBe(0);
+    expect(staggerSeconds(1)).toBeGreaterThan(0);
+    expect(Math.max(...Array.from({ length: 50 }, (_, i) => staggerSeconds(i)))).toBeLessThanOrEqual(300);
   });
 });

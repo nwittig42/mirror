@@ -10,11 +10,17 @@ import {
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import { generateTempPassword, hashPassword } from "@/lib/password";
-import { runScan } from "@/services/scan-runner";
+import { runScan, SCAN_DEADLINE_MS, SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
+import { scanStartedWithin } from "@/lib/queries";
 import { getAdapters } from "@/engines";
 import { judgeAnswer } from "@/services/hallucination-judge";
 import { extractCompetitors } from "@/services/competitor-extractor";
 import { logActivity } from "@/services/activity";
+import { loadEnv } from "@/lib/env";
+import { fetchSitePages, draftFactsFromPages, saveDraftFacts } from "@/services/fact-drafter";
+import { setSupportStatus } from "@/services/support";
+import { rateTone } from "@/services/tone-rater";
+import { runWebsiteCheck } from "@/services/website-check";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
 type PromptKind = (typeof promptKindEnum.enumValues)[number];
@@ -34,6 +40,65 @@ export async function createPractice(input: { name: string; slug: string; websit
   const db = getDb();
   await db.insert(practices).values({ name: input.name, slug: input.slug, website: input.website || null });
   revalidatePath("/admin");
+}
+
+/**
+ * Operators only: reads the practice's website and saves a draft fact sheet
+ * for review. Drafts stay out of every scan until approved. Returns how many
+ * new drafts were added, or an error message the page can show.
+ */
+export async function draftFactsFromWebsite(practiceId: string): Promise<{ added: number } | { error: string }> {
+  await requireOperator();
+  const db = getDb();
+  const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
+  if (!practice) return { error: "Practice not found." };
+  if (!practice.website) return { error: "Add the practice's website first." };
+  try {
+    const pages = await fetchSitePages(practice.website);
+    const drafts = await draftFactsFromPages({ businessName: practice.name, pages });
+    const added = await saveDraftFacts(db, practiceId, drafts);
+    await logActivity(db, practiceId, `fact drafter: ${added} draft facts from ${pages.length} pages of ${practice.website}`);
+    revalidatePath(`/admin/practices/${practiceId}`);
+    return { added };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await logActivity(db, practiceId, `fact drafter failed: ${message}`);
+    return { error: message };
+  }
+}
+
+/** Operators only: confirms a drafted fact so scans start checking answers against it. */
+export async function approveFact(factId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [fact] = await db.update(facts)
+    .set({ status: "active", updatedAt: new Date() })
+    .where(and(eq(facts.id, factId), eq(facts.status, "draft")))
+    .returning();
+  if (fact) revalidatePath(`/admin/practices/${fact.practiceId}`);
+}
+
+/** Operators only: confirms every draft for a practice at once, after reviewing them on the call. */
+export async function approveAllDrafts(practiceId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  await db.update(facts)
+    .set({ status: "active", updatedAt: new Date() })
+    .where(and(eq(facts.practiceId, practiceId), eq(facts.status, "draft")));
+  revalidatePath(`/admin/practices/${practiceId}`);
+}
+
+/** Operators only: corrects a fact's value (a draft the client amended, or a price that changed). */
+export async function updateFactValue(factId: string, value: string): Promise<void> {
+  await requireOperator();
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const db = getDb();
+  const [fact] = await db.update(facts)
+    .set({ value: trimmed, updatedAt: new Date() })
+    .where(eq(facts.id, factId))
+    .returning();
+  if (fact) revalidatePath(`/admin/practices/${fact.practiceId}`);
 }
 
 /** Operators only: adds an active fact-sheet entry for a practice. */
@@ -256,9 +321,17 @@ export async function updateReportNotes(practiceId: string, text: string): Promi
 export async function triggerScan(practiceId: string): Promise<void> {
   await requireOperator();
   const db = getDb();
+  // One scan at a time per practice: a second one started mid-scan would
+  // record the same new findings twice.
+  if (await scanStartedWithin(db, practiceId, SCAN_STUCK_AFTER_MS, ["running"])) {
+    revalidatePath(`/admin/practices/${practiceId}`);
+    return;
+  }
   // Scan runs post-response via after(); on plain Node servers it runs in-process.
   after(() =>
-    runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors).catch((err) => {
+    runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors, {
+      runs: loadEnv().SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, deadline: Date.now() + SCAN_DEADLINE_MS,
+    }).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       void logActivity(db, practiceId, `scan failed: ${message}`);
     }),
@@ -290,4 +363,22 @@ export async function updateFindingStatus(findingId: string, status: FindingStat
   }
 
   revalidatePath(`/admin/practices/${finding.practiceId}`);
+}
+
+/** Operators only: marks a client help request answered, or reopens it. */
+export async function setSupportRequestStatus(id: string, status: "open" | "closed"): Promise<void> {
+  await requireOperator();
+  await setSupportStatus(getDb(), id, status);
+  revalidatePath("/admin");
+}
+
+/** Operators only: the business category and location used in the audit report's wording. */
+export async function updateReportDetails(practiceId: string, input: { category: string; location: string }): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  await db.update(practices).set({
+    category: input.category.trim().slice(0, 60) || null,
+    location: input.location.trim().slice(0, 80) || null,
+  }).where(eq(practices.id, practiceId));
+  revalidatePath(`/admin/practices/${practiceId}`);
 }

@@ -1,5 +1,6 @@
 import { loadEnv } from "@/lib/env";
-import { parseJudgeOutput, type JudgeFinding } from "@/core/judge-parse";
+import { EngineError } from "@/engines/types";
+import { parseJudgeOutput, type JudgeVerdict } from "@/core/judge-parse";
 
 // Deliberately business-neutral rather than med-spa-specific: the same engine
 // is pointed at non-medical businesses (e.g. a SaaS product), and a judge told
@@ -13,14 +14,15 @@ You receive (1) a FACT SHEET of verified facts about the business and (2) an AI-
 Identify every claim in the ANSWER that CONTRADICTS a fact sheet entry, or asserts a service, product, capability, credential, or price the fact sheet's "not_offered" or other entries rule out.
 Do NOT flag: omissions, vague marketing language, information absent from the fact sheet, or subjective opinions.
 Severity rules: "critical" = credentials or qualifications of named people, safety- or compliance-relevant claims, or a service/product/capability the business does not offer; "major" = pricing, hours, location, or availability errors; "minor" = stale or imprecise detail.
-Output ONLY a JSON array (no prose): [{"claim": "<verbatim or tightly paraphrased claim from the ANSWER>", "factLabel": "<the exact string after 'label:' on the contradicted fact sheet line, copied character for character, or null>", "severity": "critical|major|minor"}]
-Never put the category in factLabel. The category is a grouping; the label is the fact's name.
-If there are no contradictions output [].`;
+Also list the facts the ANSWER states correctly: fact sheet entries the answer mentions and gets right. Do not list facts the answer doesn't mention.
+Output ONLY a JSON object (no prose): {"wrong": [{"claim": "<verbatim or tightly paraphrased claim from the ANSWER>", "factLabel": "<the exact string after 'label:' on the contradicted fact sheet line, copied character for character, or null>", "severity": "critical|major|minor"}], "right": ["<exact label of a fact the ANSWER states correctly>"]}
+Never put the category in factLabel or right. The category is a grouping; the label is the fact's name.
+If there are no contradictions, "wrong" is []. If the answer states no fact correctly, "right" is [].`;
 
 export async function judgeAnswer(args: {
   answer: string;
   facts: { label: string; value: string; category: string }[];
-}): Promise<JudgeFinding[]> {
+}): Promise<JudgeVerdict> {
   const env = loadEnv();
   // Rendered as explicit `label:` / `category:` / `value:` fields rather than
   // the old `- [category] label: value` shorthand. Under the shorthand the
@@ -35,11 +37,13 @@ export async function judgeAnswer(args: {
     headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
       "content-type": "application/json" },
     body: JSON.stringify({
-      model: env.JUDGE_MODEL, max_tokens: 1000, system: JUDGE_SYSTEM,
+      model: env.JUDGE_MODEL, max_tokens: 1500, system: JUDGE_SYSTEM,
       messages: [{ role: "user", content: `FACT SHEET:\n${factSheet}\n\nANSWER:\n${args.answer}` }],
     }),
   });
-  if (!res.ok) throw new Error(`judge ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  // An EngineError, so the scan retries a rate-limited or overloaded judge
+  // the same way it retries the engines, instead of losing the fact check.
+  if (!res.ok) throw new EngineError("anthropic", res.status, `judge: ${await res.text()}`);
   const data = await res.json();
   const text = (data.content ?? []).filter((b: { type: string }) => b.type === "text")
     .map((b: { text: string }) => b.text).join("");

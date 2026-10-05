@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>True or false</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Fact Check</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; padding-top: 26px">
+    <div style="display: grid; grid-template-columns: 1fr 180px; gap: 24px; align-items: center">
+      <div style="display: flex; flex-direction: column; gap: 12px">
+        <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DCFCE7; color: #15803D">True or false</span>
+        <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 29px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance">{{verdict}}</h1>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+        <div style="position: relative; width: 150px; height: 150px">
+          <svg width="150" height="150" viewBox="0 0 150 150" aria-hidden="true">
+            <circle cx="75" cy="75" r="62" fill="none" stroke="#F1F5F9" stroke-width="18"></circle>
+            <circle cx="75" cy="75" r="62" fill="none" stroke-width="18" transform="rotate(-90 75 75)" style="stroke: {{acc.color}}; stroke-dasharray: {{acc.dash}}"></circle>
+          </svg>
+          <div style="position: absolute; left: 0; top: 0; width: 150px; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center"><span style="font-size: 44px; font-weight: 800; line-height: 1">{{acc.score}}</span><span style="font-size: 11px; color: #64748B">accuracy</span></div>
+        </div>
+        <span style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 99px; background: {{acc.color}}; color: #FFFFFF">{{acc.label}}</span>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 3px; height: 26px">
+      <sc-for list="{{facts}}" as="f" hint-placeholder-count="10">
+        <div style="flex-grow: 1; flex-basis: 0; background: {{f.dot}}; border-radius: 4px; display: flex; align-items: center; justify-content: center; color: #FFFFFF; font-size: 12px; font-weight: 800">{{f.icon}}</div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span class="label">Every fact we checked</span>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{facts}}" as="f" hint-placeholder-count="10">
+          <div style="display: grid; grid-template-columns: 28px 1fr 66px; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: {{f.soft}}">
+            <span style="width: 26px; height: 26px; border-radius: 13px; background: {{f.dot}}; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{f.icon}}</span>
+            <div style="display: flex; flex-direction: column; gap: 1px">
+              <span style="font-size: 13.5px; font-weight: 800">{{f.fact}}</span>
+              <span style="font-size: 12px; line-height: 1.35; color: #334155">{{f.detail}}</span>
+            </div>
+            <span style="justify-self: end; font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; padding: 3px 8px; border-radius: 99px; background: {{f.dot}}; color: #FFFFFF">{{f.status}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span class="label">Mistakes by AI tool</span>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+          <div style="border-radius: 14px; padding: 12px; background: {{t.soft}}; display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center">
+            <span style="display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 800"><span style="width: 20px; height: 20px; border-radius: 6px; background: {{t.color}}; color: #FFFFFF; font-size: 9px; display: flex; align-items: center; justify-content: center">{{t.short}}</span>{{t.name}}</span>
+            <span style="font-size: 26px; font-weight: 800; line-height: 1; color: {{t.numColor}}">{{t.wrong}}</span>
+            <span style="font-size: 11.5px; font-weight: 700; color: {{t.numColor}}">{{t.note}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>Fact check · True or false</span><span style="font-weight: 700; color: #0F172A">2 / 4</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const raw = [
+      { fact: 'Botox price', detail: 'AI said $9 per unit. Truth: $13 per unit.', ok: false },
+      { fact: 'Laser hair removal', detail: 'AI said you offer it. Truth: not offered.', ok: false },
+      { fact: 'Sunday hours', detail: 'AI said open Sundays. Truth: closed.', ok: false },
+      { fact: 'Location', detail: 'Santa Monica, CA', ok: true },
+      { fact: 'Website', detail: 'glowmedspa.com', ok: true },
+      { fact: 'Type of business', detail: 'Med spa', ok: true },
+      { fact: 'Offers Botox', detail: 'Yes', ok: true },
+      { fact: 'Offers lip filler', detail: 'Yes', ok: true },
+      { fact: 'Offers HydraFacial', detail: 'Yes', ok: true },
+      { fact: 'Saturday hours', detail: 'Open Saturdays', ok: true }
+    ];
+    const facts = raw.map((f) => f.ok
+      ? { ...f, icon: '✓', status: 'TRUE', dot: '#16A34A', soft: '#F0FDF4' }
+      : { ...f, icon: '✕', status: 'FALSE', dot: '#DC2626', soft: '#FEF2F2' });
+    const right = raw.filter((f) => f.ok).length, wrong = raw.length - right;
+    const score = Math.round((right / raw.length) * 100);
+    const C = 2 * Math.PI * 62;
+    const color = score >= 70 ? '#16A34A' : score >= 40 ? '#F59E0B' : '#DC2626';
+    const label = score >= 70 ? 'Strong' : score >= 40 ? 'Fair' : 'Needs work';
+    const tools = [
+      { name: 'ChatGPT', short: 'Ch', color: '#0F766E', wrong: 1 }, { name: 'Claude', short: 'Cl', color: '#D97757', wrong: 1 },
+      { name: 'Perplexity', short: 'Pe', color: '#7C3AED', wrong: 1 }, { name: 'Gemini', short: 'Ge', color: '#4F46E5', wrong: 0 },
+      { name: 'Grok', short: 'Gr', color: '#111827', wrong: 0 }
+    ].map((t) => t.wrong
+      ? { ...t, note: t.wrong + ' wrong fact' + (t.wrong > 1 ? 's' : ''), soft: '#FEF2F2', numColor: '#B91C1C' }
+      : { ...t, note: 'No mistakes', soft: '#F0FDF4', numColor: '#15803D' });
+    return {
+      facts, tools,
+      acc: { score, color, label, dash: (score / 100) * C + ' ' + C },
+      verdict: wrong
+        ? 'AI gets ' + right + ' of ' + raw.length + ' facts about Glow MedSpa right. The ' + wrong + ' it gets wrong include your Botox price.'
+        : 'AI gets every fact about Glow MedSpa right.'
+    };
+  }
+}
+</script>
+</body>
+</html>

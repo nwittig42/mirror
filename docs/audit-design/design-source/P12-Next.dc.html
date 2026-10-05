@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Next step</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:40px;line-height:1.12;margin:0;letter-spacing:-0.015em;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#1D4ED8}a:hover{color:#1E3A8A}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 26px; padding-top: 32px">
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DCFCE7; color: #15803D">Next step</span>
+      <h1 class="h1">What Mirror fixes in your first 90 days</h1>
+      <p style="margin: 0; font-size: 15px; line-height: 1.55; color: #475569; max-width: 560px">We fix what AI gets wrong first, because wrong facts cost you customers today. Then we work on getting you named more often.</p>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 14px">
+      <div style="position: relative; display: flex; align-items: center; height: 54px; margin: 0 12px">
+        <div style="position: absolute; left: 0; right: 0; top: 16px; height: 4px; border-radius: 2px; background: #E2E8F0"></div>
+        <div style="position: absolute; left: 0; width: 33%; top: 16px; height: 4px; border-radius: 2px; background: #2563EB"></div>
+        <div style="position: absolute; left: 33.5%; right: 0; top: 16px; height: 4px; border-radius: 2px; background: #16A34A"></div>
+        <sc-for list="{{marks}}" as="m" hint-placeholder-count="4">
+          <span style="position: absolute; left: {{m.left}}%; transform: translateX(-50%); top: 6px; width: 24px; height: 24px; border-radius: 12px; background: {{m.color}}; border: 3px solid #FFFFFF; box-sizing: border-box; box-shadow: 0 0 0 2px {{m.color}}"></span>
+          <span style="position: absolute; left: {{m.left}}%; transform: translateX(-50%); top: 38px; font-size: 11px; font-weight: 800; color: #475569; white-space: nowrap">{{m.label}}</span>
+        </sc-for>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 14px">
+        <sc-for list="{{phases}}" as="p" hint-placeholder-count="2">
+          <div style="background: {{p.soft}}; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+            <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 4px 10px; border-radius: 99px; background: {{p.color}}; color: #FFFFFF">{{p.when}}</span>
+            <span style="font-family: 'Newsreader', Georgia, serif; font-size: 26px; line-height: 1.15">{{p.title}}</span>
+            <div style="display: flex; flex-direction: column; gap: 8px">
+              <sc-for list="{{p.items}}" as="i" hint-placeholder-count="4">
+                <div style="display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.45; color: #1E293B">
+                  <span style="flex-shrink: 0; margin-top: 2px; width: 18px; height: 18px; border-radius: 9px; background: {{p.color}}; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                  <span>{{i}}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="display: flex; gap: 16px; align-items: center; padding: 16px 20px; border: 2px solid #E2E8F0; border-radius: 18px">
+      <span style="flex-shrink: 0; width: 48px; height: 48px; border-radius: 14px; background: #EDE9FE; display: flex; align-items: center; justify-content: center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6D28D9" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12a8 8 0 0 1 14-5.3L20 9"></path><path d="M20 4v5h-5"></path><path d="M20 12a8 8 0 0 1-14 5.3L4 15"></path><path d="M4 20v-5h5"></path></svg>
+      </span>
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <span style="font-size: 15px; font-weight: 800">Day 90: we run this same audit again</span>
+        <span style="font-size: 13px; color: #475569">Same questions, same 5 assistants, so you can see exactly how your score rings changed.</span>
+      </div>
+    </div>
+
+    <div style="flex-grow: 1"></div>
+
+    <div style="background: #2563EB; border-radius: 20px; padding: 28px 32px; display: flex; justify-content: space-between; align-items: center; gap: 24px">
+      <div style="display: flex; gap: 16px; align-items: center">
+        <svg width="48" height="48" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#FFFFFF"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#2563EB"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#2563EB" stroke-width="1.6"></path></svg>
+        <div style="display: flex; flex-direction: column; gap: 6px; max-width: 330px">
+          <span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; line-height: 1.2; color: #FFFFFF">Start with the facts.</span>
+          <span style="font-size: 14px; line-height: 1.5; color: #DBEAFE">A 20-minute call to confirm your prices, hours and services. We handle the rest.</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px; align-items: flex-end">
+        <a href="https://example.com/book" style="display: inline-flex; align-items: center; min-height: 46px; padding: 0 22px; border-radius: 12px; background: #FFFFFF; color: #1D4ED8; font-size: 15px; font-weight: 800; text-decoration: none">Book your kickoff →</a>
+        <span style="font-size: 12px; color: #DBEAFE">[Mirror contact name] · [email] · [phone]</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B; margin-top: 22px"><span>12 · Next step</span><span style="font-weight: 700; color: #0F172A">12 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      marks: [
+        { left: 0, color: '#2563EB', label: 'DAY 1' }, { left: 33, color: '#2563EB', label: 'DAY 30' },
+        { left: 66.5, color: '#16A34A', label: 'DAY 60' }, { left: 100, color: '#7C3AED', label: 'DAY 90 · RE-CHECK' }
+      ],
+      phases: [
+        {
+          when: 'Month 1', title: 'Fix the facts', color: '#2563EB', soft: '#EFF6FF',
+          items: [
+            'Correct your Botox price on your site and Yelp',
+            'Remove laser hair removal from Yelp',
+            'Mark Sundays closed on Google and Yelp',
+            'Publish a plain facts page'
+          ]
+        },
+        {
+          when: 'Months 2 and 3', title: 'Win more questions', color: '#16A34A', soft: '#F0FDF4',
+          items: [
+            'Get you onto medspascout.com and Yelp “best of” lists',
+            'Build the pages AI searches for: prices, reviews, hours',
+            'Turn your 5 closest wins into first-place answers',
+            'Get Gemini naming you for the first time'
+          ]
+        }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

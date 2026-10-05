@@ -92,18 +92,45 @@ export function extractJsonArray(raw: string, schema: z.ZodTypeAny = findingSche
   return null;
 }
 
-export function parseJudgeOutput(raw: string): JudgeFinding[] {
-  const jsonStr = extractJsonArray(raw);
-  if (!jsonStr) throw new JudgeParseError(`No JSON array in judge output: ${raw.slice(0, 200)}`);
+export interface JudgeVerdict { wrong: JudgeFinding[]; right: string[] }
 
-  let data: unknown;
-  try {
-    data = JSON.parse(jsonStr);
-  } catch {
-    throw new JudgeParseError("Judge output is not valid JSON");
+const verdictSchema = z.object({
+  wrong: findingSchema,
+  right: z.array(z.string()).default([]),
+});
+
+/** First `{...}` candidate (fenced, then first-to-last brace) that is a valid verdict. */
+function extractVerdict(raw: string): JudgeVerdict | null {
+  const candidates = [
+    raw.match(/```json\s*([\s\S]*?)\s*```/)?.[1],
+    raw.match(/```\s*([\s\S]*?)\s*```/)?.[1],
+    raw.includes("{") ? raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1) : undefined,
+  ];
+  for (const c of candidates) {
+    if (!c) continue;
+    try {
+      const parsed = verdictSchema.safeParse(JSON.parse(c));
+      if (parsed.success) return parsed.data;
+    } catch {
+      // try the next candidate
+    }
   }
+  return null;
+}
 
-  const parsed = findingSchema.safeParse(data);
+/**
+ * Reads the judge's `{wrong, right}` verdict. Falls back to the old bare
+ * findings array (as `right: []`) so a model that ignores the new shape, or
+ * prose that breaks the object, still yields the wrong facts: the array scan
+ * finds the `wrong` list inside a broken object too.
+ */
+export function parseJudgeOutput(raw: string): JudgeVerdict {
+  const verdict = extractVerdict(raw);
+  if (verdict) return verdict;
+
+  const jsonStr = extractJsonArray(raw);
+  if (!jsonStr) throw new JudgeParseError(`No JSON verdict in judge output: ${raw.slice(0, 200)}`);
+  const parsed = findingSchema.safeParse(JSON.parse(jsonStr));
   if (!parsed.success) throw new JudgeParseError(parsed.error.message);
-  return parsed.data;
+  return { wrong: parsed.data, right: [] };
 }

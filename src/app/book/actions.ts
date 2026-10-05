@@ -1,6 +1,9 @@
 "use server";
 
-import { auditRequestSchema, sendAuditRequest } from "@/services/audit-request";
+import { auditRequestSchema, sendAuditConfirmation, sendAuditRequest } from "@/services/audit-request";
+import { getDb } from "@/db";
+import { markNotPrepared, saveLead, shouldPrepareLead } from "@/services/leads";
+import { startProspectSetup } from "@/services/prospect-start";
 
 /**
  * Server action behind the /book form. Follows the `"use server"` pattern the
@@ -61,15 +64,28 @@ export async function requestAudit(_prev: BookingState, formData: FormData): Pro
     return { status: "error", fieldErrors, values };
   }
 
-  try {
-    await sendAuditRequest(parsed.data);
-  } catch {
+  // Save first: the row is the lead's record, and a lead that only lived in
+  // an email was lost whenever the send failed. Either one landing is enough.
+  const saved = await saveLead(getDb(), parsed.data).catch(() => null);
+  const sent = await sendAuditRequest(parsed.data).then(() => true, () => false);
+  if (!saved && !sent) {
     return {
       status: "error",
       message: "We couldn't submit that just now.",
       values,
       fallbackEmail: fallbackEmail(),
     };
+  }
+
+  // Best-effort: the lead is already recorded, so a failed confirmation must
+  // not turn a successful booking into an error screen.
+  await sendAuditConfirmation(parsed.data).catch(() => undefined);
+
+  // Their account, fact sheet, questions and first scan are set up in the
+  // background, so the report is ready by the call.
+  if (saved) {
+    if (await shouldPrepareLead(getDb(), saved.id).catch(() => false)) startProspectSetup(saved.id);
+    else await markNotPrepared(getDb(), saved.id).catch(() => undefined);
   }
 
   // `values` rides along on success so the scheduler that replaces this form

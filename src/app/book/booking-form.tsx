@@ -82,8 +82,8 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
             Now pick your thirty minutes.
           </h2>
           <p className="mk-body" style={{ marginTop: 14 }}>
-            We&rsquo;re running your practice through ChatGPT, Claude, Gemini, and Perplexity while you choose a time,
-            so we open the call on what they actually said about you, not on slides.
+            We&rsquo;re reading your website and asking ChatGPT, Claude, Gemini, Grok and Perplexity the questions your
+            customers ask, right now. Your summary report lands in your inbox in about 10 minutes.
           </p>
           <CalendlyEmbed
             url={calendlyUrl}
@@ -108,9 +108,9 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
           We&rsquo;re running your scan now.
         </h2>
         <p className="mk-body" style={{ marginTop: 14 }}>
-          You&rsquo;ll hear from us within one business day to lock a 30-minute slot. Before that call we put your
-          practice through ChatGPT, Claude, Gemini, and Perplexity, so we open on what they actually said about you,
-          not on slides.
+          We&rsquo;re asking ChatGPT, Claude, Gemini, Grok and Perplexity about your practice now. Your summary report
+          lands in your inbox in about 10 minutes. You&rsquo;ll hear from us within one business day to lock a 30-minute slot,
+          and the full report will be ready for that call.
         </p>
         <p className="mk-field-hint" style={{ marginTop: 20 }}>
           Nothing is charged and no engagement starts from this.

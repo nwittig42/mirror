@@ -2,81 +2,130 @@ import type { CheckResult, Position, Severity } from "@/core/types";
 
 export interface ScoreInput {
   checks: Pick<CheckResult, "engine" | "promptKind" | "mentioned" | "position">[];
-  openFindings: { severity: Severity }[];
-  brandedCheckCount: number;
-  brandedChecksWithFinding: number;
+  /** Engines the scan asked; reach is "engines that named you / engines asked". Default 4. */
+  engineCount?: number;
 }
 
-export interface ScoreBreakdown {
-  score: number;
-  citationRate: number;
-  positionQuality: number;
-  engineBreadth: number;
-  accuracy: number;
-  capped: boolean;
-}
+export interface VisibilityParts { citationRate: number; positionQuality: number; engineBreadth: number }
 
-const POSITION_WEIGHT: Record<Position, number> = {
-  first: 1,
-  top3: 0.7,
-  mentioned: 0.4,
-  absent: 0,
-};
+const POSITION_WEIGHT: Record<Position, number> = { first: 1, top3: 0.7, mentioned: 0.4, absent: 0 };
 
-export function computeScore(input: ScoreInput): ScoreBreakdown {
-  const { checks } = input;
-
-  // Branded prompts name the practice in the question ("How much does Botox
-  // cost at Glow MedSpa?"), so the answer names it back essentially every
-  // time. Counting that as a citation measures nothing: it is ~100% for every
-  // practice, visible or invisible. Branded checks exist to catch
-  // hallucinations and are scored through `accuracy` below, which is the only
-  // term they feed. Every visibility term here is computed over the prompts
-  // where being named actually had to be earned.
-  const visibility = checks.filter((c) => c.promptKind !== "branded");
-
-  // citationRate = mentions / non-branded checks
-  const citationRate = visibility.length
-    ? visibility.filter((c) => c.mentioned).length / visibility.length
-    : 0;
-
-  // positionQuality = average of position weights for category-only prompts
-  const category = checks.filter((c) => c.promptKind === "category");
+/**
+ * The three "does AI name you" measures. Branded prompts name the practice in
+ * the question, so the answer names it back almost every time; they are left
+ * out of every visibility term and used only for fact-checking.
+ */
+export function computeVisibilityParts(checks: ScoreInput["checks"], engineCount?: number): VisibilityParts {
+  const earned = checks.filter(c => c.promptKind !== "branded");
+  const citationRate = earned.length ? earned.filter(c => c.mentioned).length / earned.length : 0;
+  const category = checks.filter(c => c.promptKind === "category");
   const positionQuality = category.length
     ? category.reduce((s, c) => s + POSITION_WEIGHT[c.position], 0) / category.length
     : 0;
+  const engines = new Set(earned.filter(c => c.mentioned).map(c => c.engine));
+  const engineBreadth = Math.min(1, engines.size / Math.max(1, engineCount ?? 4));
+  return { citationRate, positionQuality, engineBreadth };
+}
 
-  // engineBreadth = engines with ≥1 non-branded mention / 4. An engine that
-  // named the practice only when handed its name has not covered it.
-  const enginesWithMention = new Set(
-    visibility.filter((c) => c.mentioned).map((c) => c.engine)
-  );
-  const engineBreadth = enginesWithMention.size / 4;
+/**
+ * Visibility, 0-100: 50% named rate, 20% rank, 15% reach, rescaled over 0.85.
+ * Locked rule: never named on an earned prompt => 0.
+ */
+export function computeVisibility(checks: ScoreInput["checks"], engineCount?: number): number {
+  const p = computeVisibilityParts(checks, engineCount);
+  if (p.citationRate === 0) return 0;
+  return Math.round(100 * (0.5 * p.citationRate + 0.2 * p.positionQuality + 0.15 * p.engineBreadth) / 0.85);
+}
 
-  // accuracy = 1 - (brandedChecksWithFinding / brandedCheckCount), or 1 when no branded checks
-  const accuracy = input.brandedCheckCount
-    ? 1 - input.brandedChecksWithFinding / input.brandedCheckCount
-    : 1;
+export const OVERALL_WEIGHTS = { visibility: 0.7, facts: 0.3 } as const;
+/** A serious wrong fact (credentials, safety, a service not offered) holds overall at this. */
+export const CRITICAL_CAP = 70;
 
-  // score = round(100 × (0.50·citationRate + 0.20·positionQuality + 0.15·engineBreadth + 0.15·accuracy))
-  // Locked rule: zero citations => score 0; accuracy never lifts an invisible practice.
-  // This also covers a scan of nothing but branded prompts: `citationRate` is 0
-  // because there is no visibility evidence, so the score is 0 rather than a
-  // number invented out of guaranteed self-references.
-  let score = citationRate === 0
-    ? 0
-    : Math.round(
-        100 *
-          (0.5 * citationRate +
-            0.2 * positionQuality +
-            0.15 * engineBreadth +
-            0.15 * accuracy)
-      );
+export interface OverallInput { visibility: number; factScore: number | null; hasCritical: boolean }
 
-  // cap at 70 if open critical finding exists AND raw score > 70
-  const capped =
-    input.openFindings.some((f) => f.severity === "critical") && score > 70;
-  if (capped) score = 70;
+/**
+ * Overall, built only from the two published scores so anyone can check it:
+ * 70% visibility + 30% fact accuracy. Facts never lift an invisible business
+ * (visibility 0 => 0); with nothing fact-checked it is visibility alone.
+ */
+export function computeOverall(a: OverallInput): { score: number; uncapped: number; capped: boolean } {
+  const uncapped = a.visibility === 0 ? 0
+    : a.factScore === null ? a.visibility
+    : Math.round(OVERALL_WEIGHTS.visibility * a.visibility + OVERALL_WEIGHTS.facts * a.factScore);
+  const capped = a.hasCritical && uncapped > CRITICAL_CAP;
+  return { score: capped ? CRITICAL_CAP : uncapped, uncapped, capped };
+}
 
-  return { score, citationRate, positionQuality, engineBreadth, accuracy, capped };
+/** One plain line that shows the overall's maths, shown under the score. */
+export function explainOverall(a: OverallInput): string {
+  if (a.visibility === 0) {
+    return "Overall is 0 because AI never named you when buyers asked. Accurate facts can't lift a business AI doesn't mention.";
+  }
+  if (a.factScore === null) {
+    return `Overall = your visibility (${a.visibility}). No facts were checked this scan, so accuracy isn't counted yet.`;
+  }
+  const o = computeOverall(a);
+  const sum = `Overall = 70% visibility (${a.visibility}) + 30% fact accuracy (${a.factScore}) = ${o.uncapped}`;
+  return o.capped ? `${sum}, capped at ${CRITICAL_CAP} because AI stated a serious wrong fact about you.` : `${sum}.`;
+}
+
+/**
+ * Points each open wrong fact costs the fact score. A price error is
+ * weighted 1.5x: it is the fact AI gets wrong most often and the one a buyer
+ * acts on (Profound, 158K claims: pricing is 12% of claims, 24% of errors).
+ */
+export const FACT_PENALTY: Record<Severity, number> = { critical: 25, major: 12, minor: 4 };
+export const PRICE_MULTIPLIER = 1.5;
+
+/**
+ * Fact score, 0-100: starts at 100 and loses points for every open wrong
+ * fact, so the client can read it as "each mistake costs you points".
+ * Returns null when nothing was judged (no fact sheet, or every judge call
+ * failed): unknown is not the same as accurate.
+ */
+export function computeFactScore(args: {
+  judgedChecks: number;
+  openFindings: { severity: Severity; category: string | null }[];
+}): number | null {
+  if (args.judgedChecks === 0) return null;
+  const penalty = args.openFindings.reduce((sum, f) =>
+    sum + FACT_PENALTY[f.severity] * (f.category === "pricing" ? PRICE_MULTIPLIER : 1), 0);
+  return Math.max(0, Math.round(100 - penalty));
+}
+
+/** Low/high of the per-run scores, or nulls when there were none. */
+export function scoreBand(runScores: number[]): { low: number | null; high: number | null } {
+  if (runScores.length === 0) return { low: null, high: null };
+  return { low: Math.min(...runScores), high: Math.max(...runScores) };
+}
+
+/**
+ * The three numbers to show for a scan. Scans from before the split scores
+ * stored only the overall and visibility's parts: visibility is rebuilt from
+ * those parts (same formula, so exact), and the old check-rate accuracy
+ * stands in for the fact score, flagged as an estimate.
+ */
+export function displayScores(scan: {
+  score: number | null; visibilityScore: number | null; factScore: number | null;
+  citationRate: number | null; positionScore: number | null; breadthScore: number | null; accuracyScore: number | null;
+}): { overall: number | null; visibility: number | null; facts: number | null; estimated: boolean } {
+  if (scan.visibilityScore !== null) {
+    return { overall: scan.score, visibility: scan.visibilityScore, facts: scan.factScore, estimated: false };
+  }
+  const cr = scan.citationRate;
+  const visibility = cr === null ? null
+    : cr === 0 ? 0
+    : Math.round((0.5 * cr + 0.2 * (scan.positionScore ?? 0) + 0.15 * (scan.breadthScore ?? 0)) / 0.85);
+  return { overall: scan.score, visibility, facts: scan.factScore ?? scan.accuracyScore, estimated: true };
+}
+
+export type ScoreKey = "overall" | "visibility" | "facts";
+
+/** The latest value of one score and its change since the scan before (null when there's no earlier score). */
+export function scoreTrend(
+  history: Record<ScoreKey, number | null>[], key: ScoreKey,
+): { now: number | null; change: number | null } {
+  const last = history[history.length - 1]?.[key] ?? null;
+  const prev = history.length > 1 ? history[history.length - 2][key] : null;
+  return { now: last, change: last !== null && prev !== null ? last - prev : null };
 }

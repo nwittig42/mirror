@@ -10,11 +10,15 @@
  */
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
-import { practices, competitors, checks } from "@/db/schema";
+import { practices, competitors, checks, scans } from "@/db/schema";
 import { getAdapters } from "@/engines/index";
 import { judgeAnswer } from "@/services/hallucination-judge";
+import { blockedReason, coverageLabel } from "@/core/coverage";
 import { extractCompetitors } from "@/services/competitor-extractor";
 import { runScan } from "@/services/scan-runner";
+import { loadEnv } from "@/lib/env";
+import { rateTone } from "@/services/tone-rater";
+import { runWebsiteCheck } from "@/services/website-check";
 
 async function main() {
   const slug = process.argv[2];
@@ -33,8 +37,15 @@ async function main() {
   console.log(`Scanning ${practice.name}. Known competitors before: ${before.map(c => c.name).join(", ") || "(none)"}`);
 
   const started = Date.now();
-  const { scanId, score } = await runScan(db, practice.id, getAdapters(), judgeAnswer, extractCompetitors);
-  console.log(`\nScan ${scanId} complete in ${Math.round((Date.now() - started) / 1000)}s. Score ${score}.`);
+  const runs = loadEnv().SCAN_RUNS;
+  const { scanId, score, blocked, coverage } = await runScan(db, practice.id, getAdapters(), judgeAnswer, extractCompetitors, { runs, rateTone, checkWebsite: runWebsiteCheck });
+  if (blocked) {
+    console.log(`\nScan ${scanId} BLOCKED after ${Math.round((Date.now() - started) / 1000)}s: ${blockedReason(coverage)}`);
+    return;
+  }
+  console.log(`\nScan ${scanId} complete in ${Math.round((Date.now() - started) / 1000)}s. Score ${score}.${coverageLabel(coverage) ? ` ${coverageLabel(coverage)}` : ""}`);
+  const [done] = await db.select().from(scans).where(eq(scans.id, scanId));
+  console.log(`Runs ${runs}. Range ${done.scoreLow}-${done.scoreHigh}. Visibility ${done.visibilityScore}. Facts ${done.factScore ?? "n/a"}.`);
 
   const after = await db.select().from(competitors).where(eq(competitors.practiceId, practice.id));
   const discovered = after.filter(c => c.source === "discovered");

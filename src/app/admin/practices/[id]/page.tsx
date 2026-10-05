@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PrimaryLink, SecondaryLink } from "@/app/admin/ui";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/db";
@@ -11,7 +12,11 @@ import { requireOperator } from "@/lib/auth";
 import {
   addFact, archiveFact, addPrompt, togglePrompt, addCompetitor, hideCompetitor, restoreCompetitor, addNameVariation,
   issueClientPassword, triggerScan, updateFindingStatus, updateReportNotes, logWork, deleteWorkLogEntry,
+  draftFactsFromWebsite, approveFact, approveAllDrafts, updateFactValue, updateReportDetails,
 } from "@/app/admin/actions";
+import { getLatestScan, getLatestScanAttempt, describeBand } from "@/lib/queries";
+import { blockedReason, coverageLabel } from "@/core/coverage";
+import { scanLooksStuck } from "@/services/scan-runner";
 import { ClientAccess, type IssueResult } from "./client-access";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
@@ -72,6 +77,42 @@ async function handleAddPrompt(practiceId: string, formData: FormData): Promise<
   const kind = formData.get("kind");
   if (typeof text !== "string" || typeof kind !== "string" || !text.trim()) return;
   await addPrompt(practiceId, { text: text.trim(), kind: kind as PromptKind });
+}
+
+async function handleDraftFacts(practiceId: string): Promise<void> {
+  "use server";
+  const result = await draftFactsFromWebsite(practiceId);
+  const query = "added" in result
+    ? `drafted=${result.added}`
+    : `draftError=${encodeURIComponent(result.error.slice(0, 200))}`;
+  redirect(`/admin/practices/${practiceId}?${query}#fact-sheet`);
+}
+
+async function handleUpdateReportDetails(practiceId: string, formData: FormData): Promise<void> {
+  "use server";
+  const category = formData.get("category");
+  const location = formData.get("location");
+  await updateReportDetails(practiceId, {
+    category: typeof category === "string" ? category : "",
+    location: typeof location === "string" ? location : "",
+  });
+}
+
+async function handleApproveFact(factId: string): Promise<void> {
+  "use server";
+  await approveFact(factId);
+}
+
+async function handleApproveAllDrafts(practiceId: string): Promise<void> {
+  "use server";
+  await approveAllDrafts(practiceId);
+}
+
+async function handleUpdateFactValue(factId: string, formData: FormData): Promise<void> {
+  "use server";
+  const value = formData.get("value");
+  if (typeof value !== "string") return;
+  await updateFactValue(factId, value);
 }
 
 async function handleHideCompetitor(competitorId: string): Promise<void> {
@@ -159,20 +200,22 @@ export default async function PracticeDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ scanStarted?: string }>;
+  searchParams: Promise<{ scanStarted?: string; drafted?: string; draftError?: string }>;
 }) {
   await requireOperator();
   const { id: practiceId } = await params;
-  const { scanStarted } = await searchParams;
+  const { scanStarted, drafted, draftError } = await searchParams;
 
   const db = getDb();
   const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
   if (!practice) notFound();
 
   const [
-    factRows, promptRows, competitorRows, variationRows, openFindings, workLog, diagnostics, memberRows,
+    factRows, draftRows, promptRows, competitorRows, variationRows, openFindings, workLog, diagnostics, memberRows,
+    latestScan, latestAttempt,
   ] = await Promise.all([
     db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "active"))),
+    db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "draft"))),
     db.select().from(prompts).where(eq(prompts.practiceId, practiceId)),
     db.select().from(competitors).where(eq(competitors.practiceId, practiceId)),
     db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
@@ -193,8 +236,21 @@ export default async function PracticeDetailPage({
       .from(practiceMembers)
       .innerJoin(users, eq(practiceMembers.userId, users.id))
       .where(eq(practiceMembers.practiceId, practiceId)),
+    getLatestScan(db, practiceId),
+    getLatestScanAttempt(db, practiceId),
   ]);
 
+  // What happened to the newest scan when it isn't a clean, published one.
+  const attemptDate = latestAttempt?.startedAt.toISOString().slice(0, 10);
+  const attemptNote = !latestAttempt ? null
+    : latestAttempt.status === "blocked" && latestAttempt.coverage
+      ? `Latest attempt ${attemptDate} blocked: ${blockedReason(latestAttempt.coverage)}`
+    : latestAttempt.status === "running"
+      ? scanLooksStuck(latestAttempt.startedAt)
+        ? `Latest attempt ${attemptDate} stopped without finishing (it ran out of time). Run it again.`
+        : `Scan running since ${latestAttempt.startedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`
+    : latestAttempt.status === "failed" ? `Latest attempt ${attemptDate} failed. See diagnostics below.`
+    : coverageLabel(latestAttempt.coverage ?? null);
   const activeCompetitors = competitorRows.filter(c => c.status === "active");
   const hiddenCompetitors = competitorRows.filter(c => c.status === "ignored");
 
@@ -216,7 +272,7 @@ export default async function PracticeDetailPage({
           href="/admin"
           className="mb-2 inline-block text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
         >
-          ← Back to {appName}
+          ← All customers
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">
           {appName} · {practice.name}
@@ -224,17 +280,134 @@ export default async function PracticeDetailPage({
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
           {practice.slug} {practice.website ? `· ${practice.website}` : ""} · {practice.active ? "Active" : "Inactive"}
         </p>
+        <p className="mt-3 flex flex-wrap gap-2">
+          <PrimaryLink href={`/admin/practices/${practice.id}/overview`}>Overview</PrimaryLink>
+          <SecondaryLink href={`/dashboard/${practice.slug}`}>View as customer</SecondaryLink>
+        </p>
       </header>
 
       {scanStarted && (
         <p className="mb-8 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
-          Scan started; refresh in ~2 min.
+          Scan started; refresh in about 5 minutes.
         </p>
       )}
 
-      {/* Fact Sheet */}
+      {/* Latest scan */}
+      <section className="mb-10 rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+        {attemptNote && (
+          <p className="mb-3 text-sm font-medium text-amber-700 dark:text-amber-400">{attemptNote}</p>
+        )}
+        {latestScan ? (
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
+            <p className="text-sm text-zinc-600 dark:text-zinc-400">
+              Latest scan {latestScan.startedAt.toISOString().slice(0, 10)}:{" "}
+              <span className="font-semibold text-black dark:text-zinc-50">score {latestScan.score ?? "N/A"}</span>
+              {" · "}visibility {latestScan.visibilityScore ?? "N/A"}
+              {" · "}facts {latestScan.factScore ?? "N/A"}
+              {describeBand(latestScan) ? ` · ${describeBand(latestScan)}` : ""}
+            </p>
+            <span className="flex gap-3 text-sm font-medium">
+              <Link href={`/dashboard/${practice.slug}/audit?variant=visibility`} className="text-black underline-offset-2 hover:underline dark:text-zinc-50">
+                Ranking snapshot
+              </Link>
+              <Link href={`/dashboard/${practice.slug}/audit?variant=factcheck`} className="text-black underline-offset-2 hover:underline dark:text-zinc-50">
+                Fact check
+              </Link>
+              <Link href={`/dashboard/${practice.slug}/audit?variant=master`} className="text-black underline-offset-2 hover:underline dark:text-zinc-50">
+                Full audit →
+              </Link>
+            </span>
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">No completed scan yet.</p>
+        )}
+      </section>
+
+      {/* Report wording */}
       <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Fact Sheet</h2>
+        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Report details</h2>
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          Used in the report: &ldquo;When people ask AI for a <em>med spa</em> in <em>Santa Monica</em>...&rdquo;
+        </p>
+        <form action={handleUpdateReportDetails.bind(null, practiceId)} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <input name="category" defaultValue={practice.category ?? ""} placeholder="Category (e.g. Med spa)" className={inputClass} />
+          <input name="location" defaultValue={practice.location ?? ""} placeholder="Location (e.g. Santa Monica, CA)" className={inputClass} />
+          <button type="submit" className={primaryButtonClass}>Save</button>
+        </form>
+      </section>
+
+      {/* Fact Sheet */}
+      <section id="fact-sheet" className="mb-10">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-medium text-black dark:text-zinc-50">Fact Sheet</h2>
+          <form action={handleDraftFacts.bind(null, practiceId)}>
+            <button
+              type="submit"
+              disabled={!practice.website}
+              title={practice.website ? "Reads the website and adds draft facts for review" : "Add a website first"}
+              className={`${secondaryButtonClass} disabled:opacity-50`}
+            >
+              Draft from website
+            </button>
+          </form>
+        </div>
+        {drafted !== undefined && (
+          <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300">
+            Added {drafted} draft fact{drafted === "1" ? "" : "s"} from the website. Review them below before approving.
+          </p>
+        )}
+        {draftError && (
+          <p className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+            Couldn&apos;t draft facts: {draftError}
+          </p>
+        )}
+
+        {draftRows.length > 0 && (
+          <div className="mb-6 rounded-lg border border-amber-200 p-4 dark:border-amber-900">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <p className="text-sm text-black dark:text-zinc-50">
+                <span className="font-medium">{draftRows.length} drafts to review.</span>{" "}
+                <span className="text-zinc-500 dark:text-zinc-400">Scans ignore these until approved.</span>
+              </p>
+              <form action={handleApproveAllDrafts.bind(null, practiceId)}>
+                <button type="submit" className={secondaryButtonClass}>Approve all</button>
+              </form>
+            </div>
+            <table className="w-full border-collapse text-sm">
+              <tbody>
+                {draftRows.map(fact => (
+                  <tr key={fact.id} className="border-b border-zinc-100 align-top dark:border-zinc-900">
+                    <td className="py-2 pr-3 text-xs text-zinc-500 dark:text-zinc-400">{CATEGORY_LABELS[fact.category]}</td>
+                    <td className="py-2 pr-3 font-medium text-black dark:text-zinc-50">
+                      {fact.label}
+                      {fact.sourceUrl && (
+                        <a href={fact.sourceUrl} target="_blank" rel="noopener noreferrer"
+                          className="mt-0.5 block text-xs font-normal text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400">
+                          source
+                        </a>
+                      )}
+                    </td>
+                    <td className="py-2 pr-3">
+                      <form action={handleUpdateFactValue.bind(null, fact.id)} className="flex gap-2">
+                        <input name="value" defaultValue={fact.value} className={`${inputClass} flex-1 py-1`} />
+                        <button type="submit" className={secondaryButtonClass}>Save</button>
+                      </form>
+                    </td>
+                    <td className="whitespace-nowrap py-2 text-right">
+                      <form action={handleApproveFact.bind(null, fact.id)} className="inline">
+                        <button type="submit" className={secondaryButtonClass}>Approve</button>
+                      </form>{" "}
+                      <form action={archiveFact.bind(null, fact.id)} className="inline">
+                        <button type="submit" className={secondaryButtonClass}>Reject</button>
+                      </form>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <form action={handleAddFact.bind(null, practiceId)} className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
           <select name="category" defaultValue="identity" className={inputClass}>
             {factCategoryEnum.enumValues.map(cat => (
@@ -424,7 +597,7 @@ export default async function PracticeDetailPage({
       </section>
 
       {/* Open findings */}
-      <section className="mb-10">
+      <section id="findings" className="mb-10">
         <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Open findings</h2>
         {openFindings.length === 0 ? (
           <p className="text-sm text-zinc-600 dark:text-zinc-400">No open findings.</p>
@@ -441,7 +614,14 @@ export default async function PracticeDetailPage({
             <tbody>
               {openFindings.map(finding => (
                 <tr key={finding.id} className="border-b border-zinc-100 dark:border-zinc-900">
-                  <td className="py-2 pr-4 text-black dark:text-zinc-50">{finding.claim}</td>
+                  <td className="py-2 pr-4 text-black dark:text-zinc-50">
+                    {finding.claim}
+                    {latestScan && finding.lastSeenScanId !== latestScan.id && (
+                      <span className="ml-2 rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
+                        not seen in latest scan
+                      </span>
+                    )}
+                  </td>
                   <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{finding.factValue ?? "N/A"}</td>
                   <td className="py-2 pr-4 text-zinc-600 dark:text-zinc-400">{finding.severity}</td>
                   <td className="py-2">

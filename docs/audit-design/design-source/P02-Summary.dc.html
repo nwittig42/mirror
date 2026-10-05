@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Executive summary</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 22px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DBEAFE; color: #1D4ED8">Executive summary</span>
+      <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 29px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance">When people ask AI for a med spa in Santa Monica, Glow MedSpa comes up in <span style="color: #B91C1C">10 of 75 answers</span>. Skin Bar LA comes up in 27.</h1>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+        <div style="border-radius: 18px; padding: 18px; background: {{t.soft}}; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+          <span class="label" style="color: #334155">{{t.name}}</span>
+          <div style="position: relative; width: 124px; height: 124px">
+            <svg width="124" height="124" viewBox="0 0 124 124" aria-hidden="true">
+              <circle cx="62" cy="62" r="50" fill="none" stroke="#FFFFFF" stroke-width="14"></circle>
+              <circle cx="62" cy="62" r="50" fill="none" stroke-width="14" transform="rotate(-90 62 62)" style="stroke: {{t.color}}; stroke-dasharray: {{t.dash}}"></circle>
+            </svg>
+            <div style="position: absolute; left: 0; top: 0; width: 124px; height: 124px; display: flex; flex-direction: column; align-items: center; justify-content: center">
+              <span style="font-size: 40px; font-weight: 800; line-height: 1">{{t.score}}</span>
+              <span style="font-size: 11px; color: #64748B">of 100</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 99px; background: {{t.color}}; color: #FFFFFF">{{t.label}}</span>
+          <span style="font-size: 12.5px; line-height: 1.35; font-weight: 600">{{t.sub}}</span>
+          <span class="small" style="color: #475569">{{t.def}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <div style="position: relative; height: 18px">
+        <sc-for list="{{pinsTop}}" as="p" hint-placeholder-count="2">
+          <span style="position: absolute; top: 0; left: {{p.left}}%; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #0F172A; white-space: nowrap">{{p.label}} ▾</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 3px; height: 12px">
+        <div style="flex-grow: 40; flex-basis: 0; background: #DC2626; border-radius: 6px 0 0 6px"></div>
+        <div style="flex-grow: 30; flex-basis: 0; background: #F59E0B"></div>
+        <div style="flex-grow: 30; flex-basis: 0; background: #16A34A; border-radius: 0 6px 6px 0"></div>
+      </div>
+      <div style="position: relative; height: 18px">
+        <sc-for list="{{pinsBottom}}" as="p" hint-placeholder-count="1">
+          <span style="position: absolute; top: 0; left: {{p.left}}%; transform: translateX(-50%); font-size: 11px; font-weight: 800; color: #0F172A; white-space: nowrap">▴ {{p.label}}</span>
+        </sc-for>
+      </div>
+      <div style="display: flex; font-size: 11.5px; font-weight: 700">
+        <span style="flex-grow: 40; flex-basis: 0; color: #B91C1C">0–39 · Needs work</span>
+        <span style="flex-grow: 30; flex-basis: 0; color: #B45309">40–69 · Fair</span>
+        <span style="flex-grow: 30; flex-basis: 0; color: #15803D; text-align: right">70–100 · Strong</span>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+      <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <span class="label">You vs. your top competitor</span>
+        <p class="take">Skin Bar LA is about twice as visible as you.</p>
+        <div style="display: flex; justify-content: space-around; align-items: center">
+          <sc-for list="{{compare}}" as="c" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 92px; height: 92px">
+                <svg width="92" height="92" viewBox="0 0 92 92" aria-hidden="true">
+                  <circle cx="46" cy="46" r="37" fill="none" stroke="#F1F5F9" stroke-width="11"></circle>
+                  <circle cx="46" cy="46" r="37" fill="none" stroke-width="11" transform="rotate(-90 46 46)" style="stroke: {{c.color}}; stroke-dasharray: {{c.dash}}"></circle>
+                </svg>
+                <div style="position: absolute; left: 0; top: 0; width: 92px; height: 92px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800">{{c.score}}</div>
+              </div>
+              <span style="font-size: 13px; font-weight: 700">{{c.name}}</span>
+              <span class="small">{{c.named}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <span class="small">Visibility score. Fact accuracy is only checked for you.</span>
+      </div>
+
+      <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <span class="label">Top 3 things to fix</span>
+        <sc-for list="{{fixes}}" as="f" hint-placeholder-count="3">
+          <div style="display: flex; gap: 12px; align-items: flex-start">
+            <span style="flex-shrink: 0; width: 30px; height: 30px; border-radius: 10px; background: #2563EB; color: #FFFFFF; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{f.n}}</span>
+            <div style="display: flex; flex-direction: column; gap: 6px">
+              <span style="font-size: 14px; font-weight: 700; line-height: 1.35">{{f.title}}</span>
+              <div style="display: flex; gap: 6px">
+                <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: {{f.effortBg}}; color: {{f.effortFg}}">{{f.effort}} effort</span>
+                <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: {{f.impactBg}}; color: {{f.impactFg}}">{{f.impact}} impact</span>
+              </div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="background: #EFF6FF; border-radius: 16px; padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5v.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">What this means</span>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.5; color: #1E293B">When someone asks an AI assistant where to get Botox nearby, they usually hear about other spas first. When AI does mention you, it gets some facts wrong, including your price. The first fixes are small and quick.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>02 · Executive summary</span><span style="font-weight: 700; color: #0F172A">2 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const band = (s) => s >= 70 ? { color: '#16A34A', soft: '#F0FDF4', label: 'Strong' }
+      : s >= 40 ? { color: '#F59E0B', soft: '#FFFBEB', label: 'Fair' }
+      : { color: '#DC2626', soft: '#FEF2F2', label: 'Needs work' };
+    const ring = (s, r) => { const C = 2 * Math.PI * r; return (s / 100) * C + ' ' + C; };
+    const tile = (name, score, sub, def) => ({ name, score, sub, def, dash: ring(score, 50), ...band(score) });
+    const lvl = {
+      Low: { bg: '#DCFCE7', fg: '#15803D' }, Medium: { bg: '#FEF3C7', fg: '#B45309' }, High: { bg: '#FEE2E2', fg: '#B91C1C' }
+    };
+    const imp = {
+      High: { bg: '#DCFCE7', fg: '#15803D' }, Medium: { bg: '#FEF3C7', fg: '#B45309' }, Low: { bg: '#F1F5F9', fg: '#334155' }
+    };
+    const fix = (n, title, effort, impact) => ({
+      n, title, effort, impact,
+      effortBg: lvl[effort].bg, effortFg: lvl[effort].fg, impactBg: imp[impact].bg, impactFg: imp[impact].fg
+    });
+    return {
+      tiles: [
+        tile('Overall', 34, 'Ranged 30–39 across 3 runs', 'Visibility and accuracy combined.'),
+        tile('Visibility', 29, 'Named in 10 of 75 answers', 'How often and how high AI names you.'),
+        tile('Fact accuracy', 70, '7 of 10 facts correct', 'How correct AI is about you.')
+      ],
+      pinsTop: [{ left: 34, label: 'Overall 34' }, { left: 70, label: 'Accuracy 70' }],
+      pinsBottom: [{ left: 29, label: 'Visibility 29' }],
+      compare: [
+        { name: 'You', score: 29, dash: ring(29, 37), color: band(29).color, named: '10 of 75 answers' },
+        { name: 'Skin Bar LA', score: 61, dash: ring(61, 37), color: band(61).color, named: '27 of 75 answers' }
+      ],
+      fixes: [
+        fix(1, 'Fix pricing on your site and Yelp', 'Low', 'High'),
+        fix(2, 'Get featured on medspascout.com and Yelp’s “best of” lists', 'Medium', 'High'),
+        fix(3, 'Add a plain facts page with prices, hours and services', 'Low', 'High')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "01 · Cover",
+      "w": 816,
+      "x": 0,
+      "y": 0,
+      "page": "master"
+    },
+    "P02-Summary.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "02 · Executive summary",
+      "w": 816,
+      "x": 896,
+      "y": 0,
+      "page": "master"
+    },
+    "P03-Score.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "03 · Score and AI tools",
+      "w": 816,
+      "x": 1792,
+      "y": 0,
+      "page": "master"
+    },
+    "P04-Competitors.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "04 · Who AI recommends",
+      "w": 816,
+      "x": 2688,
+      "y": 0,
+      "page": "master"
+    },
+    "P05-Wins-Tone.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "05 · Closest wins and tone",
+      "w": 816,
+      "x": 3584,
+      "y": 0,
+      "page": "master"
+    },
+    "P06-Sources.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "06 · Where AI gets answers",
+      "w": 816,
+      "x": 4480,
+      "y": 0,
+      "page": "master"
+    },
+    "P07-Searches.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "07 · What AI searched for",
+      "w": 816,
+      "x": 0,
+      "y": 1176,
+      "page": "master"
+    },
+    "P08-Wrong-Facts.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "08 · What AI gets wrong",
+      "w": 816,
+      "x": 896,
+      "y": 1176,
+      "page": "master"
+    },
+    "P09-Website.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "09 · Website check",
+      "w": 816,
+      "x": 1792,
+      "y": 1176,
+      "page": "master"
+    },
+    "P10-Plan.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "10 · What to do first",
+      "w": 816,
+      "x": 2688,
+      "y": 1176,
+      "page": "master"
+    },
+    "P11-Method.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "11 · How we measured",
+      "w": 816,
+      "x": 3584,
+      "y": 1176,
+      "page": "master"
+    },
+    "P12-Next.dc.html": {
+      "h": 1056,
+      "paper": "letter",
+      "title": "12 · Next step",
+      "w": 816,
+      "x": 4480,
+      "y": 1176,
+      "page": "master"
+    },
+    "V01-Cover.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "01 · Cover",
+      "paper": "letter",
+      "page": "visibility"
+    },
+    "V02-Summary.dc.html": {
+      "x": 896,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "02 · Summary",
+      "paper": "letter",
+      "page": "visibility"
+    },
+    "V03-Tools.dc.html": {
+      "x": 1792,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "03 · AI tool by tool",
+      "paper": "letter",
+      "page": "visibility"
+    },
+    "V04-Questions.dc.html": {
+      "x": 2688,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "04 · Question by question",
+      "paper": "letter",
+      "page": "visibility"
+    },
+    "V05-Sources-Next.dc.html": {
+      "x": 3584,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "05 · Where AI looks",
+      "paper": "letter",
+      "page": "visibility"
+    },
+    "F01-Cover.dc.html": {
+      "x": 0,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "01 · Cover",
+      "paper": "letter",
+      "page": "factcheck"
+    },
+    "F02-TrueFalse.dc.html": {
+      "x": 896,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "02 · True or false",
+      "paper": "letter",
+      "page": "factcheck"
+    },
+    "F03-Wrong-Facts.dc.html": {
+      "x": 1792,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "03 · False facts",
+      "paper": "letter",
+      "page": "factcheck"
+    },
+    "F04-Fix.dc.html": {
+      "x": 2688,
+      "y": 0,
+      "w": 816,
+      "h": 1056,
+      "title": "04 · How to fix",
+      "paper": "letter",
+      "page": "factcheck"
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-24T20:02:28Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "howto": {
+      "fill": "blue",
+      "text": "Template notes\n\n• 12 US Letter pages in reading order. Export with All artboards (.pdf).\n\n• Score circles use one scale everywhere: red 0–39 Needs work, amber 40–69 Fair, green 70–100 Strong.\n\n• Blue always means the client in comparisons. Each AI tool has its own colored badge (Ch, Cl, Ge, Gr, Pe); swap in real logo files if you have rights to use them.\n\n• Pages 05, 06, 07 and 08 have a “Show empty state” tweak.\n\n• Sample data: Grok (1 of 15) was added, so totals are out of 75 buyer answers. Questions, quotes and the grid are illustrative.",
+      "w": 440,
+      "x": -560,
+      "y": 0,
+      "page": "master"
+    },
+    "title": {
+      "kind": "title1",
+      "maxW": 5296,
+      "text": "Master report · everything",
+      "w": 240,
+      "x": 0,
+      "y": -300,
+      "page": "master"
+    },
+    "vtitle": {
+      "x": 0,
+      "y": -300,
+      "text": "Visibility snapshot · rank and reach only",
+      "kind": "title1",
+      "maxW": 4400,
+      "page": "visibility"
+    },
+    "vnote": {
+      "x": -560,
+      "y": 0,
+      "w": 440,
+      "fill": "blue",
+      "page": "visibility",
+      "text": "Short report, 5 pages.\n\nOnly how AI ranks and recommends you: visibility score, tools, competitors, question grid, closest wins, tone, sources.\n\nNo true/false fact checking. That lives in the Fact check page.\n\nExport with All artboards (.pdf) while on this page."
+    },
+    "ftitle": {
+      "x": 0,
+      "y": -300,
+      "text": "Fact check · true or false only",
+      "kind": "title1",
+      "maxW": 3504,
+      "page": "factcheck"
+    },
+    "fnote": {
+      "x": -560,
+      "y": 0,
+      "w": 440,
+      "fill": "green",
+      "page": "factcheck",
+      "text": "Fact check report, 4 pages.\n\nOnly what AI says about the business and whether it’s true: accuracy score, every fact checked, false facts with sources, and how to fix them.\n\nThe 7 true facts are illustrative sample data.\n\nExport with All artboards (.pdf) while on this page."
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "P02-Summary.dc.html",
+    "P03-Score.dc.html",
+    "P04-Competitors.dc.html",
+    "P05-Wins-Tone.dc.html",
+    "P06-Sources.dc.html",
+    "P07-Searches.dc.html",
+    "P08-Wrong-Facts.dc.html",
+    "P09-Website.dc.html",
+    "P10-Plan.dc.html",
+    "P11-Method.dc.html",
+    "P12-Next.dc.html",
+    "V01-Cover.dc.html",
+    "V02-Summary.dc.html",
+    "V03-Tools.dc.html",
+    "V04-Questions.dc.html",
+    "V05-Sources-Next.dc.html",
+    "F01-Cover.dc.html",
+    "F02-TrueFalse.dc.html",
+    "F03-Wrong-Facts.dc.html",
+    "F04-Fix.dc.html"
+  ],
+  "pages": [
+    {
+      "id": "master",
+      "name": "Master report"
+    },
+    {
+      "id": "visibility",
+      "name": "Visibility snapshot"
+    },
+    {
+      "id": "factcheck",
+      "name": "Fact check"
+    }
+  ],
+  "title": "Mirror AI Visibility Audit"
+}

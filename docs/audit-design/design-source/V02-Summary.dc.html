@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Visibility summary</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Snapshot</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 22px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DBEAFE; color: #1D4ED8">Where you stand</span>
+      <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 29px; line-height: 1.25; letter-spacing: -0.01em; text-wrap: balance">AI names Glow MedSpa in <span style="color: #B91C1C">10 of 75</span> buyer answers. Skin Bar LA is named in 27, and it’s usually named first.</h1>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px">
+      <sc-for list="{{tiles}}" as="t" hint-placeholder-count="3">
+        <div style="border-radius: 18px; padding: 18px; background: {{t.soft}}; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+          <span class="label" style="color: #334155">{{t.name}}</span>
+          <div style="position: relative; width: 124px; height: 124px">
+            <svg width="124" height="124" viewBox="0 0 124 124" aria-hidden="true">
+              <circle cx="62" cy="62" r="50" fill="none" stroke="#FFFFFF" stroke-width="14"></circle>
+              <circle cx="62" cy="62" r="50" fill="none" stroke-width="14" transform="rotate(-90 62 62)" style="stroke: {{t.color}}; stroke-dasharray: {{t.dash}}"></circle>
+            </svg>
+            <div style="position: absolute; left: 0; top: 0; width: 124px; height: 124px; display: flex; flex-direction: column; align-items: center; justify-content: center">
+              <span style="font-size: 36px; font-weight: 800; line-height: 1">{{t.big}}</span>
+              <span style="font-size: 11px; color: #64748B">{{t.unit}}</span>
+            </div>
+          </div>
+          <span style="font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 99px; background: {{t.color}}; color: #FFFFFF">{{t.label}}</span>
+          <span style="font-size: 12.5px; line-height: 1.35; font-weight: 600">{{t.sub}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px">
+      <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px">
+        <span class="label">You vs. your top competitor</span>
+        <p class="take">Skin Bar LA is about twice as visible as you.</p>
+        <div style="display: flex; justify-content: space-around; align-items: center">
+          <sc-for list="{{compare}}" as="c" hint-placeholder-count="2">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 6px">
+              <div style="position: relative; width: 92px; height: 92px">
+                <svg width="92" height="92" viewBox="0 0 92 92" aria-hidden="true">
+                  <circle cx="46" cy="46" r="37" fill="none" stroke="#F1F5F9" stroke-width="11"></circle>
+                  <circle cx="46" cy="46" r="37" fill="none" stroke-width="11" transform="rotate(-90 46 46)" style="stroke: {{c.color}}; stroke-dasharray: {{c.dash}}"></circle>
+                </svg>
+                <div style="position: absolute; left: 0; top: 0; width: 92px; height: 92px; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800">{{c.score}}</div>
+              </div>
+              <span style="font-size: 13px; font-weight: 700">{{c.name}}</span>
+              <span class="small">{{c.named}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="border: 1px solid #E2E8F0; border-radius: 18px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px">
+        <span class="label">Who AI names most</span>
+        <sc-for list="{{board}}" as="b" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 22px 92px 1fr 26px; gap: 8px; align-items: center">
+            <span style="width: 22px; height: 22px; border-radius: 11px; background: {{b.chip}}; color: #FFFFFF; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{b.rank}}</span>
+            <span style="font-size: 13px; font-weight: {{b.weight}}; color: {{b.nameColor}}">{{b.name}}</span>
+            <div style="height: 12px; border-radius: 4px; background: #F1F5F9"><div style="height: 12px; border-radius: 4px; background: {{b.color}}; width: {{b.pct}}%"></div></div>
+            <span style="font-size: 13px; font-weight: 800; text-align: right">{{b.count}}</span>
+          </div>
+        </sc-for>
+        <span class="small">Answers naming each business, out of 75.</span>
+      </div>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span class="label">Top 3 moves to get named more</span>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px">
+        <sc-for list="{{moves}}" as="m" hint-placeholder-count="3">
+          <div style="background: #F8FAFC; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 8px">
+            <span style="width: 30px; height: 30px; border-radius: 10px; background: #2563EB; color: #FFFFFF; font-size: 14px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{m.n}}</span>
+            <span style="font-size: 14px; font-weight: 700; line-height: 1.35">{{m.title}}</span>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap">
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: {{m.effortBg}}; color: {{m.effortFg}}">{{m.effort}} effort</span>
+              <span style="font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 99px; background: {{m.impactBg}}; color: {{m.impactFg}}">{{m.impact}} impact</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>Visibility snapshot · Summary</span><span style="font-weight: 700; color: #0F172A">2 / 5</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const scoreBand = (s) => s >= 70 ? { color: '#16A34A', soft: '#F0FDF4', label: 'Strong' }
+      : s >= 40 ? { color: '#F59E0B', soft: '#FFFBEB', label: 'Fair' } : { color: '#DC2626', soft: '#FEF2F2', label: 'Needs work' };
+    const rateBand = (p) => p >= 40 ? { color: '#16A34A', soft: '#F0FDF4', label: 'Strong' }
+      : p >= 20 ? { color: '#F59E0B', soft: '#FFFBEB', label: 'Fair' } : { color: '#DC2626', soft: '#FEF2F2', label: 'Weak' };
+    const ring = (v, r) => { const C = 2 * Math.PI * r; return (v / 100) * C + ' ' + C; };
+    const lvl = { Low: { bg: '#DCFCE7', fg: '#15803D' }, Medium: { bg: '#FEF3C7', fg: '#B45309' }, High: { bg: '#FEE2E2', fg: '#B91C1C' } };
+    const imp = { High: { bg: '#DCFCE7', fg: '#15803D' }, Medium: { bg: '#FEF3C7', fg: '#B45309' }, Low: { bg: '#F1F5F9', fg: '#334155' } };
+    const move = (n, title, effort, impact) => ({ n, title, effort, impact, effortBg: lvl[effort].bg, effortFg: lvl[effort].fg, impactBg: imp[impact].bg, impactFg: imp[impact].fg });
+    const counts = [['Skin Bar LA', 27], ['Cienega Spa', 20], ['SkinLab', 13], ['Glow MedSpa', 10], ['Ava MD', 7]].sort((a, b) => b[1] - a[1]);
+    const max = counts[0][1];
+    return {
+      tiles: [
+        { name: 'Visibility score', big: '29', unit: 'of 100', sub: 'How often and how high AI names you', dash: ring(29, 50), ...scoreBand(29) },
+        { name: 'Answers naming you', big: '13%', unit: '10 of 75', sub: 'Most buyers never hear your name', dash: ring(13, 50), ...rateBand(13) },
+        { name: 'AI tools naming you', big: '4/5', unit: 'assistants', sub: 'Only Gemini never named you', dash: ring(80, 50), ...rateBand(80) }
+      ],
+      compare: [
+        { name: 'You', score: 29, dash: ring(29, 37), color: scoreBand(29).color, named: 'Rank #4 · 10 answers' },
+        { name: 'Skin Bar LA', score: 61, dash: ring(61, 37), color: scoreBand(61).color, named: 'Rank #1 · 27 answers' }
+      ],
+      board: counts.map(([name, count], i) => {
+        const me = name === 'Glow MedSpa';
+        return { rank: i + 1, name: me ? 'You' : name, count, pct: Math.round((count / max) * 100),
+          color: me ? '#2563EB' : '#CBD5E1', chip: me ? '#2563EB' : '#0F172A', nameColor: me ? '#1D4ED8' : '#0F172A', weight: me ? 800 : 600 };
+      }),
+      moves: [
+        move(1, 'Get featured on medspascout.com and Yelp’s “best of” lists', 'Medium', 'High'),
+        move(2, 'Build the pages AI searches for: prices, reviews, hours', 'Low', 'High'),
+        move(3, 'Turn your 5 closest wins into first-place answers', 'Medium', 'Medium')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -25,7 +25,15 @@ export const openaiAdapter: EngineAdapter = {
       (o: { type: string }) => o.type === "message",
     );
     const content = message?.content?.[0];
+    // Each web_search_call item carries the query it ran, as `action.query`
+    // (and sometimes a batch as `action.queries`).
+    const searchQueries: string[] = (data.output ?? [])
+      .filter((o: { type: string }) => o.type === "web_search_call")
+      .flatMap((o: { action?: { query?: string; queries?: string[] } }) =>
+        [o.action?.query, ...(o.action?.queries ?? [])])
+      .filter((q: unknown): q is string => typeof q === "string" && q.trim() !== "");
     return {
+      searchQueries: [...new Set(searchQueries)],
       answer: content?.text ?? "",
       citations:
         content?.annotations

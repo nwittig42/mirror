@@ -19,7 +19,10 @@ vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
-import { addFact, updateFindingStatus, logWork, deleteWorkLogEntry } from "@/app/admin/actions";
+import {
+  addFact, updateFindingStatus, logWork, deleteWorkLogEntry, approveFact, approveAllDrafts, updateFactValue,
+} from "@/app/admin/actions";
+import { runScan } from "@/services/scan-runner";
 
 describe("admin actions", () => {
   describe("addFact", () => {
@@ -188,5 +191,63 @@ describe("competitor visibility", () => {
 
     const [after] = await db.select().from(schema.competitors).where(eq(schema.competitors.id, row.id));
     expect(after.status).toBe("active");
+  });
+});
+
+describe("draft facts", () => {
+  async function withDrafts() {
+    const db = await makeTestDb();
+    setDbForTests(db);
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [{ text: "Botox price at Glow MedSpa?", kind: "branded" }],
+    });
+    const [a, b] = await db.insert(schema.facts).values([
+      { practiceId, category: "pricing", label: "Botox price", value: "$13/unit", status: "draft", source: "website" },
+      { practiceId, category: "logistics", label: "Address", value: "1 Main St", status: "draft", source: "website" },
+    ]).returning();
+    return { db, practiceId, a, b };
+  }
+
+  it("never shows a draft to the judge", async () => {
+    const { db, practiceId } = await withDrafts();
+    const seen: { label: string }[][] = [];
+    const judge = async (args: { answer: string; facts: { label: string; value: string; category: string }[] }) => {
+      seen.push(args.facts);
+      return { wrong: [], right: [] };
+    };
+    const adapter = { name: "openai" as const, run: async () => ({ answer: "Glow MedSpa is $9/unit", citations: [] }) };
+    await runScan(db, practiceId, [adapter], judge, async () => []);
+    // Only drafts exist, so there is nothing active to check against: the
+    // judge is never called, and a draft never reaches it.
+    expect(seen).toEqual([]);
+  });
+
+  it("approves one draft, then the rest", async () => {
+    const { db, practiceId, a } = await withDrafts();
+    await approveFact(a.id);
+    let rows = await db.select().from(schema.facts).where(eq(schema.facts.practiceId, practiceId));
+    expect(rows.find(r => r.id === a.id)?.status).toBe("active");
+    expect(rows.filter(r => r.status === "draft")).toHaveLength(1);
+
+    await approveAllDrafts(practiceId);
+    rows = await db.select().from(schema.facts).where(eq(schema.facts.practiceId, practiceId));
+    expect(rows.every(r => r.status === "active")).toBe(true);
+  });
+
+  it("does not resurrect an archived fact through approve", async () => {
+    const { db, a } = await withDrafts();
+    await db.update(schema.facts).set({ status: "archived" }).where(eq(schema.facts.id, a.id));
+    await approveFact(a.id);
+    const [row] = await db.select().from(schema.facts).where(eq(schema.facts.id, a.id));
+    expect(row.status).toBe("archived");
+  });
+
+  it("edits a value and ignores a blank one", async () => {
+    const { db, a } = await withDrafts();
+    await updateFactValue(a.id, "  $14/unit ");
+    await updateFactValue(a.id, "   ");
+    const [row] = await db.select().from(schema.facts).where(eq(schema.facts.id, a.id));
+    expect(row.value).toBe("$14/unit");
   });
 });

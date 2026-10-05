@@ -1,7 +1,8 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { nameVariations, practiceMembers, practices, scans, users } from "@/db/schema";
-import { getLatestScan, getChecksForScan, getOpenFindings } from "@/lib/queries";
+import { getLatestScanAttempt, getChecksForScan, getOpenFindings } from "@/lib/queries";
+import { coverageLabel } from "@/core/coverage";
 import { loadEnv } from "@/lib/env";
 import { escapeHtml } from "@/lib/html";
 import { logActivity } from "@/services/activity";
@@ -15,6 +16,8 @@ export interface PulseArgs {
   total: number;
   bestQuote: { engine: string; snippet: string } | null;
   openFindings: number;
+  /** "Based on 4 of 5 AI tools. Gemini didn't respond." when the scan was short. */
+  coverageNote: string | null;
   appUrl: string;
   slug: string;
 }
@@ -50,6 +53,7 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
   const delta = args.prevScore === null ? null : args.score - args.prevScore;
   const deltaText = delta === null || delta === 0 ? "" : ` (${delta > 0 ? "+" : ""}${delta})`;
   rows.push(row(`<strong>Score: ${args.score}${deltaText}</strong>`));
+  if (args.coverageNote) rows.push(row(escapeHtml(args.coverageNote)));
 
   // Says what the denominator is. The count deliberately excludes questions
   // that named the practice, since those are answered with the name every time
@@ -115,13 +119,20 @@ const defaultTransport: PulseTransport = async ({ to, subject, html, from }) => 
  * inject a fake to assert on the composed subject/html/recipients without
  * touching the network.
  */
+const PULSE_MAX_SCAN_AGE_MS = 3 * 86_400_000;
+
 export async function sendPulse(
   db: Db,
   practiceId: string,
   transport: PulseTransport = defaultTransport,
 ): Promise<void> {
-  const latest = await getLatestScan(db, practiceId);
-  if (!latest) return;
+  // Only the newest scan attempt can be this week's news. If it was blocked
+  // or failed, the latest *complete* scan is last week's, already sent.
+  const latest = await getLatestScanAttempt(db, practiceId);
+  if (!latest || latest.status !== "complete") return;
+  // The Pulse goes out the morning after the scan. A newest scan older than
+  // that means this week's never started, and last week's is already sent.
+  if (Date.now() - latest.startedAt.getTime() > PULSE_MAX_SCAN_AGE_MS) return;
 
   const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
   if (!practice) return;
@@ -172,7 +183,9 @@ export async function sendPulse(
     cited,
     total,
     bestQuote,
-    openFindings: openFindings.length,
+    // Only wrong facts the latest scan repeated count toward its fact score.
+    openFindings: openFindings.filter(f => f.lastSeenScanId === latest.id).length,
+    coverageNote: coverageLabel(latest.coverage ?? null),
     appUrl: loadEnv().APP_URL,
     slug: practice.slug,
   });

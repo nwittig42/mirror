@@ -1,0 +1,745 @@
+{
+  "business": {
+    "name": "Glow MedSpa",
+    "website": "glowmedspa.com",
+    "location": "Santa Monica, CA",
+    "category": "Med spa"
+  },
+  "scan": {
+    "date": "2026-09-24",
+    "tools": [
+      "chatgpt",
+      "claude",
+      "gemini",
+      "grok",
+      "perplexity"
+    ],
+    "buyerQuestionCount": 5,
+    "brandedQuestionCount": 5,
+    "runsPerQuestion": 3,
+    "coverageNote": null
+  },
+  "scores": {
+    "overall": {
+      "value": 41,
+      "min": 37,
+      "max": 45,
+      "explanation": "Overall = 70% visibility (29) + 30% fact accuracy (70) = 41."
+    },
+    "visibility": 29,
+    "factAccuracy": 70,
+    "components": [
+      {
+        "id": "named_often",
+        "label": "How often you’re named",
+        "definition": "How many buyer answers mention you at all.",
+        "weight": 41,
+        "score": 13,
+        "detail": "10 of 75"
+      },
+      {
+        "id": "rank_high",
+        "label": "How high you rank",
+        "definition": "Your average spot on AI’s list. Not named counts as last.",
+        "weight": 17,
+        "score": 32,
+        "detail": "Usually 3rd+"
+      },
+      {
+        "id": "tool_reach",
+        "label": "How many AI tools name you",
+        "definition": "Assistants that mention you at least once.",
+        "weight": 12,
+        "score": 80,
+        "detail": "4 of 5 tools"
+      },
+      {
+        "id": "accuracy",
+        "label": "How accurate AI is",
+        "definition": "Facts about you that AI got right.",
+        "weight": 30,
+        "score": 70,
+        "detail": "7 of 10 facts"
+      }
+    ]
+  },
+  "topCompetitor": {
+    "name": "Skin Bar LA",
+    "visibility": 61,
+    "namedCount": 27
+  },
+  "toolResults": [
+    {
+      "tool": "chatgpt",
+      "named": 3,
+      "total": 15
+    },
+    {
+      "tool": "claude",
+      "named": 2,
+      "total": 15
+    },
+    {
+      "tool": "gemini",
+      "named": 0,
+      "total": 15
+    },
+    {
+      "tool": "grok",
+      "named": 1,
+      "total": 15
+    },
+    {
+      "tool": "perplexity",
+      "named": 4,
+      "total": 15
+    }
+  ],
+  "leaderboard": [
+    {
+      "name": "Skin Bar LA",
+      "count": 27,
+      "isClient": false
+    },
+    {
+      "name": "Cienega Spa",
+      "count": 20,
+      "isClient": false
+    },
+    {
+      "name": "SkinLab",
+      "count": 13,
+      "isClient": false
+    },
+    {
+      "name": "Glow MedSpa",
+      "count": 10,
+      "isClient": true
+    },
+    {
+      "name": "Ava MD",
+      "count": 7,
+      "isClient": false
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Best med spa in Santa Monica?",
+      "cells": [
+        {
+          "tool": "chatgpt",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "claude",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "gemini",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "grok",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "perplexity",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": 5,
+          "runsAppeared": 1
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "text": "Where can I get Botox in Santa Monica?",
+      "cells": [
+        {
+          "tool": "chatgpt",
+          "firstNamed": "Cienega Spa",
+          "clientRank": 3,
+          "runsAppeared": 1
+        },
+        {
+          "tool": "claude",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": 4,
+          "runsAppeared": 1
+        },
+        {
+          "tool": "gemini",
+          "firstNamed": "Cienega Spa",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "grok",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "perplexity",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": 2,
+          "runsAppeared": 1
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "text": "Affordable med spa open Saturday",
+      "cells": [
+        {
+          "tool": "chatgpt",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": 2,
+          "runsAppeared": 2
+        },
+        {
+          "tool": "claude",
+          "firstNamed": "Cienega Spa",
+          "clientRank": 3,
+          "runsAppeared": 1
+        },
+        {
+          "tool": "gemini",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "grok",
+          "firstNamed": "Cienega Spa",
+          "clientRank": 3,
+          "runsAppeared": 1
+        },
+        {
+          "tool": "perplexity",
+          "firstNamed": "Glow MedSpa",
+          "clientRank": 1,
+          "runsAppeared": 2
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "text": "Natural-looking lip filler nearby?",
+      "cells": [
+        {
+          "tool": "chatgpt",
+          "firstNamed": "SkinLab",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "claude",
+          "firstNamed": "Cienega Spa",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "gemini",
+          "firstNamed": "Ava MD",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "grok",
+          "firstNamed": "SkinLab",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "perplexity",
+          "firstNamed": "Cienega Spa",
+          "clientRank": null,
+          "runsAppeared": 0
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "text": "Best place for a HydraFacial?",
+      "cells": [
+        {
+          "tool": "chatgpt",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "claude",
+          "firstNamed": "SkinLab",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "gemini",
+          "firstNamed": "SkinLab",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "grok",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        },
+        {
+          "tool": "perplexity",
+          "firstNamed": "Skin Bar LA",
+          "clientRank": null,
+          "runsAppeared": 0
+        }
+      ]
+    }
+  ],
+  "closestWins": [
+    {
+      "questionId": "q3",
+      "tool": "chatgpt",
+      "rank": 2,
+      "ahead": [
+        "Skin Bar LA"
+      ],
+      "runsAppeared": 2
+    },
+    {
+      "questionId": "q2",
+      "tool": "perplexity",
+      "rank": 2,
+      "ahead": [
+        "Skin Bar LA"
+      ],
+      "runsAppeared": 1
+    },
+    {
+      "questionId": "q2",
+      "tool": "chatgpt",
+      "rank": 3,
+      "ahead": [
+        "Cienega Spa",
+        "Skin Bar LA"
+      ],
+      "runsAppeared": 1
+    },
+    {
+      "questionId": "q3",
+      "tool": "claude",
+      "rank": 3,
+      "ahead": [
+        "Cienega Spa",
+        "Skin Bar LA"
+      ],
+      "runsAppeared": 1
+    },
+    {
+      "questionId": "q3",
+      "tool": "grok",
+      "rank": 3,
+      "ahead": [
+        "Cienega Spa",
+        "Skin Bar LA"
+      ],
+      "runsAppeared": 1
+    }
+  ],
+  "tone": {
+    "recommended": 3,
+    "justListed": 5,
+    "mixed": 2,
+    "warnedAgainst": 0
+  },
+  "quotes": {
+    "best": {
+      "text": "Glow MedSpa is a well-reviewed option in Santa Monica, known for natural-looking results and Saturday appointments.",
+      "tool": "perplexity",
+      "questionId": "q3"
+    },
+    "worst": {
+      "text": "Glow MedSpa is popular, though some reviews mention long waits.",
+      "tool": "chatgpt",
+      "questionId": "q2"
+    }
+  },
+  "sources": {
+    "types": [
+      {
+        "type": "articles",
+        "pct": 41
+      },
+      {
+        "type": "reviews_directories",
+        "pct": 27
+      },
+      {
+        "type": "reddit_social",
+        "pct": 14
+      },
+      {
+        "type": "own_website",
+        "pct": 9
+      },
+      {
+        "type": "google",
+        "pct": 6
+      },
+      {
+        "type": "reference",
+        "pct": 3
+      }
+    ],
+    "topSites": [
+      {
+        "domain": "yelp.com",
+        "type": "reviews_directories"
+      },
+      {
+        "domain": "medspascout.com",
+        "type": "articles"
+      },
+      {
+        "domain": "reddit.com",
+        "type": "reddit_social"
+      },
+      {
+        "domain": "latimes.com",
+        "type": "articles"
+      },
+      {
+        "domain": "realself.com",
+        "type": "reviews_directories"
+      },
+      {
+        "domain": "glowmedspa.com",
+        "type": "own_website"
+      }
+    ],
+    "competitorWinSites": [
+      {
+        "domain": "yelp.com",
+        "ask": "Correct services, hours and prices. Aim for Yelp’s local “best of” lists."
+      },
+      {
+        "domain": "medspascout.com",
+        "ask": "Ask to be reviewed or added to their Santa Monica roundup."
+      },
+      {
+        "domain": "reddit.com",
+        "ask": "Watch local threads and answer questions openly as the business."
+      },
+      {
+        "domain": "latimes.com",
+        "ask": "Pitch a local story or a spot in their beauty roundups."
+      },
+      {
+        "domain": "realself.com",
+        "ask": "Complete your provider profile and invite patient reviews."
+      }
+    ],
+    "ownSiteCitedPct": 9
+  },
+  "searches": {
+    "queries": [
+      {
+        "query": "best med spa santa monica reviews",
+        "tools": [
+          "chatgpt",
+          "perplexity",
+          "grok"
+        ]
+      },
+      {
+        "query": "botox prices santa monica 2026",
+        "tools": [
+          "chatgpt"
+        ]
+      },
+      {
+        "query": "med spa near me open saturday",
+        "tools": [
+          "perplexity",
+          "gemini"
+        ]
+      }
+    ],
+    "addedWords": [
+      "reviews",
+      "prices",
+      "2026",
+      "open saturday"
+    ],
+    "pagesWanted": [
+      {
+        "word": "prices",
+        "page": "A current price list",
+        "why": "Botox per unit, fillers, facials, in plain text.",
+        "status": "missing"
+      },
+      {
+        "word": "2026",
+        "page": "“Updated Sept 2026” on key pages",
+        "why": "Tells AI your prices and hours are current.",
+        "status": "missing"
+      },
+      {
+        "word": "reviews",
+        "page": "A reviews page",
+        "why": "Your ratings, linked to Yelp and Google reviews.",
+        "status": "partial"
+      },
+      {
+        "word": "open saturday",
+        "page": "Hours, stated plainly",
+        "why": "The same on your site and Google listing.",
+        "status": "partial"
+      }
+    ]
+  },
+  "facts": [
+    {
+      "id": "f1",
+      "topic": "Botox price",
+      "isTrue": false,
+      "aiSaid": "Botox is $9 per unit.",
+      "truth": "$13 per unit.",
+      "tool": "chatgpt",
+      "severity": "major",
+      "isPrice": true,
+      "sources": [
+        "oldblog.example"
+      ],
+      "fix": "Publish $13 per unit on your site; ask the blog to update."
+    },
+    {
+      "id": "f2",
+      "topic": "Services",
+      "isTrue": false,
+      "aiSaid": "Offers laser hair removal.",
+      "truth": "Not offered.",
+      "tool": "perplexity",
+      "severity": "critical",
+      "isPrice": false,
+      "sources": [
+        "yelp.com"
+      ],
+      "fix": "Remove it from your Yelp services and list what you do offer."
+    },
+    {
+      "id": "f3",
+      "topic": "Hours",
+      "isTrue": false,
+      "aiSaid": "Open Sundays.",
+      "truth": "Closed Sundays.",
+      "tool": "claude",
+      "severity": "major",
+      "isPrice": false,
+      "sources": [],
+      "fix": "Mark Sundays closed on Google, Yelp and your site."
+    },
+    {
+      "id": "f4",
+      "topic": "Location",
+      "isTrue": true,
+      "truth": "Santa Monica, CA"
+    },
+    {
+      "id": "f5",
+      "topic": "Website",
+      "isTrue": true,
+      "truth": "glowmedspa.com"
+    },
+    {
+      "id": "f6",
+      "topic": "Type of business",
+      "isTrue": true,
+      "truth": "Med spa"
+    },
+    {
+      "id": "f7",
+      "topic": "Offers Botox",
+      "isTrue": true,
+      "truth": "Yes"
+    },
+    {
+      "id": "f8",
+      "topic": "Offers lip filler",
+      "isTrue": true,
+      "truth": "Yes"
+    },
+    {
+      "id": "f9",
+      "topic": "Offers HydraFacial",
+      "isTrue": true,
+      "truth": "Yes"
+    },
+    {
+      "id": "f10",
+      "topic": "Saturday hours",
+      "isTrue": true,
+      "truth": "Open Saturdays"
+    }
+  ],
+  "websiteChecks": [
+    {
+      "id": "ai_allowed",
+      "label": "AI assistants are allowed to read your site",
+      "why": "If your site blocks them, AI can only learn about you from other sites.",
+      "status": "pass"
+    },
+    {
+      "id": "readable_text",
+      "label": "Your text is readable without special page code",
+      "why": "Some sites only show text after extra code runs. Many AI tools skip that and see a blank page.",
+      "status": "pass"
+    },
+    {
+      "id": "facts_page",
+      "label": "You have a clear facts page",
+      "why": "One page with services, prices, hours and location gives AI a single source of truth.",
+      "fix": "Add a plain “About and pricing” page. Mirror can draft it for you.",
+      "status": "fail"
+    },
+    {
+      "id": "machine_labels",
+      "label": "Prices and FAQs are labeled for machines",
+      "why": "Hidden labels tell AI “this number is a price” and “this is a question and its answer”.",
+      "fix": "Add price and FAQ labels to your pricing and FAQ pages.",
+      "status": "fail"
+    },
+    {
+      "id": "sitemap",
+      "label": "You have a sitemap",
+      "why": "A sitemap lists all your pages, so AI doesn’t miss any.",
+      "fix": "Your sitemap needs attention. Regenerate it so it lists every page.",
+      "status": "warn"
+    }
+  ],
+  "actions": [
+    {
+      "id": "a1",
+      "title": "Fix pricing on your site and Yelp",
+      "why": "ChatGPT quotes $9 from an old blog. Show $13 per unit in plain text.",
+      "fixes": "wrong Botox price (p. 08)",
+      "effort": "low",
+      "impact": "high",
+      "track": "facts"
+    },
+    {
+      "id": "a2",
+      "title": "Get featured on medspascout.com and Yelp’s “best of” lists",
+      "why": "These are the sites AI reads when Skin Bar LA wins.",
+      "fixes": "low visibility (p. 04, 06)",
+      "effort": "medium",
+      "impact": "high",
+      "track": "visibility"
+    },
+    {
+      "id": "a3",
+      "title": "Add a plain facts page with prices, hours and services",
+      "why": "One correct place for AI to read what you offer and when you’re open.",
+      "fixes": "missing facts page (p. 09), Sunday hours (p. 08)",
+      "effort": "low",
+      "impact": "high",
+      "track": "facts"
+    },
+    {
+      "id": "a4",
+      "title": "Correct services and hours on Yelp and Google",
+      "why": "Remove laser hair removal on Yelp. Mark Sundays closed everywhere.",
+      "fixes": "laser hair removal, Sunday hours (p. 08)",
+      "effort": "low",
+      "impact": "medium",
+      "track": "facts"
+    },
+    {
+      "id": "a5",
+      "title": "Label prices and FAQs for machines",
+      "why": "Helps AI read your prices correctly instead of guessing.",
+      "fixes": "price labels (p. 09)",
+      "effort": "medium",
+      "impact": "medium",
+      "track": "facts"
+    },
+    {
+      "id": "a6",
+      "title": "Update your sitemap",
+      "why": "Makes sure AI finds every page, including the new facts page.",
+      "fixes": "sitemap (p. 09)",
+      "effort": "low",
+      "impact": "low",
+      "track": "facts"
+    },
+    {
+      "id": "a7",
+      "title": "Build the pages AI searches for: prices, reviews, hours",
+      "why": "AI searched for these before naming anyone.",
+      "fixes": "pages AI looks for (p. 07)",
+      "effort": "low",
+      "impact": "high",
+      "track": "visibility"
+    },
+    {
+      "id": "a8",
+      "title": "Turn your closest wins into first-place answers",
+      "why": "You’re already 2nd or 3rd on these questions.",
+      "fixes": "closest wins (p. 05)",
+      "effort": "medium",
+      "impact": "medium",
+      "track": "visibility"
+    }
+  ],
+  "topFixIds": [
+    "a1",
+    "a2",
+    "a3"
+  ],
+  "plan90": [
+    {
+      "when": "Month 1",
+      "title": "Fix the facts",
+      "items": [
+        "Correct your Botox price on your site and Yelp",
+        "Remove laser hair removal from Yelp",
+        "Mark Sundays closed on Google and Yelp",
+        "Publish a plain facts page"
+      ]
+    },
+    {
+      "when": "Months 2 and 3",
+      "title": "Win more questions",
+      "items": [
+        "Get you onto medspascout.com and Yelp “best of” lists",
+        "Build the pages AI searches for: prices, reviews, hours",
+        "Turn your 5 closest wins into first-place answers",
+        "Get Gemini naming you for the first time"
+      ]
+    }
+  ],
+  "contact": {
+    "name": "[Mirror contact name]",
+    "email": "[email]",
+    "phone": "[phone]",
+    "bookingUrl": "https://example.com/book"
+  },
+  "prospect": false,
+  "missedQuote": {
+    "question": "Where should I get Botox in Santa Monica?",
+    "text": "Top picks are Skin Bar LA, known for natural results and fair pricing, and Nuvo Aesthetics for its experienced injectors.",
+    "tool": "chatgpt",
+    "named": [
+      "Skin Bar LA",
+      "Nuvo Aesthetics"
+    ]
+  }
+}

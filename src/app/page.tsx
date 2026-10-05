@@ -19,7 +19,7 @@ import { MirrorLockup } from "@/components/mirror-mark";
 export const metadata: Metadata = {
   title: "Mirror: See what AI tells your patients",
   description:
-    "Mirror monitors what ChatGPT, Claude, Gemini, and Perplexity tell patients about your practice, catches the errors, and fixes them at the source.",
+    "Mirror monitors what ChatGPT, Claude, Gemini, Grok, and Perplexity tell patients about your practice, catches the errors, and fixes them at the source.",
 };
 
 const STATS = [
@@ -88,8 +88,8 @@ const STEPS = [
   },
   {
     num: "02",
-    title: "We scan four engines, every week",
-    body: "A fixed battery of prompts: your neighborhood, your hero treatments, and direct questions about your practice by name, run against all four answer engines.",
+    title: "We scan five AI assistants, every week",
+    body: "A fixed battery of prompts: your neighborhood, your hero treatments, and direct questions about your practice by name, run against all five AI assistants.",
     bullets: [
       "Whether you were named, and where in the answer",
       "Which competitors were named beside you",
@@ -231,7 +231,7 @@ export default function LandingPage() {
               </h1>
               <p className="mk-lede">
                 Make sure it says the right things about your practice. Every week, Mirror asks ChatGPT, Claude,
-                Gemini, and Perplexity the questions your patients are already asking, then shows you exactly what
+                Gemini, Grok, and Perplexity the questions your patients are already asking, then shows you exactly what
                 they answered, what they got wrong, and what it takes to change it.
               </p>
               <div className="btns">
@@ -473,7 +473,7 @@ export default function LandingPage() {
           <div className="mk-inner narrow" style={{ textAlign: "center" }}>
             <h2 className="mk-display mk-h2">Find out what they’re saying about you.</h2>
             <p className="mk-lede" style={{ margin: "20px auto 0", textAlign: "center" }}>
-              We run your practice through all four engines before we speak, then take thirty minutes to walk you
+              We run your practice through all five AI assistants before we speak, then take thirty minutes to walk you
               through the verbatim answers, the contradictions, and your baseline score. No engagement required to see
               it.
             </p>

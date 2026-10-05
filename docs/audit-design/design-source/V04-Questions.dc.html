@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Question by question</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Snapshot</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 16px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #EDE9FE; color: #6D28D9">Who’s beating you</span>
+      <h1 class="h1">Question by question</h1>
+    </div>
+    <p class="take">Skin Bar LA was named first in 13 of 25 spots. You were first once: Perplexity, for the Saturday question.</p>
+
+    <div style="display: grid; grid-template-columns: 170px repeat(5, minmax(0, 1fr)); gap: 4px">
+      <span class="small" style="padding: 4px 0; font-weight: 700; color: #0F172A">Buyer question</span>
+      <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+        <span style="display: flex; align-items: center; gap: 5px; padding: 4px 2px; font-size: 12px; font-weight: 800"><span style="width: 18px; height: 18px; border-radius: 6px; background: {{t.color}}; color: #FFFFFF; font-size: 9px; display: flex; align-items: center; justify-content: center">{{t.short}}</span>{{t.name}}</span>
+      </sc-for>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+        <div style="padding: 6px 8px 6px 0; font-size: 12.5px; line-height: 1.3; font-weight: 500; display: flex; align-items: center">{{r.q}}</div>
+        <sc-for list="{{r.cells}}" as="c" hint-placeholder-count="5">
+          <div style="background: {{c.bg}}; border-radius: 8px; padding: 7px 8px; display: flex; flex-direction: column; gap: 2px; min-height: 54px; box-sizing: border-box; justify-content: center">
+            <span style="font-size: 12px; font-weight: 700; color: {{c.fg}}; line-height: 1.2">{{c.first}}</span>
+            <span style="font-size: 11px; font-weight: 700; line-height: 1.25; color: {{c.youColor}}">{{c.you}}</span>
+          </div>
+        </sc-for>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 16px; font-size: 11.5px; color: #475569; flex-wrap: wrap; align-items: center">
+      <span>Each box: who AI named first, and where you placed.</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #16A34A"></span>You were first</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #FDE68A"></span>You made the list</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 3px; background: #FEE2E2"></span>You were left out</span>
+    </div>
+
+    <div style="height: 1px; background: #E2E8F0"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 6px">
+      <span class="label">Closest wins</span>
+      <p class="take">{{winsTake}}</p>
+    </div>
+    <sc-if value="{{hasWins}}" hint-placeholder-val="{{true}}">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <sc-for list="{{wins}}" as="w" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 1fr 104px 230px; gap: 12px; align-items: center; padding: 5px 12px; border-radius: 12px; background: #F8FAFC">
+            <span style="font-size: 13px; font-weight: 700; line-height: 1.3">“{{w.q}}”</span>
+            <span style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700"><span style="width: 18px; height: 18px; border-radius: 6px; background: {{w.color}}; color: #FFFFFF; font-size: 9px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{w.short}}</span>{{w.tool}}</span>
+            <div style="position: relative; display: flex; justify-content: space-between; align-items: center; height: 30px">
+              <div style="position: absolute; left: 14px; right: 14px; top: 14px; height: 2px; background: #E2E8F0"></div>
+              <sc-for list="{{w.slots}}" as="s" hint-placeholder-count="5">
+                <span style="position: relative; width: 26px; height: 26px; border-radius: 13px; box-sizing: border-box; border: {{s.border}}; background: {{s.bg}}; color: {{s.fg}}; font-size: 9.5px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{s.text}}</span>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+    <sc-if value="{{noWins}}" hint-placeholder-val="{{false}}">
+      <div style="border: 2px dashed #CBD5E1; border-radius: 16px; padding: 18px 20px; display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 15px; font-weight: 700">No near misses this time</span>
+        <span class="small">You didn’t place 2nd or 3rd on any question.</span>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>Visibility snapshot · Question by question</span><span style="font-weight: 700; color: #0F172A">4 / 5</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showEmpty":{"editor":"boolean","default":false,"section":"Preview"},"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const empty = this.props.showEmpty ?? false;
+    const YOU = 'Glow MedSpa';
+    const tools = [
+      { name: 'ChatGPT', short: 'Ch', color: '#0F766E' }, { name: 'Claude', short: 'Cl', color: '#D97757' },
+      { name: 'Gemini', short: 'Ge', color: '#4F46E5' }, { name: 'Grok', short: 'Gr', color: '#111827' },
+      { name: 'Perplexity', short: 'Pe', color: '#7C3AED' }
+    ];
+    const T = {}; tools.forEach((t) => { T[t.name] = t; });
+    const grid = [
+      { q: 'Best med spa in Santa Monica?', c: [['Skin Bar LA', 0, 0], ['Skin Bar LA', 0, 0], ['Skin Bar LA', 0, 0], ['Skin Bar LA', 0, 0], ['Skin Bar LA', 5, 1]] },
+      { q: 'Where can I get Botox in Santa Monica?', c: [['Cienega Spa', 3, 1], ['Skin Bar LA', 4, 1], ['Cienega Spa', 0, 0], ['Skin Bar LA', 0, 0], ['Skin Bar LA', 2, 1]] },
+      { q: 'Affordable med spa open Saturday', c: [['Skin Bar LA', 2, 2], ['Cienega Spa', 3, 1], ['Skin Bar LA', 0, 0], ['Cienega Spa', 3, 1], [YOU, 1, 2]] },
+      { q: 'Natural-looking lip filler nearby?', c: [['SkinLab', 0, 0], ['Cienega Spa', 0, 0], ['Ava MD', 0, 0], ['SkinLab', 0, 0], ['Cienega Spa', 0, 0]] },
+      { q: 'Best place for a HydraFacial?', c: [['Skin Bar LA', 0, 0], ['SkinLab', 0, 0], ['SkinLab', 0, 0], ['Skin Bar LA', 0, 0], ['Skin Bar LA', 0, 0]] }
+    ];
+    const rows = grid.map((r) => ({
+      q: r.q,
+      cells: r.c.map(([first, spot, runs]) => {
+        if (spot === 1) return { first: 'You ★', you: 'First · ' + runs + ' of 3 runs', bg: '#16A34A', fg: '#FFFFFF', youColor: '#FFFFFF' };
+        if (spot > 1) return { first, you: 'You #' + spot + ' · ' + runs + '/3', bg: '#FDE68A', fg: '#0F172A', youColor: '#92400E' };
+        return { first, you: 'You: left out', bg: '#FEE2E2', fg: '#0F172A', youColor: '#B91C1C' };
+      })
+    }));
+    const raw = empty ? [] : [
+      { spot: 2, q: 'Affordable med spa open Saturday', tool: 'ChatGPT' },
+      { spot: 2, q: 'Where can I get Botox in Santa Monica?', tool: 'Perplexity' },
+      { spot: 3, q: 'Where can I get Botox in Santa Monica?', tool: 'ChatGPT' },
+      { spot: 3, q: 'Affordable med spa open Saturday', tool: 'Claude' },
+      { spot: 3, q: 'Affordable med spa open Saturday', tool: 'Grok' }
+    ];
+    const wins = raw.map((w) => ({
+      ...w, short: T[w.tool].short, color: T[w.tool].color,
+      slots: [1, 2, 3, 4, 5].map((i) => {
+        if (i === w.spot) return { text: 'You', bg: '#2563EB', fg: '#FFFFFF', border: '0' };
+        if (i === 1) return { text: '#1', bg: '#16A34A', fg: '#FFFFFF', border: '0' };
+        if (i < w.spot) return { text: '#' + i, bg: '#94A3B8', fg: '#FFFFFF', border: '0' };
+        return { text: '', bg: '#FFFFFF', fg: '#94A3B8', border: '2px solid #E2E8F0' };
+      })
+    }));
+    return {
+      tools, rows, wins, hasWins: wins.length > 0, noWins: wins.length === 0,
+      winsTake: wins.length ? 'You placed 2nd or 3rd in ' + wins.length + ' answers. These are the easiest to turn into wins.' : 'No 2nd or 3rd place finishes yet.'
+    };
+  }
+}
+</script>
+</body>
+</html>

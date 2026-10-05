@@ -48,13 +48,12 @@ describe("sendPulse", () => {
       mentioned: true,
       position: "first",
     }).returning();
-    await db.insert(schema.findings).values({
-      practiceId,
-      checkId: check.id,
-      claim: "Some stale claim",
-      severity: "minor",
-      status: "open",
-    });
+    await db.insert(schema.findings).values([
+      { practiceId, checkId: check.id, claim: "Seen this scan", severity: "minor", status: "open", lastSeenScanId: scan.id },
+      // Still open but not repeated by the latest scan: costs no points, so the
+      // email doesn't count it either.
+      { practiceId, checkId: check.id, claim: "Some stale claim", severity: "minor", status: "open" },
+    ]);
 
     const transport = vi.fn().mockResolvedValue(undefined);
     await sendPulse(db, practiceId, transport);
@@ -103,6 +102,29 @@ describe("sendPulse", () => {
     const html = transport.mock.calls[0][0].html;
     expect(html).toContain("0 of 1");
     expect(html).not.toContain("1 of 2");
+  });
+
+  it("skips the week when no scan ran this week, instead of resending last week's", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", members: ["client@glow.example"] });
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    await db.insert(schema.scans).values({ practiceId, status: "complete", score: 42, startedAt: lastWeek, finishedAt: lastWeek });
+    const transport = vi.fn();
+    await sendPulse(db, practiceId, transport);
+    expect(transport).not.toHaveBeenCalled();
+  });
+
+  it("skips the week when the newest scan was blocked, instead of resending last week's", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", members: ["client@glow.example"] });
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    await db.insert(schema.scans).values([
+      { practiceId, status: "complete", score: 42, startedAt: lastWeek, finishedAt: lastWeek },
+      { practiceId, status: "blocked", startedAt: new Date(), finishedAt: new Date() },
+    ]);
+    const transport = vi.fn();
+    await sendPulse(db, practiceId, transport);
+    expect(transport).not.toHaveBeenCalled();
   });
 
   it("skips silently when there is no complete scan", async () => {

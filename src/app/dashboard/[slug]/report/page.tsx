@@ -5,6 +5,7 @@ import { getOpenFindings } from "@/lib/queries";
 import { buildReportData, formatMonthLabel, resolveMonthParam } from "@/lib/report";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PrintButton } from "@/components/print-button";
+import { AutoPrint } from "@/components/auto-print";
 import "./report.css";
 
 /** Shifts a "YYYY-MM" ISO month string by `delta` calendar months (UTC). */
@@ -19,10 +20,10 @@ export default async function ReportPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; print?: string }>;
 }) {
   const { slug } = await params;
-  const { month: monthParam } = await searchParams;
+  const { month: monthParam, print } = await searchParams;
   const practice = await requirePracticeAccess(slug);
   const db = getDb();
 
@@ -55,7 +56,16 @@ export default async function ReportPage({
             Next month →
           </Link>
         </div>
-        <PrintButton />
+        <div className="flex items-center gap-3">
+          <Link
+            href={`/dashboard/${slug}/audit`}
+            className="text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
+          >
+            Latest audit
+          </Link>
+          <PrintButton />
+          <AutoPrint when={print === "1"} />
+        </div>
       </div>
 
       <h1 className="mb-8 hidden text-xl font-semibold text-black print:block">

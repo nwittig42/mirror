@@ -56,6 +56,8 @@ npm run dev
   - `ALERT_EMAIL` (optional; where internal accuracy alerts go, falls back to `OPERATOR_EMAIL`)
   - `LEADS_EMAIL` (optional; where `/book` audit requests go, falls back to `OPERATOR_EMAIL`)
   - `CALENDLY_URL` (optional; scheduling link shown after `/book` is submitted. Unset, the form falls back to a "we'll email you" panel and no scheduler renders)
+  - `SCAN_RUNS` (optional, default 3; how many times each prompt is asked of each engine per scan. The score is built from every run and the low/high band is shown next to it. Each extra run adds about a third to scan time and engine cost)
+  - `SUPPORT_EMAIL` (optional; where client "Need help?" requests from the dashboard's Help tab go, falls back to `OPERATOR_EMAIL`)
 - [ ] Vercel project is on a **paid plan**. The cron route and the admin scan-trigger pages set `maxDuration = 800` for the ~2-minute scan, which the free Hobby tier's 10s/60s function limit cannot satisfy
 - [ ] `vercel deploy`
 - [ ] Both cron jobs visible in the Vercel dashboard (scan Thursday, pulse Friday)
@@ -100,3 +102,10 @@ All environment variables are validated at startup via `src/lib/env.ts` (see `.e
 ## Known limitation: API vs. consumer answers
 
 Mirror's scans call the four vendors' APIs (OpenAI, Anthropic, Gemini, Perplexity) with web search enabled, rather than driving the consumer chat apps directly. API responses closely track what a patient would see in ChatGPT, Claude, Gemini, or Perplexity's consumer apps, but they are not guaranteed to be byte-for-byte identical, because the underlying model version, system prompt, and search grounding can differ slightly between the API and consumer surfaces. This is the standard tradeoff every commercial GEO (generative-engine optimization) monitoring tool makes in order to get automated, repeatable, and auditable results, and it is why Mirror stores every scored number as a `check` row tied back to the exact prompt and response used.
+
+## Audit tools
+
+- **Audit report:** `/dashboard/<slug>/audit`, a printable one-scan readout (score and run-to-run range, visibility, fact accuracy, who AI recommends, where it gets its answers, what it gets wrong, what to do first). Print, then Save as PDF. Linked from the admin practice page.
+- **Sources tab:** `/dashboard/<slug>/sources`, the sites engines cited and the ones cited when a competitor was recommended instead.
+- **Fact drafts:** "Draft from website" on the admin practice page, or `npx tsx --env-file=.env.local scripts/draft-facts.ts <slug> [--dry-run]`. Drafts are ignored by scans until approved. Call script: `docs/fact-sheet-intake.md`.
+- **Support:** clients use the Help tab; requests land in the queue at the top of `/admin` and are emailed to `SUPPORT_EMAIL`.

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI tool by tool</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.h2{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:28px;line-height:1.2;margin:0}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Snapshot</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #EDE9FE; color: #6D28D9">Who’s beating you</span>
+      <h1 class="h1">AI tool by tool</h1>
+    </div>
+    <p class="take">Perplexity names you most, 4 of 15 times. Gemini never named you.</p>
+
+    <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; padding-top: 6px">
+      <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+        <div style="border-radius: 16px; border: 2px solid {{t.border}}; padding: 14px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+          <sc-if value="{{t.hasTag}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: -11px; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: {{t.tagBg}}; color: #FFFFFF">{{t.tag}}</span></sc-if>
+          <div style="display: flex; align-items: center; gap: 6px"><span style="width: 22px; height: 22px; border-radius: 7px; background: {{t.color}}; color: #FFFFFF; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{t.short}}</span><span style="font-size: 13px; font-weight: 800">{{t.name}}</span></div>
+          <div style="position: relative; width: 84px; height: 84px">
+            <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+              <circle cx="42" cy="42" r="34" fill="none" stroke="#F1F5F9" stroke-width="10"></circle>
+              <circle cx="42" cy="42" r="34" fill="none" stroke-width="10" transform="rotate(-90 42 42)" style="stroke: {{t.ringColor}}; stroke-dasharray: {{t.dash}}"></circle>
+            </svg>
+            <div style="position: absolute; left: 0; top: 0; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">{{t.pct}}%</div>
+          </div>
+          <span style="font-size: 12.5px"><strong>{{t.n}}</strong> of {{t.of}} answers</span>
+          <div style="display: grid; grid-template-columns: repeat(5, 10px); gap: 3px">
+            <sc-for list="{{t.cells}}" as="c" hint-placeholder-count="15"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{c}}"></span></sc-for>
+          </div>
+          <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: {{t.bandBg}}; color: {{t.bandFg}}">{{t.band}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 16px; font-size: 11.5px; color: #475569; flex-wrap: wrap">
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #2563EB"></span>Answer named you</span>
+      <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #E2E8F0"></span>Didn’t name you</span>
+      <span style="margin-left: auto"><strong style="color: #15803D">40%+ Strong</strong> · <strong style="color: #B45309">20–39% Fair</strong> · <strong style="color: #B91C1C">under 20% Weak</strong></span>
+    </div>
+
+    <div style="height: 1px; background: #E2E8F0; margin-top: 6px"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 8px">
+      <span class="label">How AI describes you</span>
+      <p class="take">When AI names you, it’s mostly neutral: 3 of 10 answers recommend you, none warn against you.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: 290px 1fr; gap: 24px; align-items: start">
+      <div style="display: flex; gap: 18px; align-items: center">
+        <div style="position: relative; width: 130px; height: 130px; flex-shrink: 0">
+          <div style="width: 130px; height: 130px; border-radius: 65px; background: {{toneDonut}}"></div>
+          <div style="position: absolute; left: 26px; top: 26px; width: 78px; height: 78px; border-radius: 39px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center">
+            <span style="font-size: 26px; font-weight: 800; line-height: 1">10</span>
+            <span style="font-size: 10px; color: #64748B">mentions</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px">
+          <sc-for list="{{tone}}" as="t" hint-placeholder-count="4">
+            <span style="display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700"><span style="width: 12px; height: 12px; border-radius: 3px; background: {{t.color}}"></span>{{t.name}} <span style="font-weight: 800">{{t.count}}</span></span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{quotes}}" as="q" hint-placeholder-count="2">
+          <div style="background: {{q.bg}}; border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px">
+            <span style="font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; color: {{q.labelColor}}">{{q.label}}</span>
+            <p style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 16px; line-height: 1.4">“{{q.text}}”</p>
+            <span class="small">{{q.src}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>Visibility snapshot · AI tool by tool</span><span style="font-weight: 700; color: #0F172A">3 / 5</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const rateBand = (pct) => pct >= 40 ? { ringColor: '#16A34A', band: 'Strong', bandBg: '#DCFCE7', bandFg: '#15803D' }
+      : pct >= 20 ? { ringColor: '#F59E0B', band: 'Fair', bandBg: '#FEF3C7', bandFg: '#B45309' }
+      : { ringColor: '#DC2626', band: 'Weak', bandBg: '#FEE2E2', bandFg: '#B91C1C' };
+    const C = 2 * Math.PI * 34;
+    const raw = [
+      { name: 'Perplexity', short: 'Pe', color: '#7C3AED', n: 4, of: 15 },
+      { name: 'ChatGPT', short: 'Ch', color: '#0F766E', n: 3, of: 15 },
+      { name: 'Claude', short: 'Cl', color: '#D97757', n: 2, of: 15 },
+      { name: 'Grok', short: 'Gr', color: '#111827', n: 1, of: 15 },
+      { name: 'Gemini', short: 'Ge', color: '#4F46E5', n: 0, of: 15 }
+    ].sort((a, b) => b.n - a.n);
+    const max = raw[0].n, min = raw[raw.length - 1].n;
+    const tools = raw.map((t) => {
+      const pct = Math.round((t.n / t.of) * 100);
+      const best = t.n === max && max > min, worst = t.n === min && max > min;
+      const cells = []; for (let i = 0; i < t.of; i++) cells.push(i < t.n ? '#2563EB' : '#E2E8F0');
+      return { ...t, pct, cells, dash: (pct / 100) * C + ' ' + C, ...rateBand(pct),
+        hasTag: best || worst, tag: best ? 'Best' : 'Weakest', tagBg: best ? '#16A34A' : '#DC2626',
+        border: best ? '#16A34A' : worst ? '#FCA5A5' : '#E2E8F0' };
+    });
+    const tone = [
+      { name: 'Recommended', count: 3, color: '#16A34A' },
+      { name: 'Just listed', count: 5, color: '#94A3B8' },
+      { name: 'Mixed', count: 2, color: '#F59E0B' },
+      { name: 'Warned against', count: 0, color: '#DC2626' }
+    ];
+    const total = tone.reduce((a, t) => a + t.count, 0) || 1;
+    let at = 0; const stops = [];
+    tone.filter((t) => t.count > 0).forEach((t) => {
+      const w = (t.count / total) * 100;
+      stops.push(t.color + ' ' + at + '% ' + (at + w - 0.8) + '%', '#FFFFFF ' + (at + w - 0.8) + '% ' + (at + w) + '%'); at += w;
+    });
+    return {
+      tools, tone, toneDonut: 'conic-gradient(' + stops.join(', ') + ')',
+      quotes: [
+        { label: 'Best thing AI said', text: 'Glow MedSpa is a well-reviewed option in Santa Monica, known for natural-looking results and Saturday appointments.', src: 'Perplexity', bg: '#F0FDF4', labelColor: '#15803D' },
+        { label: 'Worst thing AI said', text: 'Glow MedSpa is popular, though some reviews mention long waits.', src: 'ChatGPT', bg: '#FFFBEB', labelColor: '#B45309' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

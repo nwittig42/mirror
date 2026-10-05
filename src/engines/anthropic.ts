@@ -31,6 +31,10 @@ export const anthropicAdapter: EngineAdapter = {
       (b: { citations?: { url: string }[] }) => (b.citations ?? []).map((c) => c.url),
     );
     const citations: string[] = [...new Set(allUrls)].filter(Boolean);
-    return { answer, citations };
+    const searchQueries: string[] = blocks
+      .filter((b: { type: string; name?: string }) => b.type === "server_tool_use" && b.name === "web_search")
+      .map((b: { input?: { query?: string } }) => b.input?.query)
+      .filter((q: unknown): q is string => typeof q === "string" && q.trim() !== "");
+    return { answer, citations, searchQueries: [...new Set(searchQueries)] };
   },
 };

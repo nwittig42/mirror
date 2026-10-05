@@ -1,6 +1,6 @@
 import { requirePracticeAccess } from "@/lib/auth";
 import { getDb } from "@/db";
-import { getFindingsForPractice } from "@/lib/queries";
+import { getFindingsForPractice, getLatestScan, priceFirst } from "@/lib/queries";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { FindingCard, type FindingCardStatus } from "@/components/finding-card";
 
@@ -14,11 +14,14 @@ export default async function AccuracyPage({ params }: { params: Promise<{ slug:
   const { slug } = await params;
   const practice = await requirePracticeAccess(slug);
   const db = getDb();
-  const allFindings = await getFindingsForPractice(db, practice.id);
+  const [allFindings, latestScan] = await Promise.all([
+    getFindingsForPractice(db, practice.id),
+    getLatestScan(db, practice.id),
+  ]);
 
   const groups: { key: FindingCardStatus; findings: typeof allFindings }[] = (
     ["open", "fixed", "verified"] as const
-  ).map(key => ({ key, findings: allFindings.filter(f => f.status === key) }));
+  ).map(key => ({ key, findings: priceFirst(allFindings.filter(f => f.status === key)) }));
   const dismissed = allFindings.filter(f => f.status === "dismissed");
 
   return (
@@ -49,6 +52,9 @@ export default async function AccuracyPage({ params }: { params: Promise<{ slug:
                       engine={f.engine}
                       createdAt={f.createdAt}
                       resolvedAt={f.resolvedAt}
+                      sources={f.citations}
+                      isPrice={f.factCategory === "pricing"}
+                      notSeenLately={group.key === "open" && !!latestScan && f.lastSeenScanId !== latestScan.id}
                     />
                   ))}
                 </div>
@@ -66,7 +72,7 @@ export default async function AccuracyPage({ params }: { params: Promise<{ slug:
       )}
 
       <footer className="mt-10 border-t border-zinc-200 pt-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-        Accuracy issues cap your visibility score at 70 until resolved.
+        A serious wrong fact seen in the latest scan holds your overall score at 70. Issues marked “not seen in latest scan” don’t cost points right now.
       </footer>
     </div>
   );

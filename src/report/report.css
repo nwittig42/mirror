@@ -1,0 +1,79 @@
+/*
+ * Audit report sheets. Design tokens come from src/report/tokens.ts (inline
+ * styles); this file only handles the sheet box, fonts, the on-screen
+ * gallery around the sheets, and print.
+ */
+@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap");
+
+.report-root {
+  font-family: "Hanken Grotesk", system-ui, sans-serif;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  background: #e2e8f0;
+  min-height: 100vh;
+  padding: 24px 0 64px;
+}
+.report-root a { color: #2563eb; }
+
+.report-sheets {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+}
+
+/* One report page = one printed sheet. */
+.report-page {
+  width: 816px;
+  height: 1056px;
+  box-sizing: border-box;
+  padding: 44px 64px 36px;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.08);
+  break-after: page;
+  page-break-after: always;
+}
+
+/* Toolbar above the sheets (variant switcher, download). Never printed. */
+.report-toolbar {
+  width: 816px;
+  margin: 0 auto 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+
+/* "See all" continuation sheets: collapsed on screen until expanded, always in the PDF. */
+.report-more[data-open="false"] > .report-more-sheets { display: none; }
+.report-more-button {
+  width: 816px;
+  border: 1px dashed #94a3b8;
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 12px;
+  font: 700 14px "Hanken Grotesk", system-ui, sans-serif;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+.report-more-button:hover { background: #eff6ff; }
+.report-more-sheets { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.report-more { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+
+@page { size: letter portrait; margin: 0; }
+
+@media print {
+  html, body { margin: 0 !important; padding: 0 !important; background: #ffffff !important; }
+  .report-root { background: #ffffff; padding: 0; min-height: 0; }
+  .report-sheets, .report-more, .report-more-sheets { gap: 0; }
+  .report-page { box-shadow: none; }
+  .report-toolbar, .report-more-button { display: none !important; }
+  .report-more[data-open="false"] > .report-more-sheets { display: flex; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

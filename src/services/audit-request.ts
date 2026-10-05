@@ -124,3 +124,45 @@ export async function sendAuditRequest(
     replyTo: req.email,
   });
 }
+
+/**
+ * Pure composer for the confirmation the prospect gets after submitting
+ * /book. Sets expectations for the call (we scan first, then walk them
+ * through their own answers) so the call starts warm, not cold.
+ */
+export function composeAuditConfirmation(req: AuditRequest, appName: string): { subject: string; html: string } {
+  const subject = `We got your request: ${appName} audit for ${req.practiceName}`;
+  const p = (text: string) =>
+    `<p style="margin:0 0 14px;font-family:sans-serif;font-size:15px;line-height:1.5;color:#111;">${text}</p>`;
+  const html =
+    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
+    `<div style="max-width:560px;margin:0 auto;background:#fff;padding:28px;border-radius:8px;">` +
+    p(`Hi ${escapeHtml(req.contactName)},`) +
+    p(`Thanks for requesting an AI visibility audit for <strong>${escapeHtml(req.practiceName)}</strong>.`) +
+    p(`Before we talk, we ask ChatGPT, Claude, Gemini, Grok and Perplexity the questions your customers ask, several times each, and record who they recommend, where they get their information, and anything they get wrong about you.`) +
+    p(`On the call we'll walk you through your own results. It takes about thirty minutes and there's nothing to prepare.`) +
+    p(`If you haven't picked a time yet, just reply to this email with a few that work.`) +
+    p(`Talk soon,<br>The ${escapeHtml(appName)} team`) +
+    `</div></body></html>`;
+  return { subject, html };
+}
+
+/**
+ * Sends the prospect's confirmation. Replies go to the sales inbox. Unlike
+ * the internal notification this one is best-effort: the lead is already
+ * safe in the inbox by the time it runs, so the caller swallows a failure.
+ */
+export async function sendAuditConfirmation(
+  req: AuditRequest,
+  transport: AuditRequestTransport = defaultTransport,
+): Promise<void> {
+  const env = loadEnv();
+  const { subject, html } = composeAuditConfirmation(req, env.NEXT_PUBLIC_APP_NAME);
+  await transport({
+    to: [req.email],
+    from: env.EMAIL_FROM,
+    subject,
+    html,
+    replyTo: env.LEADS_EMAIL ?? env.OPERATOR_EMAIL,
+  });
+}

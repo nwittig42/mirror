@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How your score is built</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DBEAFE; color: #1D4ED8">Where you stand</span>
+      <h1 class="h1">How your score is built</h1>
+    </div>
+
+    <p class="take">Your 34 comes mostly from being on 4 of 5 AI tools. You lose the most points by rarely being named.</p>
+    <div style="display: grid; grid-template-columns: 200px 1fr; gap: 28px; align-items: center">
+      <div style="position: relative; width: 200px; height: 200px">
+        <div style="width: 200px; height: 200px; border-radius: 100px; background: {{donut}}"></div>
+        <div style="position: absolute; left: 34px; top: 34px; width: 132px; height: 132px; border-radius: 66px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center">
+          <span style="font-size: 48px; font-weight: 800; line-height: 1">34</span>
+          <span style="font-size: 12px; color: #64748B">of 100 points</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <sc-for list="{{parts}}" as="p" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: 14px 1fr 150px; gap: 12px; align-items: center">
+            <span style="width: 14px; height: 14px; border-radius: 4px; background: {{p.color}}"></span>
+            <div style="display: flex; flex-direction: column; gap: 1px">
+              <span style="font-size: 14px; font-weight: 700">{{p.name}}</span>
+              <span class="small">{{p.def}}</span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px">
+              <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px"><strong style="font-size: 16px">{{p.pts}}</strong> of {{p.weight}} pts</span><span style="font-size: 10.5px; font-weight: 800; padding: 2px 7px; border-radius: 99px; background: {{p.bandBg}}; color: {{p.bandFg}}">{{p.detail}}</span></div>
+              <div style="height: 8px; border-radius: 4px; background: #F1F5F9"><div style="height: 8px; border-radius: 4px; background: {{p.color}}; width: {{p.fill}}%"></div></div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+
+    <div style="height: 1px; background: #E2E8F0"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <span class="label">AI tool by tool</span>
+      <p class="take">Perplexity names you most, 4 of 15 times. Gemini never named you.</p>
+      <div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+          <div style="border-radius: 16px; border: 2px solid {{t.border}}; padding: 14px 10px 12px; display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative">
+            <sc-if value="{{t.hasTag}}" hint-placeholder-val="{{false}}"><span style="position: absolute; top: -11px; font-size: 10px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 8px; border-radius: 99px; background: {{t.tagBg}}; color: #FFFFFF">{{t.tag}}</span></sc-if>
+            <div style="display: flex; align-items: center; gap: 6px"><span style="width: 22px; height: 22px; border-radius: 7px; background: {{t.color}}; color: #FFFFFF; font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{t.short}}</span><span style="font-size: 13px; font-weight: 800">{{t.name}}</span></div>
+            <div style="position: relative; width: 84px; height: 84px">
+              <svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true">
+                <circle cx="42" cy="42" r="34" fill="none" stroke="#F1F5F9" stroke-width="10"></circle>
+                <circle cx="42" cy="42" r="34" fill="none" stroke-width="10" transform="rotate(-90 42 42)" style="stroke: {{t.ringColor}}; stroke-dasharray: {{t.dash}}"></circle>
+              </svg>
+              <div style="position: absolute; left: 0; top: 0; width: 84px; height: 84px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 800">{{t.pct}}%</div>
+            </div>
+            <span style="font-size: 12.5px"><strong>{{t.n}}</strong> of {{t.of}} answers</span>
+            <div style="display: grid; grid-template-columns: repeat(5, 10px); gap: 3px">
+              <sc-for list="{{t.cells}}" as="c" hint-placeholder-count="15"><span style="width: 10px; height: 10px; border-radius: 3px; background: {{c}}"></span></sc-for>
+            </div>
+            <span style="font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; background: {{t.bandBg}}; color: {{t.bandFg}}">{{t.band}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: flex; gap: 16px; font-size: 11.5px; color: #475569; flex-wrap: wrap">
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #2563EB"></span>Answer named you</span>
+        <span style="display: flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 3px; background: #E2E8F0"></span>Didn’t name you</span>
+        <span style="margin-left: auto"><strong style="color: #15803D">40%+ Strong</strong> · <strong style="color: #B45309">20–39% Fair</strong> · <strong style="color: #B91C1C">under 20% Weak</strong></span>
+      </div>
+    </div>
+
+    <div style="background: #EFF6FF; border-radius: 16px; padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5v.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">What this means</span>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.5; color: #1E293B">Each assistant reads the web differently. Perplexity leans on reviews and articles, where you already appear. Gemini leans heavily on Google’s business listings, so fixing yours there is the fastest way off zero.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>03 · How your score is built · AI tool by tool</span><span style="font-weight: 700; color: #0F172A">3 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const scoreBand = (s) => s >= 70 ? { bandBg: '#DCFCE7', bandFg: '#15803D' }
+      : s >= 40 ? { bandBg: '#FEF3C7', bandFg: '#B45309' } : { bandBg: '#FEE2E2', bandFg: '#B91C1C' };
+    const parts = [
+      { name: 'How often you’re named', weight: 40, pts: 5, sub: 13, detail: '10 of 75', color: '#2563EB', def: 'How many buyer answers mention you at all.' },
+      { name: 'How high you rank', weight: 30, pts: 6, sub: 20, detail: 'Usually 3rd+', color: '#7C3AED', def: 'Your average spot on AI’s list.' },
+      { name: 'How many AI tools name you', weight: 18, pts: 15, sub: 80, detail: '4 of 5 tools', color: '#0D9488', def: 'Assistants that mention you at least once.' },
+      { name: 'How accurate AI is', weight: 12, pts: 8, sub: 70, detail: '7 of 10 facts', color: '#E8590C', def: 'Facts about you that AI got right.' }
+    ].map((p) => ({ ...p, fill: Math.round((p.pts / p.weight) * 100), ...scoreBand(p.sub) }));
+
+    // donut: each part's earned points as a colored arc, the rest light gray
+    let at = 0; const stops = [];
+    parts.forEach((p) => { stops.push(p.color + ' ' + at + '% ' + (at + p.pts) + '%'); at += p.pts; stops.push('#FFFFFF ' + at + '% ' + (at + 0.6) + '%'); at += 0.6; });
+    stops.push('#E9EEF4 ' + at + '% 100%');
+    const donut = 'conic-gradient(' + stops.join(', ') + ')';
+
+    const rateBand = (pct) => pct >= 40 ? { ringColor: '#16A34A', band: 'Strong', bandBg: '#DCFCE7', bandFg: '#15803D' }
+      : pct >= 20 ? { ringColor: '#F59E0B', band: 'Fair', bandBg: '#FEF3C7', bandFg: '#B45309' }
+      : { ringColor: '#DC2626', band: 'Weak', bandBg: '#FEE2E2', bandFg: '#B91C1C' };
+    const C = 2 * Math.PI * 34;
+    const raw = [
+      { name: 'Perplexity', short: 'Pe', color: '#7C3AED', n: 4, of: 15 },
+      { name: 'ChatGPT', short: 'Ch', color: '#0F766E', n: 3, of: 15 },
+      { name: 'Claude', short: 'Cl', color: '#D97757', n: 2, of: 15 },
+      { name: 'Grok', short: 'Gr', color: '#111827', n: 1, of: 15 },
+      { name: 'Gemini', short: 'Ge', color: '#4F46E5', n: 0, of: 15 }
+    ].sort((a, b) => b.n - a.n);
+    const max = raw[0].n, min = raw[raw.length - 1].n;
+    const tools = raw.map((t) => {
+      const pct = Math.round((t.n / t.of) * 100);
+      const best = t.n === max && max > min, worst = t.n === min && max > min;
+      const cells = []; for (let i = 0; i < t.of; i++) cells.push(i < t.n ? '#2563EB' : '#E2E8F0');
+      return {
+        ...t, pct, cells, dash: (pct / 100) * C + ' ' + C, ...rateBand(pct),
+        hasTag: best || worst, tag: best ? 'Best' : worst ? 'Weakest' : '', tagBg: best ? '#16A34A' : '#DC2626',
+        border: best ? '#16A34A' : worst ? '#FCA5A5' : '#E2E8F0'
+      };
+    });
+    return { parts, donut, tools };
+  }
+}
+</script>
+</body>
+</html>

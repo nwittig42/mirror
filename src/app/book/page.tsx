@@ -19,10 +19,15 @@ import { BookingForm } from "./booking-form";
  * "treatments".
  */
 
+// Submitting the form sets up the prospect and runs their first scan in the
+// background (after()), inside this page's time budget. 800s needs a paid
+// Vercel plan, like the scan routes.
+export const maxDuration = 800;
+
 export const metadata: Metadata = {
   title: "Book your audit · Mirror",
   description:
-    "Thirty minutes on a call. We run your practice through ChatGPT, Claude, Gemini, and Perplexity first, then walk you through what they actually said.",
+    "Thirty minutes on a call. We run your practice through ChatGPT, Claude, Gemini, Grok and Perplexity first, then walk you through what they actually said.",
 };
 
 const STEPS = [
@@ -34,7 +39,7 @@ const STEPS = [
   {
     n: "02",
     head: "We scan before we call",
-    body: "Your practice goes through all four engines on the questions your patients actually ask. We read the answers before you do.",
+    body: "Your practice goes through all five AI assistants on the questions your patients actually ask. We read the answers before you do.",
   },
   {
     n: "03",
@@ -94,7 +99,7 @@ export default function BookPage() {
 
       <footer className="mk-footer">
         <div className="mk-footer-legal" style={{ marginTop: 0, borderTop: "none", paddingTop: 0 }}>
-          © 2026 Mirror. Not affiliated with OpenAI, Anthropic, Google, or Perplexity. Engine names are used only to
+          © 2026 Mirror. Not affiliated with OpenAI, Anthropic, Google, xAI, or Perplexity. Engine names are used only to
           identify the systems monitored.
         </div>
       </footer>

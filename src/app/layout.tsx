@@ -30,7 +30,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Mirror: See what AI tells your patients",
   description:
-    "Mirror monitors AI-visibility for aesthetic medical practices across ChatGPT, Claude, Gemini, and Perplexity, catching hallucinations before patients do.",
+    "Mirror monitors AI-visibility for aesthetic medical practices across ChatGPT, Claude, Gemini, Grok, and Perplexity, catching hallucinations before patients do.",
 };
 
 export default function RootLayout({

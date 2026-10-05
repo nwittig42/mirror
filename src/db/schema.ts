@@ -5,11 +5,11 @@ export const roleEnum = pgEnum("role", ["operator", "client"]);
 export const factCategoryEnum = pgEnum("fact_category",
   ["identity", "providers", "services", "not_offered", "pricing", "logistics", "compliance"]);
 export const promptKindEnum = pgEnum("prompt_kind", ["category", "branded", "informational"]);
-export const engineEnum = pgEnum("engine", ["openai", "anthropic", "gemini", "perplexity"]);
+export const engineEnum = pgEnum("engine", ["openai", "anthropic", "gemini", "perplexity", "grok"]);
 export const positionEnum = pgEnum("position", ["first", "top3", "mentioned", "absent"]);
 export const severityEnum = pgEnum("severity", ["critical", "major", "minor"]);
 export const findingStatusEnum = pgEnum("finding_status", ["open", "fixed", "verified", "dismissed"]);
-export const scanStatusEnum = pgEnum("scan_status", ["running", "complete", "failed"]);
+export const scanStatusEnum = pgEnum("scan_status", ["running", "complete", "failed", "blocked"]);
 export const activityVisibilityEnum = pgEnum("activity_visibility", ["internal", "client"]);
 
 export const users = pgTable("users", {
@@ -76,6 +76,10 @@ export const practices = pgTable("practices", {
   // Operator-edited "what's planned next month" note, shown on the client's
   // printable monthly report. Nullable, since most practices won't have one set.
   reportNotes: text("report_notes"),
+  // Used in the audit report's wording: "When people ask AI for a med spa in
+  // Santa Monica...". Optional; the report falls back to neutral phrasing.
+  category: text("category"),
+  location: text("location"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -110,8 +114,13 @@ export const facts = pgTable("facts", {
   category: factCategoryEnum("category").notNull(),
   label: text("label").notNull(),
   value: text("value").notNull(),
-  status: text("status").notNull().default("active"), // 'active' | 'archived'
-  source: text("source").notNull().default("operator"), // 'operator' | 'client'
+  // 'draft' = pre-filled from the website and not yet confirmed. Drafts are
+  // never shown to the judge: only a fact the client has signed off on can
+  // make an AI answer "wrong".
+  status: text("status").notNull().default("active"), // 'active' | 'archived' | 'draft'
+  source: text("source").notNull().default("operator"), // 'operator' | 'client' | 'website'
+  // Page a website-drafted fact was read from, so the operator can check it.
+  sourceUrl: text("source_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -133,6 +142,23 @@ export const scans = pgTable("scans", {
   positionScore: integer("position_score"),    // 0-100
   breadthScore: integer("breadth_score"),      // 0-100
   accuracyScore: integer("accuracy_score"),    // 0-100
+  // The two halves of the score, reported separately to the client.
+  // visibility = named rate, rank and engine breadth only (no accuracy term).
+  // fact = severity-weighted accuracy against the fact sheet; null when no
+  // branded answer was judged, because "unknown" must not read as "clean".
+  visibilityScore: integer("visibility_score"),
+  factScore: integer("fact_score"),
+  // Every prompt runs `runs` times per engine. Scoring each run on its own
+  // gives a low/high band, which is how we show the score is stable and not
+  // one lucky (or unlucky) roll of the engines.
+  runs: integer("runs").notNull().default(1),
+  scoreLow: integer("score_low"),
+  scoreHigh: integer("score_high"),
+  // AI-readiness check of the practice's website, run alongside the scan.
+  websiteCheck: jsonb("website_check").$type<import("@/core/website-check").WebsiteCheckResult>(),
+  // How many of the answers the scan asked for came back, per engine. Null on
+  // scans from before this was recorded.
+  coverage: jsonb("coverage").$type<import("@/core/coverage").Coverage>(),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   finishedAt: timestamp("finished_at"),
 });
@@ -142,14 +168,26 @@ export const checks = pgTable("checks", {
   scanId: uuid("scan_id").notNull().references(() => scans.id),
   promptId: uuid("prompt_id").notNull().references(() => prompts.id),
   engine: engineEnum("engine").notNull(),
+  // 1-based repeat index. The same prompt is asked `scans.runs` times per
+  // engine because answers vary between identical requests.
+  run: integer("run").notNull().default(1),
   answerText: text("answer_text").notNull(),
   citations: jsonb("citations").$type<string[]>().notNull().default([]),
   mentioned: boolean("mentioned").notNull(),
   position: positionEnum("position").notNull(),
   competitorsMentioned: jsonb("competitors_mentioned").$type<string[]>().notNull().default([]),
+  // Searches the engine ran before answering (empty for engines that don't say).
+  searchQueries: jsonb("search_queries").$type<string[]>().notNull().default([]),
+  // How the answer describes the practice, rated only when it names them.
+  // Null = not named, or the rating failed.
+  tone: text("tone"), // 'positive' | 'neutral' | 'mixed' | 'negative'
+  toneReason: text("tone_reason"),
   // Every business the answer named, practice included, in order of first
   // appearance. Feeds the head-to-head competitor table.
   namedOrder: jsonb("named_order").$type<string[]>().notNull().default([]),
+  // Active fact ids the judge said this answer stated correctly. Feeds the
+  // report's "AI got these right" list; empty when not judged.
+  factsConfirmed: jsonb("facts_confirmed").$type<string[]>().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -162,6 +200,10 @@ export const findings = pgTable("findings", {
   factValue: text("fact_value"),
   severity: severityEnum("severity").notNull(),
   status: findingStatusEnum("status").notNull().default("open"),
+  // The latest scan whose answers repeated this wrong fact. Only findings
+  // seen in the latest scan count toward its fact score; older ones stay
+  // open for review but no longer cost points. Null = from before this column.
+  lastSeenScanId: uuid("last_seen_scan_id").references(() => scans.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
 });
@@ -179,4 +221,46 @@ export const activities = pgTable("activities", {
   // Reaching the client is opt-in, one call site at a time.
   visibility: activityVisibilityEnum("visibility").notNull().default("internal"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supportStatusEnum = pgEnum("support_status", ["open", "closed"]);
+
+// Client help requests from the dashboard's "Need help?" form. Stored as well
+// as emailed so nothing depends on an inbox: the operator works the list in
+// /admin and closes each one when answered.
+export const leadStatusEnum = pgEnum("lead_status", ["preparing", "ready", "needs_attention"]);
+
+/**
+ * Everyone who submitted the /book form. Written before any email is sent,
+ * so a lead survives a failed send. Submitting also sets up a draft practice
+ * and runs its first scan in the background; `status` tracks that.
+ */
+export const leads = pgTable("leads", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  practiceName: text("practice_name").notNull(),
+  websiteUrl: text("website_url").notNull(),
+  contactName: text("contact_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  bestTimes: text("best_times"),
+  status: leadStatusEnum("status").notNull().default("preparing"),
+  // Set once setup creates the practice. Null while preparing or if setup died early.
+  practiceId: uuid("practice_id").references(() => practices.id),
+  // What the operator should know: "website couldn't be read", why a scan failed.
+  note: text("note"),
+  // When the prospect was emailed their ranking audit. Null = not sent.
+  auditEmailedAt: timestamp("audit_emailed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const supportRequests = pgTable("support_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  practiceId: uuid("practice_id").notNull().references(() => practices.id),
+  userId: uuid("user_id").references(() => users.id),
+  email: text("email").notNull(),
+  topic: text("topic").notNull(),
+  message: text("message").notNull(),
+  status: supportStatusEnum("status").notNull().default("open"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  closedAt: timestamp("closed_at"),
 });

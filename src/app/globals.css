@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+/* `dark:` styles apply inside a .dark wrapper (the customer dashboard, which is
+   always dark like Apple Fitness), not by the visitor's system setting. */
+/* Screen only: printed pages stay black on white. */
+@custom-variant dark {
+  @media screen {
+    &:where(.dark, .dark *) {
+      @slot;
+    }
+  }
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

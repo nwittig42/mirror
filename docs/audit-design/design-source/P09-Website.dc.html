@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Website check</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.take{font-size:16px;font-weight:700;line-height:1.4;margin:0;color:#0F172A;text-wrap:balance}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 18px; padding-top: 26px">
+    <div style="display: grid; grid-template-columns: 1fr 250px; gap: 24px; align-items: center">
+      <div style="display: flex; flex-direction: column; gap: 10px">
+        <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #DCFCE7; color: #15803D">What to fix</span>
+        <h1 class="h1">Website check: is your site ready for AI?</h1>
+        <p style="margin: 0; font-size: 14px; line-height: 1.5; color: #475569">We checked glowmedspa.com for the five things AI assistants need to read your site and trust it.</p>
+      </div>
+      <div style="display: flex; gap: 14px; align-items: center">
+        <div style="position: relative; width: 120px; height: 120px; flex-shrink: 0">
+          <div style="width: 120px; height: 120px; border-radius: 60px; background: {{ring}}"></div>
+          <div style="position: absolute; left: 22px; top: 22px; width: 76px; height: 76px; border-radius: 38px; background: #FFFFFF; display: flex; flex-direction: column; align-items: center; justify-content: center">
+            <span style="font-size: 24px; font-weight: 800; line-height: 1">{{passed}}/{{total}}</span>
+            <span style="font-size: 10px; color: #64748B">passed</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{tally}}" as="t" hint-placeholder-count="3">
+            <span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700"><span style="width: 12px; height: 12px; border-radius: 6px; background: {{t.bg}}"></span>{{t.n}} {{t.name}}</span>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+
+    <p class="take">{{take}}</p>
+
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <sc-for list="{{checks}}" as="c" hint-placeholder-count="5">
+        <div style="display: grid; grid-template-columns: 40px 1fr 92px; gap: 14px; padding: 12px 16px; border-radius: 16px; background: {{c.soft}}; align-items: start">
+          <span style="width: 34px; height: 34px; border-radius: 17px; background: {{c.iconBg}}; display: flex; align-items: center; justify-content: center">
+            <sc-if value="{{c.isPass}}" hint-placeholder-val="{{true}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></sc-if>
+            <sc-if value="{{c.isWarn}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M12 6v8"></path><path d="M12 18.5v.5"></path></svg></sc-if>
+            <sc-if value="{{c.isFail}}" hint-placeholder-val="{{false}}"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3.5" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10"></path><path d="M17 7L7 17"></path></svg></sc-if>
+          </span>
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <span style="font-size: 15px; font-weight: 800">{{c.item}}</span>
+            <span style="font-size: 13px; line-height: 1.45; color: #334155">{{c.why}}</span>
+            <sc-if value="{{c.needsFix}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; line-height: 1.45; color: #0F172A"><strong>Fix:</strong> {{c.fix}}</span></sc-if>
+          </div>
+          <span style="justify-self: end; font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; padding: 5px 12px; border-radius: 99px; background: {{c.iconBg}}; color: #FFFFFF">{{c.status}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="background: #EFF6FF; border-radius: 16px; padding: 14px 18px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1D4ED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v5"></path><path d="M12 7.5v.5"></path></svg>
+      <div style="display: flex; flex-direction: column; gap: 4px">
+        <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">What this means</span>
+        <p style="margin: 0; font-size: 13.5px; line-height: 1.5; color: #1E293B">AI can read your site, but it can’t easily find your prices and key facts on it. So it grabs them from other sites, including out-of-date ones. A single facts page fixes most of this.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>09 · Website check</span><span style="font-weight: 700; color: #0F172A">9 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const S = {
+      pass: { status: 'Pass', iconBg: '#16A34A', soft: '#F0FDF4' },
+      warn: { status: 'Check', iconBg: '#D97706', soft: '#FFFBEB' },
+      fail: { status: 'Fail', iconBg: '#DC2626', soft: '#FEF2F2' }
+    };
+    const raw = [
+      { item: 'AI assistants are allowed to read your site', why: 'If your site blocks them, AI can only learn about you from other sites.', fix: '', r: 'pass' },
+      { item: 'Your text is readable without special page code', why: 'Some sites only show text after extra code runs. Many AI tools skip that and see a blank page.', fix: '', r: 'pass' },
+      { item: 'You have a clear facts page', why: 'One page with services, prices, hours and location gives AI a single source of truth.', fix: 'Add a plain “About and pricing” page. Mirror can draft it for you.', r: 'fail' },
+      { item: 'Prices and FAQs are labeled for machines', why: 'Hidden labels tell AI “this number is a price” and “this is a question and its answer”.', fix: 'Add price and FAQ labels to your pricing and FAQ pages.', r: 'fail' },
+      { item: 'You have a sitemap', why: 'A sitemap lists all your pages, so AI doesn’t miss any.', fix: 'Your sitemap needs attention. Regenerate it so it lists every page.', r: 'warn' }
+    ];
+    // sort: failures first, then checks to look at, then passes
+    const order = { fail: 0, warn: 1, pass: 2 };
+    const checks = raw.slice().sort((a, b) => order[a.r] - order[b.r])
+      .map((c) => ({ ...c, ...S[c.r], isPass: c.r === 'pass', isWarn: c.r === 'warn', isFail: c.r === 'fail', needsFix: c.r !== 'pass' }));
+    const n = (r) => raw.filter((c) => c.r === r).length;
+    const tally = [
+      { name: 'passed', n: n('pass'), bg: '#16A34A' },
+      { name: 'to check', n: n('warn'), bg: '#D97706' },
+      { name: 'failed', n: n('fail'), bg: '#DC2626' }
+    ];
+    // segmented ring: one slice per check, in pass/warn/fail order
+    const seg = 100 / raw.length; let at = 0; const stops = [];
+    ['pass', 'warn', 'fail'].forEach((r) => raw.filter((c) => c.r === r).forEach(() => {
+      stops.push(S[r].iconBg + ' ' + at + '% ' + (at + seg - 1.2) + '%', '#FFFFFF ' + (at + seg - 1.2) + '% ' + (at + seg) + '%'); at += seg;
+    }));
+    const take = n('fail') + n('warn') === 0
+      ? 'Your site passed every check. AI can read it and find your key facts.'
+      : n('pass') + ' of ' + raw.length + ' checks passed. The failures make it hard for AI to find your prices and facts.';
+    return { checks, tally, take, passed: n('pass'), total: raw.length, ring: 'conic-gradient(' + stops.join(', ') + ')' };
+  }
+}
+</script>
+</body>
+</html>

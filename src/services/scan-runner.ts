@@ -5,13 +5,18 @@ import {
 } from "@/db/schema";
 import { detectMention } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
-import { computeScore } from "@/core/scoring";
+import { computeVisibility, computeVisibilityParts, computeOverall, computeFactScore, scoreBand } from "@/core/scoring";
+import { findingKey, normalizeClaim, worseSeverity } from "@/core/finding-key";
+import { blockedReason, summarizeCoverage, type Coverage } from "@/core/coverage";
 import type { CheckResult } from "@/core/types";
 import type { EngineAdapter } from "@/engines/types";
+import { EngineError } from "@/engines/types";
 import type { judgeAnswer } from "@/services/hallucination-judge";
 import type { extractCompetitors } from "@/services/competitor-extractor";
 import { canonicalName, reconcileCompetitors } from "@/core/competitors";
 import { logActivity } from "@/services/activity";
+import type { rateTone } from "@/services/tone-rater";
+import type { runWebsiteCheck } from "@/services/website-check";
 
 type Judge = typeof judgeAnswer;
 type Extractor = typeof extractCompetitors;
@@ -34,16 +39,131 @@ export interface NewFinding {
 
 const pct = (fraction: number): number => Math.round(fraction * 100);
 
+export interface ScanResult {
+  scanId: string;
+  /** Null when the scan was blocked for missing too many answers. */
+  score: number | null;
+  newFindings: NewFinding[];
+  blocked: boolean;
+  coverage: Coverage;
+}
+
+export interface ScanOptions {
+  /**
+   * How many times each prompt is asked of each engine. Identical requests
+   * get different answers, so one run per prompt is a coin flip; three is
+   * enough to see whether a mention is real. Default 1 (tests, one-offs).
+   */
+  runs?: number;
+  /** Engine requests in flight at once. Default 4. */
+  concurrency?: number;
+  /** Backoff before each retry of a rate-limited or flaky engine call. */
+  retryDelaysMs?: number[];
+  /**
+   * Rates how each answer that names the practice describes it. Optional so
+   * a scan without it still runs; tone is then left empty, not guessed.
+   */
+  rateTone?: typeof rateTone;
+  /** Runs the website check alongside the engine calls; stored on the scan. */
+  checkWebsite?: typeof runWebsiteCheck;
+  /**
+   * Pause before the one extra try every retriable failure gets once the rest
+   * of the scan has finished. A rate limit often clears in that time.
+   */
+  finalRetryDelayMs?: number;
+  /**
+   * Epoch ms after which no new engine call starts. Calls not started count
+   * as failed, so the scan settles on what came back (and blocks if that is
+   * too little) instead of being killed mid-write by the platform timeout.
+   */
+  deadline?: number;
+}
+
 /**
- * Runs one full monitoring scan for a practice: fires every active prompt at
- * every adapter, records checks, audits branded checks for hallucinations via
- * the judge, computes the visibility score, and closes out the scan row.
+ * How long a scan may keep starting engine calls, measured from when it
+ * starts. Leaves ~150s of the 800s function budget to finish in-flight calls
+ * and write the results, so the platform never kills a scan mid-write.
+ */
+export const SCAN_DEADLINE_MS = 650_000;
+/** A scan still "running" after this was killed and will never finish. */
+export const SCAN_STUCK_AFTER_MS = 15 * 60_000;
+
+/** Whether a scan still marked running has outlived any function that could finish it. */
+export function scanLooksStuck(startedAt: Date, now: number = Date.now()): boolean {
+  return now - startedAt.getTime() > SCAN_STUCK_AFTER_MS;
+}
+
+const RETRIABLE_STATUS = new Set([408, 429, 500, 502, 503, 504, 529]);
+const DEFAULT_RETRY_DELAYS_MS = [2_000, 6_000];
+
+function isRetriable(err: unknown): boolean {
+  if (err instanceof EngineError) return RETRIABLE_STATUS.has(err.status);
+  // Undici reports a dropped connection as a bare TypeError("fetch failed").
+  return err instanceof TypeError;
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Retries an engine call on rate limits and transient failures. Gemini's free
+ * tier in particular answers 429 on bursts, and before this every one of
+ * those was a lost answer and a lower score.
+ */
+async function withRetry<T>(fn: () => Promise<T>, delays: number[]): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt >= delays.length || !isRetriable(err)) throw err;
+      await sleep(delays[attempt]);
+    }
+  }
+}
+
+/** Runs `worker` over `items` with at most `limit` in flight, results in input order. */
+async function mapPool<T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const lanes = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+    while (next < items.length) {
+      const i = next++;
+      results[i] = await worker(items[i]);
+    }
+  });
+  await Promise.all(lanes);
+  return results;
+}
+
+type PromptRow = typeof prompts.$inferSelect;
+type JudgeResult = Awaited<ReturnType<Judge>>;
+
+/** Everything the network half of a scan learns about one (prompt, run, engine). */
+type Gathered =
+  | { prompt: PromptRow; run: number; adapter: EngineAdapter; ok: false; retriable: boolean }
+  | {
+      prompt: PromptRow; run: number; adapter: EngineAdapter; ok: true;
+      answer: string; citations: string[]; searchQueries: string[];
+      tone: { tone: string; reason: string } | null;
+      discovered: string[] | null;
+      judged: JudgeResult | null | undefined; // undefined = not judged
+    };
+
+/**
+ * Runs one full monitoring scan for a practice: asks every active prompt of
+ * every adapter `runs` times, records checks, fact-checks every answer that
+ * names the practice via the judge, computes the scores, and closes out the scan.
+ *
+ * Two phases. The network phase fires every engine call (plus the extractor
+ * and judge for each answer) through a small pool, since a scan is a few
+ * hundred slow requests and running them one prompt at a time took minutes.
+ * The record phase then walks the results in a fixed order and does every
+ * database write and competitor reconciliation sequentially, so the outcome
+ * doesn't depend on which request happened to finish first.
  *
  * Before ranking, each answer goes through the competitor extractor so the
  * practice is ranked against every business the engine actually recommended,
  * not only the ones the operator typed in. Newly discovered names are saved to
- * the practice's competitor list (source 'discovered') so later scans and the
- * admin screen see them.
+ * the practice's competitor list (source 'discovered').
  *
  * A failing engine, judge, or extractor call is logged as an activity warning
  * and the scan continues, because a partial scan is still a scan. Any *unexpected*
@@ -59,8 +179,12 @@ export async function runScan(
   adapters: EngineAdapter[],
   judge: Judge,
   extractor: Extractor,
-): Promise<{ scanId: string; score: number; newFindings: NewFinding[] }> {
-  const [scan] = await db.insert(scans).values({ practiceId }).returning();
+  options: ScanOptions = {},
+): Promise<ScanResult> {
+  const runs = Math.max(1, Math.floor(options.runs ?? 1));
+  const concurrency = options.concurrency ?? 4;
+  const retryDelays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
+  const [scan] = await db.insert(scans).values({ practiceId, runs }).returning();
 
   try {
     const [[practice], promptRows, variationRows, competitorRows, factRows] = await Promise.all([
@@ -72,158 +196,258 @@ export async function runScan(
     ]);
 
     const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
-    // Grows during the scan as the extractor discovers names, so a competitor
-    // found on prompt 1 is matched by plain name detection on prompts 2..10.
+    // Grows during the record phase as discoveries are reconciled, so a
+    // competitor found in one answer is matched by plain name detection in
+    // every later one.
     let competitorNames = competitorRows.filter(c => c.status === "active").map(c => c.name);
     const ignoredNames = competitorRows.filter(c => c.status === "ignored").map(c => c.name);
     const judgeFacts = factRows.map(f => ({ label: f.label, value: f.value, category: f.category }));
+    const knownAtStart = [...competitorNames];
+    // Any answer that names the business can state a wrong fact about it,
+    // not just the ones where the question named it. Nothing to check
+    // against without a fact sheet, so then nothing is judged (fact score N/A).
+    const shouldJudge = (kind: PromptRow["kind"], answer: string) =>
+      judgeFacts.length > 0 && !!answer && (kind === "branded" || detectMention(answer, practiceNames));
 
-    const scoringChecks: ScoringCheck[] = [];
-    const newFindings: NewFinding[] = [];
-    let brandedCheckCount = 0;
-    let brandedChecksWithFinding = 0;
+    // Independent of the engines, so it runs while they answer. A failure
+    // only loses the check, never the scan.
+    const websiteCheck = options.checkWebsite && practice.website
+      ? options.checkWebsite(practice.website).catch(() => null)
+      : Promise.resolve(null);
 
-    for (const prompt of promptRows) {
-      const settled = await Promise.allSettled(adapters.map(a => a.run(prompt.text)));
+    // --- Network phase -------------------------------------------------
+    const tasks = promptRows.flatMap(prompt =>
+      Array.from({ length: runs }, (_, r) => adapters.map(adapter => ({ prompt, run: r + 1, adapter }))).flat(),
+    );
 
-      for (let i = 0; i < adapters.length; i++) {
-        const adapter = adapters[i];
-        const result = settled[i];
+    const pastDeadline = () => options.deadline !== undefined && Date.now() > options.deadline;
+    const gather = async ({ prompt, run, adapter }: (typeof tasks)[number]): Promise<Gathered> => {
+      if (pastDeadline()) return { prompt, run, adapter, ok: false, retriable: false };
+      let result;
+      try {
+        result = await withRetry(() => adapter.run(prompt.text), retryDelays);
+      } catch (err) {
+        return { prompt, run, adapter, ok: false, retriable: isRetriable(err) };
+      }
+      const { answer, citations } = result;
+      const searchQueries = result.searchQueries ?? [];
+      const rater = options.rateTone;
 
-        if (result.status === "rejected") {
-          await logActivity(db, practiceId, `scan warning: ${adapter.name} failed on prompt ${prompt.text}`);
+      const [discovered, judged, tone] = await Promise.all([
+        extractor({ answer, businessNames: practiceNames, knownCompetitors: knownAtStart }).catch(() => null),
+        shouldJudge(prompt.kind, answer)
+          ? withRetry(() => judge({ answer, facts: judgeFacts }), retryDelays).catch(() => null)
+          : Promise.resolve(undefined),
+        rater && detectMention(answer, practiceNames)
+          ? rater({ answer, businessNames: practiceNames }).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      return { prompt, run, adapter, ok: true, answer, citations, searchQueries, tone, discovered, judged };
+    };
+    const gathered = await mapPool(tasks, concurrency, gather);
+
+    // One more try for anything that failed on a rate limit or a flaky
+    // connection, now that the burst of the scan is over. A bad key or a bad
+    // request won't fix itself, so those aren't retried.
+    const failed = gathered.map((g, i) => (!g.ok && g.retriable ? i : -1)).filter(i => i >= 0);
+    if (failed.length > 0) {
+      // Longer than a rate-limit window, with jitter so practices scanning at
+      // the same time don't all come back at the same second.
+      await sleep(options.finalRetryDelayMs ?? 30_000 + Math.random() * 30_000);
+      const retried = await mapPool(failed.map(i => tasks[i]), concurrency, gather);
+      failed.forEach((i, k) => { gathered[i] = retried[k]; });
+    }
+
+    for (const g of gathered) {
+      if (!g.ok) await logActivity(db, practiceId, `scan warning: ${g.adapter.name} failed on prompt ${g.prompt.text}`);
+    }
+
+    // A scan missing too many answers would publish a number built from a
+    // fraction of what it claims. It is recorded as blocked and nothing else,
+    // so every client surface keeps showing the last complete scan.
+    const coverage = summarizeCoverage(gathered.map(g => ({ engine: g.adapter.name, ok: g.ok })));
+    if (coverage.blocked) {
+      await db.update(scans).set({ status: "blocked", coverage, finishedAt: new Date() }).where(eq(scans.id, scan.id));
+      await logActivity(db, practiceId, `scan blocked: ${blockedReason(coverage)}`);
+      return { scanId: scan.id, score: null, newFindings: [], blocked: true, coverage };
+    }
+
+    // --- Record phase --------------------------------------------------
+    const scoringChecks: (ScoringCheck & { run: number })[] = [];
+    let judgedCheckCount = 0;
+    // One entry per wrong fact seen this scan, however many answers repeated it.
+    const seenThisScan = new Map<string, {
+      claim: string; factId: string | null; factValue: string | null;
+      severity: NewFinding["severity"]; checkId: string; engine: string; prompt: string;
+    }>();
+    const factIdByLabel = new Map(factRows.map(f => [f.label, f.id]));
+    const confirmedIds = (g: Gathered) => g.ok && g.judged
+      ? [...new Set(g.judged.right.map(l => factIdByLabel.get(l)).filter((id): id is string => !!id))]
+      : [];
+
+    for (const g of gathered) {
+      const { prompt, adapter } = g;
+      if (!g.ok) continue;
+
+      const { answer, citations } = g;
+      const mentioned = detectMention(answer, practiceNames);
+
+      if (g.discovered === null) {
+        await logActivity(
+          db, practiceId,
+          `scan warning: competitor extraction failed on prompt ${prompt.text} (${adapter.name})`,
+        );
+      }
+      // Only names that literally appear in the answer are kept: a
+      // paraphrase ("Nurse Jamie's practice") or an invented name would
+      // never be matched by name detection anyway, and would sit in the
+      // competitor list as junk.
+      const verbatim = (g.discovered ?? []).filter(name => detectMention(answer, [canonicalName(name)]));
+      const reconciled = reconcileCompetitors({
+        known: competitorNames, ignored: ignoredNames, discovered: verbatim, practiceNames,
+      });
+      if (reconciled.newlyDiscovered.length > 0) {
+        await db.insert(competitors).values(
+          reconciled.newlyDiscovered.map(name => ({ practiceId, name, source: "discovered" })),
+        );
+        competitorNames = reconciled.all;
+      }
+
+      const { position, competitorsMentioned, namedOrder } =
+        classifyPosition(answer, practiceNames, competitorNames);
+
+      const [check] = await db.insert(checks).values({
+        scanId: scan.id,
+        promptId: prompt.id,
+        engine: adapter.name,
+        run: g.run,
+        answerText: answer,
+        citations,
+        searchQueries: g.searchQueries,
+        tone: g.tone?.tone ?? null,
+        toneReason: g.tone?.reason ?? null,
+        mentioned,
+        position,
+        competitorsMentioned,
+        namedOrder,
+        factsConfirmed: confirmedIds(g),
+      }).returning();
+
+      scoringChecks.push({ engine: adapter.name, promptKind: prompt.kind, mentioned, position, run: g.run });
+
+      if (g.judged === undefined) continue;
+      if (g.judged === null) {
+        await logActivity(db, practiceId, `scan warning: judge failed on prompt ${prompt.text}`);
+        continue;
+      }
+
+      // Only answers the judge actually scored count as checked: a judge
+      // failure means "unknown", not "clean".
+      judgedCheckCount++;
+
+      for (const finding of g.judged.wrong) {
+        const matchedFact = finding.factLabel ? factRows.find(f => f.label === finding.factLabel) : undefined;
+        const key = findingKey({ factId: matchedFact?.id, claim: finding.claim });
+        const prior = seenThisScan.get(key);
+        if (prior) {
+          prior.severity = worseSeverity(prior.severity, finding.severity);
           continue;
         }
-
-        const { answer, citations } = result.value;
-        const mentioned = detectMention(answer, practiceNames);
-
-        let discovered: string[] = [];
-        try {
-          discovered = await extractor({ answer, businessNames: practiceNames, knownCompetitors: competitorNames });
-        } catch {
-          await logActivity(
-            db, practiceId,
-            `scan warning: competitor extraction failed on prompt ${prompt.text} (${adapter.name})`,
-          );
-        }
-        // Only names that literally appear in the answer are kept: a
-        // paraphrase ("Nurse Jamie's practice") or an invented name would
-        // never be matched by name detection anyway, and would sit in the
-        // competitor list as junk.
-        const verbatim = discovered.filter(name => detectMention(answer, [canonicalName(name)]));
-        const reconciled = reconcileCompetitors({
-          known: competitorNames, ignored: ignoredNames, discovered: verbatim, practiceNames,
+        seenThisScan.set(key, {
+          claim: finding.claim, factId: matchedFact?.id ?? null, factValue: matchedFact?.value ?? null,
+          severity: finding.severity, checkId: check.id, engine: adapter.name, prompt: prompt.text,
         });
-        if (reconciled.newlyDiscovered.length > 0) {
-          await db.insert(competitors).values(
-            reconciled.newlyDiscovered.map(name => ({ practiceId, name, source: "discovered" })),
-          );
-          competitorNames = reconciled.all;
-        }
-
-        const { position, competitorsMentioned, namedOrder } =
-          classifyPosition(answer, practiceNames, competitorNames);
-
-        const [check] = await db.insert(checks).values({
-          scanId: scan.id,
-          promptId: prompt.id,
-          engine: adapter.name,
-          answerText: answer,
-          citations,
-          mentioned,
-          position,
-          competitorsMentioned,
-          namedOrder,
-        }).returning();
-
-        scoringChecks.push({ engine: adapter.name, promptKind: prompt.kind, mentioned, position });
-
-        if (prompt.kind === "branded" && check.answerText) {
-          let judgeFindings;
-          try {
-            judgeFindings = await judge({ answer, facts: judgeFacts });
-          } catch {
-            await logActivity(db, practiceId, `scan warning: judge failed on prompt ${prompt.text}`);
-            continue;
-          }
-
-          // Only checks the judge actually scored count toward the accuracy
-          // denominator. A judge failure means "unknown", not "clean", so
-          // it must not silently inflate the accuracy component (see F3 in
-          // the final review).
-          brandedCheckCount++;
-
-          if (judgeFindings.some(f => f.severity === "critical" || f.severity === "major")) {
-            brandedChecksWithFinding++;
-          }
-
-          for (const finding of judgeFindings) {
-            const existingOpen = await db.select().from(findings).where(and(
-              eq(findings.practiceId, practiceId),
-              eq(findings.claim, finding.claim),
-              eq(findings.status, "open"),
-            ));
-            if (existingOpen.length > 0) continue;
-
-            const matchedFact = finding.factLabel
-              ? factRows.find(f => f.label === finding.factLabel)
-              : undefined;
-
-            await db.insert(findings).values({
-              practiceId,
-              checkId: check.id,
-              factId: matchedFact?.id,
-              claim: finding.claim,
-              factValue: matchedFact?.value,
-              severity: finding.severity,
-              status: "open",
-            });
-
-            newFindings.push({
-              claim: finding.claim,
-              factValue: matchedFact?.value ?? null,
-              severity: finding.severity,
-              engine: adapter.name,
-              prompt: prompt.text,
-            });
-          }
-        }
       }
     }
 
-    const openFindings = await db.select().from(findings).where(and(
-      eq(findings.practiceId, practiceId),
-      eq(findings.status, "open"),
-    ));
+    // Reconcile this scan's wrong facts with the practice's history. An open
+    // finding for the same fact is the same mistake seen again; a dismissed one
+    // was ruled "not actually wrong" and stays that way; a fixed or verified
+    // one that comes back is a new mistake.
+    const priorFindings = await db.select().from(findings).where(eq(findings.practiceId, practiceId));
+    const priorByKey = new Map<string, (typeof priorFindings)[number][]>();
+    for (const f of priorFindings) {
+      const key = findingKey(f);
+      priorByKey.set(key, [...(priorByKey.get(key) ?? []), f]);
+    }
+    const newFindings: NewFinding[] = [];
+    const linked = new Set<string>();
+    for (const [key, seen] of seenThisScan) {
+      const history = priorByKey.get(key) ?? [];
+      if (history.some(f => f.status === "dismissed")) continue;
+      // Findings saved before judge labels matched carry no fact, so they key
+      // on their wording. Match those by claim too, and link them to the fact.
+      const legacy = seen.factId
+        ? priorFindings.find(f => f.status === "open" && !f.factId && !linked.has(f.id)
+            && normalizeClaim(f.claim) === normalizeClaim(seen.claim))
+        : undefined;
+      const open = history.find(f => f.status === "open") ?? legacy;
+      if (open) {
+        if (open === legacy) linked.add(open.id);
+        await db.update(findings)
+          .set({
+            lastSeenScanId: scan.id, severity: worseSeverity(open.severity, seen.severity),
+            ...(open === legacy ? { factId: seen.factId ?? undefined, factValue: seen.factValue ?? undefined } : {}),
+          })
+          .where(eq(findings.id, open.id));
+        continue;
+      }
+      await db.insert(findings).values({
+        practiceId, checkId: seen.checkId, factId: seen.factId ?? undefined, claim: seen.claim,
+        factValue: seen.factValue ?? undefined, severity: seen.severity, status: "open", lastSeenScanId: scan.id,
+      });
+      newFindings.push({ claim: seen.claim, factValue: seen.factValue, severity: seen.severity, engine: seen.engine, prompt: seen.prompt });
+    }
 
-    const breakdown = computeScore({
-      checks: scoringChecks,
-      openFindings: openFindings.map(f => ({ severity: f.severity })),
-      brandedCheckCount,
-      brandedChecksWithFinding,
-    });
+    // Only wrong facts seen in this scan cost points or cap the overall.
+    const seenFindings = await db.select({ severity: findings.severity, category: facts.category })
+      .from(findings)
+      .leftJoin(facts, eq(findings.factId, facts.id))
+      .where(and(eq(findings.practiceId, practiceId), eq(findings.status, "open"), eq(findings.lastSeenScanId, scan.id)));
+
+    const factScore = computeFactScore({ judgedChecks: judgedCheckCount, openFindings: seenFindings });
+    const hasCritical = seenFindings.some(f => f.severity === "critical");
+    // Reach is out of the engines that actually answered: an engine that was
+    // down didn't decline to name the client, it just wasn't heard from.
+    const engineCount = new Set(gathered.filter(g => g.ok).map(g => g.adapter.name)).size || adapters.length;
+    const overallFor = (subset: ScoringCheck[]) =>
+      computeOverall({ visibility: computeVisibility(subset, engineCount), factScore, hasCritical }).score;
+
+    const visibility = computeVisibility(scoringChecks, engineCount);
+    const parts = computeVisibilityParts(scoringChecks, engineCount);
+    const score = computeOverall({ visibility, factScore, hasCritical }).score;
+    const band = runs > 1
+      ? scoreBand(Array.from({ length: runs }, (_, r) => scoringChecks.filter(c => c.run === r + 1))
+          .filter(subset => subset.length > 0)
+          .map(overallFor))
+      : { low: score, high: score };
 
     await db.update(scans).set({
       status: "complete",
-      score: breakdown.score,
-      citationRate: pct(breakdown.citationRate),
-      positionScore: pct(breakdown.positionQuality),
-      breadthScore: pct(breakdown.engineBreadth),
-      accuracyScore: pct(breakdown.accuracy),
+      score,
+      citationRate: pct(parts.citationRate),
+      positionScore: pct(parts.positionQuality),
+      breadthScore: pct(parts.engineBreadth),
+      visibilityScore: visibility,
+      factScore,
+      scoreLow: band.low,
+      scoreHigh: band.high,
+      websiteCheck: await websiteCheck,
+      coverage,
       finishedAt: new Date(),
     }).where(eq(scans.id, scan.id));
 
     const mentionedCount = scoringChecks.filter(c => c.mentioned).length;
+    const range = runs > 1 && band.low !== null ? `, ${band.low}-${band.high} across ${runs} runs` : "";
     // The only automatic entry the client sees. Every other logActivity() call
     // in this file is a warning, and warnings stay internal.
     await logActivity(
       db, practiceId,
-      `Weekly scan complete: score ${breakdown.score} (${mentionedCount}/${scoringChecks.length} checks cited)`,
+      `Weekly scan complete: score ${score} (${mentionedCount}/${scoringChecks.length} checks cited${range})`,
       "client",
     );
 
-    return { scanId: scan.id, score: breakdown.score, newFindings };
+    return { scanId: scan.id, score, newFindings, blocked: false, coverage };
   } catch (err) {
     await db.update(scans).set({ status: "failed" }).where(eq(scans.id, scan.id));
     throw err;

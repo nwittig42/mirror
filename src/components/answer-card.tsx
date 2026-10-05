@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { TONE_LABELS, type Tone } from "@/core/tone";
 import { highlightRanges } from "@/core/mention";
 import { ENGINE_LABELS } from "@/core/types";
 import type { Engine, Position } from "@/core/types";
@@ -54,10 +55,22 @@ export interface AnswerCardProps {
   answerText: string;
   citations: string[];
   practiceNames: string[];
+  searchQueries?: string[];
+  tone?: string | null;
+  toneReason?: string | null;
 }
 
+const TONE_STYLES: Record<string, string> = {
+  positive: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
+  neutral: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+  mixed: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
+  negative: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+};
+
 /** One card per check: the prompt asked, which engine answered, and the verbatim answer with mentions highlighted. */
-export function AnswerCard({ promptText, engine, position, answerText, citations, practiceNames }: AnswerCardProps) {
+export function AnswerCard({
+  promptText, engine, position, answerText, citations, practiceNames, searchQueries = [], tone, toneReason,
+}: AnswerCardProps) {
   return (
     <article className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -67,8 +80,19 @@ export function AnswerCard({ promptText, engine, position, answerText, citations
             {ENGINE_LABELS[engine]}
           </span>
           <PositionChip position={position} />
+          {tone && TONE_LABELS[tone as Tone] && (
+            <span title={toneReason ?? undefined}
+              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_STYLES[tone] ?? TONE_STYLES.neutral}`}>
+              {TONE_LABELS[tone as Tone]}
+            </span>
+          )}
         </div>
       </div>
+      {searchQueries.length > 0 && (
+        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
+          <span className="font-medium">Searched for:</span> {searchQueries.map(q => `"${q}"`).join(" · ")}
+        </p>
+      )}
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
         <HighlightedText text={answerText} names={practiceNames} />
       </p>

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>How we measured this</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.h1{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:34px;line-height:1.15;margin:0;letter-spacing:-0.01em}
+.h2{font-family:'Newsreader',Georgia,serif;font-weight:400;font-size:24px;line-height:1.2;margin:0}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+.small{font-size:12px;line-height:1.45;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 44px 64px 36px; display: flex; flex-direction: column; background: #FFFFFF">
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #E2E8F0">
+    <div style="display: flex; align-items: center; gap: 8px"><svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg><span style="font-size: 15px; font-weight: 800">Mirror</span><span class="label" style="margin-left: 6px">AI Visibility Audit</span></div>
+    <span class="label">Glow MedSpa · Sept 24, 2026</span>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; padding-top: 26px">
+    <div style="display: flex; flex-direction: column; gap: 10px">
+      <span style="align-self: flex-start; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 11px; border-radius: 99px; background: #F1F5F9; color: #334155">Behind the numbers</span>
+      <h1 class="h1">How we measured this</h1>
+    </div>
+
+    <div style="background: #F8FAFC; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 10px">
+        <sc-for list="{{inputs}}" as="i" hint-placeholder-count="3">
+          <div style="display: flex; align-items: center; gap: 10px">
+            <div style="background: #FFFFFF; border: 2px solid {{i.color}}; border-radius: 14px; padding: 10px 16px; display: flex; flex-direction: column; align-items: center; min-width: 110px">
+              <span style="font-size: 28px; font-weight: 800; line-height: 1; color: {{i.color}}">{{i.n}}</span>
+              <span style="font-size: 12px; font-weight: 700">{{i.label}}</span>
+            </div>
+            <span style="font-size: 22px; font-weight: 800; color: #94A3B8">{{i.op}}</span>
+          </div>
+        </sc-for>
+        <div style="background: #0F172A; border-radius: 14px; padding: 10px 16px; display: flex; flex-direction: column; align-items: center; min-width: 110px">
+          <span style="font-size: 28px; font-weight: 800; line-height: 1; color: #FFFFFF">150</span>
+          <span style="font-size: 12px; font-weight: 700; color: #CBD5E1">answers read</span>
+        </div>
+      </div>
+      <svg width="648" height="40" viewBox="0 0 648 40" aria-hidden="true" style="display: block">
+        <path d="M324 0 V14 H162 V36" fill="none" stroke="#2563EB" stroke-width="2.5"></path>
+        <path d="M324 14 H486 V36" fill="none" stroke="#16A34A" stroke-width="2.5"></path>
+        <path d="M156 30 L162 38 L168 30" fill="none" stroke="#2563EB" stroke-width="2.5"></path>
+        <path d="M480 30 L486 38 L492 30" fill="none" stroke="#16A34A" stroke-width="2.5"></path>
+      </svg>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px">
+        <div style="background: #EFF6FF; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 800; color: #1D4ED8">75 ANSWERS → VISIBILITY</span>
+          <span style="font-size: 13.5px; line-height: 1.45">5 buyer questions that don’t name you. Did AI name you, and how high?</span>
+        </div>
+        <div style="background: #F0FDF4; border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 12px; font-weight: 800; color: #15803D">75 ANSWERS → FACT ACCURACY</span>
+          <span style="font-size: 13.5px; line-height: 1.45">5 questions about you by name. Did AI get your prices, hours and services right?</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; row-gap: 14px">
+      <sc-for list="{{steps}}" as="s" hint-placeholder-count="4">
+        <div style="display: grid; grid-template-columns: 30px 1fr; gap: 12px; align-items: start">
+          <span style="width: 28px; height: 28px; border-radius: 9px; background: {{s.color}}; color: #FFFFFF; font-size: 13px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{s.n}}</span>
+          <div style="display: flex; flex-direction: column; gap: 2px">
+            <span style="font-size: 14px; font-weight: 800">{{s.title}}</span>
+            <span style="font-size: 13px; line-height: 1.45; color: #334155">{{s.body}}</span>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="height: 1px; background: #E2E8F0"></div>
+
+    <div style="display: flex; flex-direction: column; gap: 12px">
+      <h2 class="h2">Words in this report</h2>
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 24px; row-gap: 8px">
+        <sc-for list="{{glossary}}" as="g" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 96px 1fr; gap: 10px; padding-bottom: 8px; border-bottom: 1px solid #F1F5F9">
+            <span style="font-size: 13px; font-weight: 800">{{g.term}}</span>
+            <span style="font-size: 12.5px; line-height: 1.4; color: #334155">{{g.def}}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 11px; color: #64748B"><span>11 · How we measured this</span><span style="font-weight: 700; color: #0F172A">11 / 12</span></div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      inputs: [
+        { n: '5', label: 'AI assistants', color: '#7C3AED', op: '×' },
+        { n: '10', label: 'real questions', color: '#0D9488', op: '×' },
+        { n: '3', label: 'runs each', color: '#E8590C', op: '=' }
+      ],
+      steps: [
+        { n: 1, color: '#7C3AED', title: 'Real buyer questions', body: 'What a new customer types into ChatGPT or Grok, like “Where can I get Botox in Santa Monica?”' },
+        { n: 2, color: '#0D9488', title: 'Asked 3 times each', body: 'AI answers vary. Three runs show what’s typical, which is why your score is a range (30–39).' },
+        { n: 3, color: '#2563EB', title: 'Your name is left out of visibility', body: 'If a question already names you, AI will mention you. Those count only toward accuracy.' },
+        { n: 4, color: '#16A34A', title: 'Sources and searches traced', body: 'When an assistant showed its sources or web searches, we recorded them to find what to fix.' }
+      ],
+      glossary: [
+        { term: 'Answer', def: 'One reply from one AI assistant to one question.' },
+        { term: 'Named', def: 'The answer mentions your business by name.' },
+        { term: 'Rank', def: 'Your spot on AI’s list. #1 means named first.' },
+        { term: 'Run', def: 'One round of asking. We did three.' },
+        { term: 'Visibility', def: 'How often and how high AI names you, 0–100.' },
+        { term: 'Fact accuracy', def: 'How many facts about you AI got right, 0–100.' },
+        { term: 'Source', def: 'A website AI points to as where it read something.' },
+        { term: 'Severity', def: 'Critical: could lose a customer. Major: clearly wrong. Minor: small detail.' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

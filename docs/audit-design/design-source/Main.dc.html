@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AI Visibility Audit cover</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&amp;family=Newsreader:opsz,wght@6..72,400;6..72,500&amp;display=swap">
+<style>
+body{margin:0;background:#FFFFFF;color:#0F172A;font-family:'Hanken Grotesk',system-ui,sans-serif;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.label{font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#64748B}
+a{color:#2563EB}a:hover{color:#1D4ED8}
+</style>
+</helmet>
+<div style="width: 816px; height: 1056px; box-sizing: border-box; padding: 56px 64px 0; display: flex; flex-direction: column; background: #FFFFFF; position: relative; overflow: hidden">
+  <div style="display: flex; justify-content: space-between; align-items: center">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <svg width="40" height="40" viewBox="0 0 22 22" aria-hidden="true"><rect width="22" height="22" rx="6" fill="#2563EB"></rect><path d="M10 5a6 6 0 0 0 0 12z" fill="#FFFFFF"></path><path d="M12 5a6 6 0 0 1 0 12" fill="none" stroke="#FFFFFF" stroke-width="1.6"></path></svg>
+      <span style="font-size: 28px; font-weight: 800; letter-spacing: -0.02em">Mirror</span>
+    </div>
+    <span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 6px 12px; border-radius: 99px; background: #F1F5F9; color: #334155">Master report</span>
+  </div>
+
+  <div style="margin-top: 72px; display: flex; flex-direction: column; gap: 16px">
+    <span style="align-self: flex-start; font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; padding: 6px 12px; border-radius: 99px; background: #DBEAFE; color: #1D4ED8">AI Visibility Audit</span>
+    <h1 style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 84px; line-height: 1; letter-spacing: -0.025em">Glow MedSpa</h1>
+    <div style="display: flex; gap: 14px; align-items: center; font-size: 18px; color: #475569">
+      <span>glowmedspa.com</span>
+      <span style="width: 5px; height: 5px; border-radius: 3px; background: #94A3B8"></span>
+      <span>Santa Monica, CA</span>
+      <span style="width: 5px; height: 5px; border-radius: 3px; background: #94A3B8"></span>
+      <span>Scanned Sept 24, 2026</span>
+    </div>
+  </div>
+
+  <div style="margin-top: 40px; display: grid; grid-template-columns: 1fr 220px; gap: 20px">
+    <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 20px; padding: 24px 26px; display: flex; flex-direction: column; gap: 18px">
+      <span class="label">We asked these 5 AI assistants</span>
+      <div style="display: flex; justify-content: space-between">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 8px; width: 76px">
+            <span style="width: 52px; height: 52px; border-radius: 16px; background: {{t.color}}; color: #FFFFFF; font-size: 19px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{t.initial}}</span>
+            <span style="font-size: 13px; font-weight: 700">{{t.name}}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+        <div style="background: #FFFFFF; border-radius: 12px; padding: 10px 12px; display: flex; align-items: baseline; gap: 8px"><span style="font-size: 26px; font-weight: 800; color: #2563EB">10</span><span style="font-size: 13px; color: #475569">questions</span></div>
+        <div style="background: #FFFFFF; border-radius: 12px; padding: 10px 12px; display: flex; align-items: baseline; gap: 8px"><span style="font-size: 26px; font-weight: 800; color: #7C3AED">3×</span><span style="font-size: 13px; color: #475569">each</span></div>
+        <div style="background: #FFFFFF; border-radius: 12px; padding: 10px 12px; display: flex; align-items: baseline; gap: 8px"><span style="font-size: 26px; font-weight: 800; color: #0D9488">150</span><span style="font-size: 13px; color: #475569">answers</span></div>
+      </div>
+    </div>
+    <div style="border: 1px solid #E2E8F0; border-radius: 20px; padding: 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px">
+      <span class="label">Overall score</span>
+      <div style="position: relative; width: 136px; height: 136px">
+        <svg width="136" height="136" viewBox="0 0 136 136" aria-hidden="true">
+          <circle cx="68" cy="68" r="56" fill="none" stroke="#F1F5F9" stroke-width="16"></circle>
+          <circle cx="68" cy="68" r="56" fill="none" stroke-width="16" transform="rotate(-90 68 68)" style="stroke: {{overall.color}}; stroke-dasharray: {{overall.dash}}"></circle>
+        </svg>
+        <div style="position: absolute; left: 0; top: 0; width: 136px; height: 136px; display: flex; flex-direction: column; align-items: center; justify-content: center">
+          <span style="font-size: 44px; font-weight: 800; line-height: 1">{{overall.score}}</span>
+          <span style="font-size: 12px; color: #64748B">of 100</span>
+        </div>
+      </div>
+      <span style="font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 99px; background: {{overall.bg}}; color: {{overall.text}}">{{overall.label}}</span>
+    </div>
+  </div>
+  <p style="margin: 14px 0 0; font-size: 14px; color: #475569">Checked across ChatGPT, Claude, Gemini, Grok and Perplexity · 10 questions · each asked 3 times</p>
+
+  <div style="margin-top: 40px; display: flex; flex-direction: column; gap: 10px">
+    <span class="label">Inside this report</span>
+    <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px">
+      <sc-for list="{{arc}}" as="a" hint-placeholder-count="4">
+        <div style="border-radius: 14px; padding: 14px; background: {{a.bg}}; display: flex; flex-direction: column; gap: 6px">
+          <span style="font-size: 11px; font-weight: 800; color: {{a.color}}">{{a.pages}}</span>
+          <span style="font-size: 14px; font-weight: 700; line-height: 1.3">{{a.title}}</span>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1"></div>
+  <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 0; font-size: 12px; color: #64748B"><span>Prepared for Glow MedSpa by Mirror</span><span>mirror · AI Visibility Audit</span></div>
+  <div style="display: flex; height: 14px; margin: 0 -64px">
+    <sc-for list="{{tools}}" as="t" hint-placeholder-count="5"><div style="flex-grow: 1; background: {{t.color}}"></div></sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":816,"height":1056}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const band = (s) => s >= 70 ? { color: '#16A34A', text: '#15803D', bg: '#DCFCE7', label: 'Strong' }
+      : s >= 40 ? { color: '#F59E0B', text: '#B45309', bg: '#FEF3C7', label: 'Fair' }
+      : { color: '#DC2626', text: '#B91C1C', bg: '#FEE2E2', label: 'Needs work' };
+    const C = 2 * Math.PI * 56;
+    const score = 34;
+    return {
+      overall: { score, dash: (score / 100) * C + ' ' + C, ...band(score) },
+      tools: [
+        { name: 'ChatGPT', initial: 'Ch', color: '#0F766E' },
+        { name: 'Claude', initial: 'Cl', color: '#D97757' },
+        { name: 'Gemini', initial: 'Ge', color: '#4F46E5' },
+        { name: 'Grok', initial: 'Gr', color: '#111827' },
+        { name: 'Perplexity', initial: 'Pe', color: '#7C3AED' }
+      ],
+      arc: [
+        { pages: 'PAGES 2–3', title: 'Where you stand', color: '#1D4ED8', bg: '#EFF6FF' },
+        { pages: 'PAGES 4–7', title: 'Who’s beating you and why', color: '#6D28D9', bg: '#F5F3FF' },
+        { pages: 'PAGE 8', title: 'What AI gets wrong', color: '#B91C1C', bg: '#FEF2F2' },
+        { pages: 'PAGES 9–12', title: 'What to fix first', color: '#15803D', bg: '#F0FDF4' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
