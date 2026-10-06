@@ -8,9 +8,9 @@ import type { EngineAdapter } from "@/engines/types";
 
 type Db = Awaited<ReturnType<typeof makeTestDb>>;
 
-async function lead(db: Db) {
+async function lead(db: Db, extra: Partial<typeof schema.leads.$inferInsert> = {}) {
   const [row] = await db.insert(schema.leads).values({
-    practiceName: "Glow MedSpa", websiteUrl: "glowmedspa.com", contactName: "Dr. Kim", email: "kim@glow.example",
+    practiceName: "Glow MedSpa", websiteUrl: "glowmedspa.com", contactName: "Dr. Kim", email: "kim@glow.example", ...extra,
   }).returning();
   return row;
 }
@@ -31,6 +31,8 @@ function deps(over: Partial<ProspectDeps> = {}): ProspectDeps {
     ...over,
   };
 }
+
+const noQuestions: ProspectDeps["draftQuestions"] = async () => ({ category: null, location: null, questions: [] });
 
 describe("prepareProspect", () => {
   it("creates a paused practice, fills its fact sheet and questions from the website, scans it, and says it's ready", async () => {
@@ -66,7 +68,7 @@ describe("prepareProspect", () => {
   it("needs attention, without scanning, when no questions could be drafted", async () => {
     const db = await makeTestDb();
     const l = await lead(db);
-    await prepareProspect(db, l.id, deps({ draftQuestions: async () => ({ category: null, location: null, questions: [] }) }));
+    await prepareProspect(db, l.id, deps({ draftQuestions: noQuestions }));
     const [after] = await db.select().from(schema.leads);
     expect(after.status).toBe("needs_attention");
     expect(after.note).toMatch(/questions/i);
@@ -93,6 +95,56 @@ describe("prepareProspect", () => {
     expect(rows.map(r => r.slug).sort()).toEqual(["glow-medspa", "glow-medspa-2"]);
   });
 
+  // Review finding: two "Glow MedSpa" leads with different websites, prepared
+  // at the same moment, both read the taken slugs before either inserts; the
+  // second insert hit the unique constraint, threw before `finish`, and that
+  // lead sat in "preparing" with no practice and no note.
+  it("gives two same-name leads prepared at the same moment their own addresses, and parks neither", async () => {
+    const db = await makeTestDb();
+    const a = await lead(db, { websiteUrl: "glow1.example" });
+    const b = await lead(db, { websiteUrl: "glow2.example" });
+    const da = deps();
+    const db2 = deps();
+    await Promise.all([prepareProspect(db, a.id, da), prepareProspect(db, b.id, db2)]);
+
+    const rows = await db.select().from(schema.practices);
+    expect(rows.map(r => r.slug).sort()).toEqual(["glow-medspa", "glow-medspa-2"]);
+    const after = await db.select().from(schema.leads);
+    expect(after.map(l => l.status)).toEqual(["ready", "ready"]);
+    expect(new Set(after.map(l => l.practiceId)).size).toBe(2);
+    expect(after.every(l => l.practiceId)).toBe(true);
+    expect(await db.select().from(schema.scans)).toHaveLength(2);
+    expect(da.sendAudit).toHaveBeenCalledTimes(1);
+    expect(db2.sendAudit).toHaveBeenCalledTimes(1);
+  });
+
+  it("marks the lead as needing a look, with the error in the note, when a step throws unexpectedly", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    // A synchronous throw from a dependency is not caught by the `.catch` the
+    // step attaches to its promise, so it reaches the outer guard.
+    const d = deps({ fetchPages: () => { throw new Error("DNS exploded"); } });
+    await prepareProspect(db, l.id, d);
+
+    const [p] = await db.select().from(schema.practices);
+    const [after] = await db.select().from(schema.leads);
+    expect(after).toMatchObject({ status: "needs_attention", practiceId: p.id });
+    expect(after.note).toMatch(/setup failed: DNS exploded/i);
+    expect(await db.select().from(schema.scans)).toHaveLength(0);
+    expect(d.sendAudit).not.toHaveBeenCalled();
+    expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ status: "needs_attention", practiceId: p.id, note: after.note }));
+  });
+
+  it("keeps the specific note for an expected failure, not the catch-all one", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    await prepareProspect(db, l.id, deps({ scan: async () => { throw new Error("engine down"); } }));
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("needs_attention");
+    expect(after.note).toMatch(/first scan failed: engine down/i);
+    expect(after.note).not.toMatch(/setup failed/i);
+  });
+
   it("doesn't email an audit when the scan was blocked", async () => {
     const db = await makeTestDb();
     const l = await lead(db);
@@ -110,5 +162,80 @@ describe("prepareProspect", () => {
     expect(after.status).toBe("ready");
     expect(after.auditEmailedAt).toBeNull();
     expect(after.note).toMatch(/report email couldn't be sent/i);
+  });
+
+  it("hands the drafter what the prospect typed, and keeps it over the drafter's guesses", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { category: "Plumber", location: "Portland, OR" });
+    const d = deps({ draftQuestions: vi.fn(async () => ({ category: "Med spa", location: "Austin, TX", questions: [
+      { text: "Best plumber in Portland?", kind: "category" as const },
+    ] })) });
+    await prepareProspect(db, l.id, d);
+    expect(d.draftQuestions).toHaveBeenCalledWith(expect.objectContaining({
+      businessName: "Glow MedSpa", category: "Plumber", location: "Portland, OR",
+    }));
+    const [p] = await db.select().from(schema.practices);
+    expect(p).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+  });
+
+  it("lets the drafter's guess fill only what the prospect left blank", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { category: "Plumber", location: "  " });
+    await prepareProspect(db, l.id, deps());
+    const [p] = await db.select().from(schema.practices);
+    expect(p).toMatchObject({ category: "Plumber", location: "Austin, TX" });
+  });
+
+  it("falls back to the standard questions, scans and emails when the drafter returns none but the kind and place are known", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { category: "Med spa", location: "Austin, TX" });
+    const d = deps({ draftQuestions: noQuestions });
+    await prepareProspect(db, l.id, d);
+
+    const [p] = await db.select().from(schema.practices);
+    expect(p).toMatchObject({ category: "Med spa", location: "Austin, TX" });
+    const rows = await db.select().from(schema.prompts);
+    expect(rows).toHaveLength(6);
+    expect(rows.map(q => q.kind).sort()).toEqual(["branded", "branded", "category", "category", "category", "category"]);
+    for (const q of rows) expect(q.text).toContain("Austin, TX");
+    expect(rows.map(q => q.text)).toContain("What do you know about Glow MedSpa in Austin, TX?");
+    expect((await db.select().from(schema.scans))[0].status).toBe("complete");
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("ready");
+    expect(after.note).toMatch(/standard questions/i);
+    expect(d.sendAudit).toHaveBeenCalledWith(db, p.id, { email: "kim@glow.example", contactName: "Dr. Kim" });
+    const lines = (await db.select().from(schema.activities)).map(a => a.description);
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.stringMatching(/no buyer questions could be drafted .* standard set for "Med spa" in Austin, TX/),
+      expect.stringMatching(/set up from the booking form: 1 facts, 6 standard questions/),
+    ]));
+  });
+
+  it("does not fall back when the place is unknown: no scan, no email, the lead needs a look", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { category: "Plumber" });
+    const d = deps({ draftQuestions: noQuestions });
+    await prepareProspect(db, l.id, d);
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("needs_attention");
+    expect(after.note).toMatch(/no buyer questions could be drafted/i);
+    expect(await db.select().from(schema.prompts)).toHaveLength(0);
+    expect(await db.select().from(schema.scans)).toHaveLength(0);
+    expect(d.sendAudit).not.toHaveBeenCalled();
+    expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ status: "needs_attention" }));
+  });
+
+  it("counts the drafter's guess for a blank the prospect left, so the fallback can still run on it", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { location: "Portland, OR" });
+    await prepareProspect(db, l.id, deps({ draftQuestions: async () => ({ category: "Plumber", location: null, questions: [] }) }));
+    const [after] = await db.select().from(schema.leads);
+    const [p] = await db.select().from(schema.practices);
+    expect(p).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+    expect(after.status).toBe("ready");
+    const texts = (await db.select().from(schema.prompts)).map(q => q.text);
+    expect(texts).toHaveLength(6);
+    expect(texts).toContain("What are the best plumbers in Portland, OR? Name specific businesses.");
+    expect(await db.select().from(schema.scans)).toHaveLength(1);
   });
 });

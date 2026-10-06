@@ -23,10 +23,10 @@ export type SourceType =
   | 'reference';
 
 export interface Business {
-  name: string;           // "Glow MedSpa"
-  website: string;        // "glowmedspa.com" (no protocol)
+  name: string;           // "Harbor Plumbing and Drain"
+  website: string;        // "harborplumbingpdx.com" (no protocol)
   location: string;       // "Santa Monica, CA"
-  category: string;       // "Med spa"
+  category: string;       // "Plumber"
 }
 
 export interface ScanInfo {
@@ -149,7 +149,7 @@ export interface Searches {
 
 export interface FactCheck {
   id: string;
-  topic: string;              // "Botox price"
+  topic: string;              // "Drain cleaning price"
   isTrue: boolean;
   truth: string;              // the correct fact, confirmed by the client
   // Only when isTrue === false:
@@ -162,7 +162,7 @@ export interface FactCheck {
 }
 
 export interface WebsiteCheck {
-  id: 'ai_allowed' | 'readable_text' | 'facts_page' | 'machine_labels' | 'sitemap' | string;
+  id: 'ai_allowed' | 'readable_text' | 'facts_page' | 'machine_labels' | 'sitemap' | 'business_schema' | 'contact_visible' | string;
   label: string;
   why: string;
   fix?: string;               // required when status !== 'pass'
@@ -173,7 +173,7 @@ export interface Action {
   id: string;
   title: string;
   why: string;
-  fixes: string;              // "wrong Botox price (p. 08)"
+  fixes: string;              // "wrong drain cleaning price (p. 08)"
   effort: Level;
   impact: Level;
   track: 'visibility' | 'facts' | 'both'; // which variant(s) show it

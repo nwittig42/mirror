@@ -5,7 +5,7 @@
  */
 
 /** Shown on every control that would act for the customer. */
-export const ADMIN_READ_ONLY_MESSAGE = "Disabled while viewing as admin — nothing is sent.";
+export const ADMIN_READ_ONLY_MESSAGE = "Disabled while viewing as admin. Nothing is sent.";
 
 /**
  * Whether the signed-in user is an operator looking at a customer's

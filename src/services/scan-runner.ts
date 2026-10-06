@@ -3,11 +3,12 @@ import type { Db } from "@/db";
 import {
   scans, checks, findings, prompts, nameVariations, competitors, facts, practices,
 } from "@/db/schema";
-import { detectMention } from "@/core/mention";
+import { findMatches, mentionKind, type MentionKind } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
 import { computeVisibility, computeVisibilityParts, computeOverall, computeFactScore, scoreBand } from "@/core/scoring";
 import { findingKey, normalizeClaim, worseSeverity } from "@/core/finding-key";
 import { blockedReason, summarizeCoverage, type Coverage } from "@/core/coverage";
+import { namesakeVeto, type ToneRating } from "@/core/tone";
 import type { CheckResult } from "@/core/types";
 import type { EngineAdapter } from "@/engines/types";
 import { EngineError } from "@/engines/types";
@@ -60,8 +61,9 @@ export interface ScanOptions {
   /** Backoff before each retry of a rate-limited or flaky engine call. */
   retryDelaysMs?: number[];
   /**
-   * Rates how each answer that names the practice describes it. Optional so
-   * a scan without it still runs; tone is then left empty, not guessed.
+   * Rates how each answer that names the business describes it, and whether
+   * it is this business or a namesake. Optional so a scan without it still
+   * runs; tone is then left empty, not guessed, and nothing is vetoed.
    */
   rateTone?: typeof rateTone;
   /** Runs the website check alongside the engine calls; stored on the scan. */
@@ -143,7 +145,7 @@ type Gathered =
   | {
       prompt: PromptRow; run: number; adapter: EngineAdapter; ok: true;
       answer: string; citations: string[]; searchQueries: string[];
-      tone: { tone: string; reason: string } | null;
+      tone: ToneRating | null;
       discovered: string[] | null;
       judged: JudgeResult | null | undefined; // undefined = not judged
     };
@@ -153,12 +155,19 @@ type Gathered =
  * every adapter `runs` times, records checks, fact-checks every answer that
  * names the practice via the judge, computes the scores, and closes out the scan.
  *
- * Two phases. The network phase fires every engine call (plus the extractor
- * and judge for each answer) through a small pool, since a scan is a few
- * hundred slow requests and running them one prompt at a time took minutes.
- * The record phase then walks the results in a fixed order and does every
- * database write and competitor reconciliation sequentially, so the outcome
- * doesn't depend on which request happened to finish first.
+ * Two phases. The network phase fires every engine call (plus the extractor,
+ * judge and tone rater for each answer) through a small pool, since a scan is
+ * a few hundred slow requests and running them one prompt at a time took
+ * minutes. The record phase then walks the results in a fixed order and does
+ * every database write and competitor reconciliation sequentially, so the
+ * outcome doesn't depend on which request happened to finish first.
+ *
+ * One name analysis drives everything the record phase stores: `mentioned`
+ * is `position !== "absent"` from `classifyPosition`, so a check can never
+ * say named with position absent. The network phase only pre-filters the
+ * judge and the rater on the cheaper `mentionKind`; a judge result for an
+ * answer the record phase then finds absent (or vetoes as a namesake, see
+ * `namesakeVeto`) is discarded: not counted as judged, no findings opened.
  *
  * Before ranking, each answer goes through the competitor extractor so the
  * practice is ranked against every business the engine actually recommended,
@@ -203,16 +212,22 @@ export async function runScan(
     const ignoredNames = competitorRows.filter(c => c.status === "ignored").map(c => c.name);
     const judgeFacts = factRows.map(f => ({ label: f.label, value: f.value, category: f.category }));
     const knownAtStart = [...competitorNames];
-    // Any answer that names the business can state a wrong fact about it,
-    // not just the ones where the question named it. Nothing to check
-    // against without a fact sheet, so then nothing is judged (fact score N/A).
-    const shouldJudge = (kind: PromptRow["kind"], answer: string) =>
-      judgeFacts.length > 0 && !!answer && (kind === "branded" || detectMention(answer, practiceNames));
+    // Any answer that really names the business can state a wrong fact about
+    // it, not just the ones where the question named it. A branded answer
+    // that only echoes the name back ("I couldn't find anything about X")
+    // has nothing to check, so it is not judged and cannot push the fact
+    // score toward 100. Nothing to check against without a fact sheet, so
+    // then nothing is judged (fact score N/A).
+    const shouldJudge = (kind: PromptRow["kind"], answer: string, mention: MentionKind) =>
+      judgeFacts.length > 0 && !!answer && (kind === "branded" ? mention !== "echo" : mention === "named");
+    // What the rater is told about the business, so it can tell this one
+    // from a namesake in another city or trade.
+    const context = { category: practice.category, location: practice.location, website: practice.website };
 
     // Independent of the engines, so it runs while they answer. A failure
     // only loses the check, never the scan.
     const websiteCheck = options.checkWebsite && practice.website
-      ? options.checkWebsite(practice.website).catch(() => null)
+      ? options.checkWebsite(practice.website, undefined, { names: practiceNames }).catch(() => null)
       : Promise.resolve(null);
 
     // --- Network phase -------------------------------------------------
@@ -232,14 +247,21 @@ export async function runScan(
       const { answer, citations } = result;
       const searchQueries = result.searchQueries ?? [];
       const rater = options.rateTone;
+      // The extractor goes first so the pre-filter below knows every business
+      // the answer names: "Harbor Plumbing and Rose City Plumbing are both
+      // good" is two businesses only once Rose City Plumbing is a known name.
+      const discovered = await extractor({ answer, businessNames: practiceNames, knownCompetitors: knownAtStart })
+        .catch(() => null);
+      // The cheap pre-filter. The record phase repeats the analysis against
+      // the reconciled competitor list and may still find the business absent.
+      const mention = mentionKind(answer, practiceNames, [...knownAtStart, ...(discovered ?? []).map(canonicalName)]);
 
-      const [discovered, judged, tone] = await Promise.all([
-        extractor({ answer, businessNames: practiceNames, knownCompetitors: knownAtStart }).catch(() => null),
-        shouldJudge(prompt.kind, answer)
+      const [judged, tone] = await Promise.all([
+        shouldJudge(prompt.kind, answer, mention)
           ? withRetry(() => judge({ answer, facts: judgeFacts }), retryDelays).catch(() => null)
           : Promise.resolve(undefined),
-        rater && detectMention(answer, practiceNames)
-          ? rater({ answer, businessNames: practiceNames }).catch(() => null)
+        rater && mention === "named"
+          ? rater({ answer, businessNames: practiceNames, context }).catch(() => null)
           : Promise.resolve(null),
       ]);
       return { prompt, run, adapter, ok: true, answer, citations, searchQueries, tone, discovered, judged };
@@ -290,7 +312,6 @@ export async function runScan(
       if (!g.ok) continue;
 
       const { answer, citations } = g;
-      const mentioned = detectMention(answer, practiceNames);
 
       if (g.discovered === null) {
         await logActivity(
@@ -301,8 +322,14 @@ export async function runScan(
       // Only names that literally appear in the answer are kept: a
       // paraphrase ("Nurse Jamie's practice") or an invented name would
       // never be matched by name detection anyway, and would sit in the
-      // competitor list as junk.
-      const verbatim = (g.discovered ?? []).filter(name => detectMention(answer, [canonicalName(name)]));
+      // competitor list as junk. Competitor names are matched without echo
+      // detection: "I couldn't find anything about X, try Roto-Rooter"
+      // names Roto-Rooter.
+      const discoveredNames = (g.discovered ?? []).map(canonicalName);
+      const verbatim = (g.discovered ?? []).filter(name => findMatches(
+        answer, [canonicalName(name)],
+        [...practiceNames, ...competitorNames, ...discoveredNames.filter(n => n !== canonicalName(name))],
+      ).length > 0);
       const reconciled = reconcileCompetitors({
         known: competitorNames, ignored: ignoredNames, discovered: verbatim, practiceNames,
       });
@@ -313,8 +340,47 @@ export async function runScan(
         competitorNames = reconciled.all;
       }
 
-      const { position, competitorsMentioned, namedOrder } =
-        classifyPosition(answer, practiceNames, competitorNames);
+      // One analysis drives `mentioned` and `position` alike, so a check can
+      // never be stored as named with position absent: when a longer
+      // competitor span swallows the business's, both say absent.
+      let placed = classifyPosition(answer, practiceNames, competitorNames);
+      let tone: ToneRating | null = placed.position === "absent" ? null : g.tone;
+      let toneReason = tone?.reason ?? null;
+
+      // The namesake guard: the rater says the answer describes another
+      // business with this name, and the answer bears it out. The check is
+      // then recorded as if the business were absent, because it is.
+      // The guard is told the same competitor names as classifyPosition, so
+      // "<namesake> and <competitor>" is two businesses for both.
+      const namesake = placed.position === "absent"
+        ? null
+        : namesakeVeto({ answer, practiceNames, location: practice.location, rating: g.tone, others: competitorNames });
+      if (namesake !== null) {
+        // Only the business is taken out of the ranking; the competitors the
+        // same analysis found stay. Re-running the matcher without the
+        // practice names would lose "Roto-Rooter" in "Roto-Rooter and Harbor
+        // Plumbing", since the longer-name guard would no longer know the
+        // word after "and" starts a business. classifyPosition stores the
+        // practice under practiceNames[0], so that is the entry removed.
+        placed = {
+          position: "absent",
+          competitorsMentioned: placed.competitorsMentioned,
+          namedOrder: placed.namedOrder.filter(n => n !== practiceNames[0]),
+        };
+        tone = null;
+        toneReason = `Different business: ${namesake}`;
+        await logActivity(
+          db, practiceId,
+          `namesake: ${adapter.name} described a different ${practice.name} on prompt ${prompt.text} (${namesake})`,
+        );
+      }
+      const { position, competitorsMentioned, namedOrder } = placed;
+      const mentioned = position !== "absent";
+      // A judge result is discarded (not counted, no findings, nothing
+      // confirmed) when the answer turned out not to be about the business:
+      // a vetoed namesake, or an earned-prompt answer the record phase found
+      // absent. A branded answer is judged even when it never names them.
+      const discarded = namesake !== null || (prompt.kind !== "branded" && !mentioned);
 
       const [check] = await db.insert(checks).values({
         scanId: scan.id,
@@ -324,18 +390,38 @@ export async function runScan(
         answerText: answer,
         citations,
         searchQueries: g.searchQueries,
-        tone: g.tone?.tone ?? null,
-        toneReason: g.tone?.reason ?? null,
+        tone: tone?.tone ?? null,
+        toneReason,
         mentioned,
         position,
         competitorsMentioned,
         namedOrder,
-        factsConfirmed: confirmedIds(g),
+        factsConfirmed: discarded ? [] : confirmedIds(g),
       }).returning();
 
       scoringChecks.push({ engine: adapter.name, promptKind: prompt.kind, mentioned, position, run: g.run });
 
-      if (g.judged === undefined) continue;
+      // The pre-filter can miss a name the record phase then finds, when the
+      // extractor call for this answer failed or left out a competitor that
+      // an earlier answer had already added: "Harbor Plumbing and Rose City
+      // Plumbing" is one longer name until Rose City is known. The row is
+      // stored as named, correctly, but the judge and the rater never ran
+      // on it, so the operator is told rather than left to find a named
+      // answer with no fact check and no tone.
+      if (mentioned && !discarded && prompt.kind !== "branded") {
+        const gaps = [
+          ...(judgeFacts.length > 0 && g.judged === undefined ? ["not fact-checked"] : []),
+          ...(options.rateTone && g.tone === null ? ["not rated"] : []),
+        ];
+        if (gaps.length > 0) {
+          await logActivity(
+            db, practiceId,
+            `scan warning: ${adapter.name} named the business on prompt ${prompt.text} but the answer was ${gaps.join(" and ")}`,
+          );
+        }
+      }
+
+      if (discarded || g.judged === undefined) continue;
       if (g.judged === null) {
         await logActivity(db, practiceId, `scan warning: judge failed on prompt ${prompt.text}`);
         continue;

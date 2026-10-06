@@ -1,23 +1,30 @@
-import { findMatches, type Match } from "@/core/mention";
+import { findAllMatches, findAllMentions, type Match } from "@/core/mention";
 import type { Position } from "@/core/types";
 
 export function classifyPosition(
   answer: string, practiceVariations: string[], competitorNames: string[],
 ): { position: Position; competitorsMentioned: string[]; namedOrder: string[] } {
-  // Get all matches with their span information
-  const allMatches = findMatches(answer, [...practiceVariations, ...competitorNames]);
-
-  // Classify matches by entity type
   interface MatchWithType extends Match {
     type: "practice" | "competitor";
   }
 
-  const matchesWithType: MatchWithType[] = allMatches.map(m => ({
-    ...m,
-    type: practiceVariations.includes(m.name) ? "practice" : "competitor"
-  }));
+  // The practice goes through echo detection, competitors do not: in "I
+  // couldn't find anything about Harbor Plumbing, so try Roto-Rooter" the
+  // competitor is named and the practice is not.
+  // Each side is told about the other, so "Skin Bar LA and Glow MedSpa are
+  // both good" reads as two businesses rather than one longer name.
+  // Every accepted occurrence is taken, not only the first: in "Rose City
+  // Plumbing Pros is a chain; Rose City Plumbing is the local one" the first
+  // occurrence of the practice is swallowed by the competitor's span below,
+  // and the second is the real mention.
+  const matchesWithType: MatchWithType[] = [
+    ...findAllMentions(answer, practiceVariations, competitorNames).map(m => ({ ...m, type: "practice" as const })),
+    ...findAllMatches(answer, competitorNames, practiceVariations).map(m => ({ ...m, type: "competitor" as const })),
+  ].sort((a, b) => a.start - b.start);
 
-  // Suppress contained matches where the container is strictly longer and different entity type
+  // Suppress contained matches where the container is strictly longer and a
+  // different entity; each entity then counts from its first surviving
+  // occurrence.
   const survivingMatches: MatchWithType[] = [];
   for (const match of matchesWithType) {
     let isContained = false;

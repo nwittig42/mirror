@@ -1,8 +1,8 @@
-/** A practice's web address piece: lowercase, accents stripped, hyphens between words. */
+/** A business's web address piece: lowercase, accents stripped, hyphens between words. */
 export function slugify(name: string): string {
   const s = name.normalize("NFKD").replace(/[̀-ͯ]/g, "")
     .toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return s || "practice";
+  return s || "business";
 }
 
 /** `slugify(name)`, with -2, -3… added until it isn't in `taken`. */

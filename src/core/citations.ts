@@ -24,21 +24,46 @@ export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
 };
 
 // Matched against the registrable end of the hostname, so "m.yelp.com" and
-// "yelp.com" both land on yelp.com. Kept small and obvious on purpose: a
-// domain that is not listed is "other", which is the honest default.
-const KIND_BY_DOMAIN: Record<string, SourceKind> = {
-  "yelp.com": "reviews", "g2.com": "reviews", "capterra.com": "reviews", "trustpilot.com": "reviews",
-  "tripadvisor.com": "reviews", "realself.com": "reviews", "healthgrades.com": "reviews",
-  "zocdoc.com": "reviews", "bbb.org": "reviews", "yellowpages.com": "reviews", "angi.com": "reviews",
-  "thumbtack.com": "reviews", "clutch.co": "reviews", "glassdoor.com": "reviews", "getapp.com": "reviews",
-  "softwareadvice.com": "reviews", "producthunt.com": "reviews", "crunchbase.com": "reviews",
-  "vitals.com": "reviews", "webmd.com": "reviews", "groupon.com": "reviews", "nextdoor.com": "reviews",
-  "reddit.com": "social", "quora.com": "social", "youtube.com": "social", "facebook.com": "social",
-  "instagram.com": "social", "tiktok.com": "social", "linkedin.com": "social", "x.com": "social",
-  "twitter.com": "social", "medium.com": "social", "substack.com": "social", "pinterest.com": "social",
-  "wikipedia.org": "reference", "wikidata.org": "reference",
-  "google.com": "google", "maps.google.com": "google", "goo.gl": "google",
+// "yelp.com" both land on yelp.com. Grouped by kind, and covering the sites
+// that answer "who should I hire" in every trade, not one vertical. A domain
+// that is not listed is "other", which is the honest default.
+const DOMAINS_BY_KIND: Record<Exclude<SourceKind, "own_site" | "other">, string[]> = {
+  reviews: [
+    // General reviews and directories
+    "yelp.com", "trustpilot.com", "bbb.org", "yellowpages.com", "yp.com", "superpages.com", "manta.com",
+    "mapquest.com", "foursquare.com", "nextdoor.com", "groupon.com", "expertise.com", "threebestrated.com",
+    "alignable.com", "birdeye.com", "chamberofcommerce.com", "niche.com",
+    // Home services
+    "angi.com", "homeadvisor.com", "thumbtack.com", "houzz.com", "porch.com", "bark.com",
+    // Law
+    "avvo.com", "findlaw.com", "justia.com", "superlawyers.com", "martindale.com",
+    // Food, travel and lodging
+    "tripadvisor.com", "opentable.com", "resy.com", "doordash.com", "ubereats.com", "grubhub.com",
+    "booking.com", "expedia.com",
+    // Property and cars
+    "zillow.com", "realtor.com", "redfin.com", "apartments.com", "cars.com", "dealerrater.com", "edmunds.com",
+    "carfax.com",
+    // Health, care and wellness
+    "realself.com", "healthgrades.com", "zocdoc.com", "vitals.com", "webmd.com", "psychologytoday.com",
+    "care.com", "rover.com", "classpass.com", "mindbodyonline.com",
+    // Events and schools
+    "theknot.com", "weddingwire.com", "greatschools.org",
+    // Software and business services
+    "g2.com", "capterra.com", "clutch.co", "glassdoor.com", "getapp.com", "softwareadvice.com",
+    "producthunt.com", "crunchbase.com",
+  ],
+  social: [
+    "reddit.com", "quora.com", "youtube.com", "facebook.com", "instagram.com", "tiktok.com", "linkedin.com",
+    "x.com", "twitter.com", "threads.net", "bsky.app", "snapchat.com", "tumblr.com", "discord.com",
+    "medium.com", "substack.com", "pinterest.com",
+  ],
+  reference: ["wikipedia.org", "wikidata.org", "britannica.com"],
+  google: ["google.com", "maps.google.com", "goo.gl"],
 };
+
+const KIND_BY_DOMAIN: Record<string, SourceKind> = Object.fromEntries(
+  Object.entries(DOMAINS_BY_KIND).flatMap(([kind, domains]) => domains.map(domain => [domain, kind as SourceKind])),
+);
 
 /** Lower-cased hostname without "www.", or null for anything that is not an http(s) URL. */
 export function domainOf(url: string): string | null {

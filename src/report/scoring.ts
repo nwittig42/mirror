@@ -1,5 +1,5 @@
 /**
- * Mirror AI Visibility Audit — derived values.
+ * Mirror AI Visibility Audit: derived values.
  *
  * Pure functions, no framework. Every color, label, sort order and
  * headline in the report comes from here so the three report variants

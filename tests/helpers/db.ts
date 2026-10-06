@@ -23,6 +23,10 @@ type PromptKind = (typeof schema.promptKindEnum.enumValues)[number];
 export interface SeedPracticeInput {
   name: string;
   slug?: string;
+  category?: string;
+  /** "City, ST". The namesake guard only acts on a practice that has one. */
+  location?: string;
+  website?: string;
   prompts?: { text: string; kind: PromptKind }[];
   facts?: { category: FactCategory; label: string; value: string; status?: string }[];
   competitors?: string[];
@@ -49,7 +53,10 @@ function slugify(name: string): string {
  */
 export async function seedPractice(db: Db, input: SeedPracticeInput): Promise<SeedPracticeResult> {
   const [practice] = await db.insert(schema.practices)
-    .values({ name: input.name, slug: input.slug ?? slugify(input.name) })
+    .values({
+      name: input.name, slug: input.slug ?? slugify(input.name),
+      category: input.category, location: input.location, website: input.website,
+    })
     .returning();
 
   await db.insert(schema.nameVariations).values({ practiceId: practice.id, text: input.name });

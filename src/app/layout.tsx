@@ -28,9 +28,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Mirror: See what AI tells your patients",
+  title: "Mirror: See what AI tells your customers",
   description:
-    "Mirror monitors AI-visibility for aesthetic medical practices across ChatGPT, Claude, Gemini, Grok, and Perplexity, catching hallucinations before patients do.",
+    "Mirror monitors AI visibility for small businesses across ChatGPT, Claude, Gemini, Grok, and Perplexity, catching hallucinations before customers do.",
 };
 
 export default function RootLayout({

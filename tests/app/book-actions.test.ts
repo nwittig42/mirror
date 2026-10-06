@@ -127,6 +127,33 @@ describe("requestAudit", () => {
     expect(state.values?.practiceName).toBe("Glow MedSpa");
   });
 
+  it("reads the kind of business and the city off the form and keeps them on the lead", async () => {
+    const state = await requestAudit(IDLE, form({ ...VALID, category: " Plumber ", location: "Portland, OR" }));
+
+    expect(state.status).toBe("success");
+    expect(sendAuditRequest.mock.calls[0][0]).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+    const [lead] = await getDb().select().from(schema.leads);
+    expect(lead).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+    // Echoed back for the scheduler's prefill like every other field.
+    expect(state.values).toMatchObject({ category: " Plumber ", location: "Portland, OR" });
+  });
+
+  it("treats the two as optional: a form without them still books, with nulls on the lead", async () => {
+    const state = await requestAudit(IDLE, form(VALID));
+
+    expect(state.status).toBe("success");
+    const [lead] = await getDb().select().from(schema.leads);
+    expect(lead).toMatchObject({ category: null, location: null });
+  });
+
+  it("rejects an over-long kind of business under its own field, like any other input", async () => {
+    const state = await requestAudit(IDLE, form({ ...VALID, category: "x".repeat(61) }));
+
+    expect(state.status).toBe("error");
+    expect(state.fieldErrors).toHaveProperty("category");
+    expect(sendAuditRequest).not.toHaveBeenCalled();
+  });
+
   it("saves the lead and starts preparing their report", async () => {
     const state = await requestAudit(IDLE, form(VALID));
     expect(state.status).toBe("success");

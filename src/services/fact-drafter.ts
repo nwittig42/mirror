@@ -75,13 +75,13 @@ const DRAFTER_SYSTEM = `You pre-fill a fact sheet for a business from the text o
 The fact sheet is later used to check whether AI assistants describe the business correctly, so every fact must be specific, checkable, and stated on the pages given. Never guess, infer, or use outside knowledge.
 Categories:
 - identity: legal/brand name, what the business is in one line, founding year, owner or founder
-- providers: named people who deliver the service, with titles and credentials exactly as written
-- services: each service, product, or feature offered (one fact per item or tight group)
+- providers: named people who deliver the service or run the business (owner, lead technician, chef, attorney, stylist, injector), with titles and credentials as written
+- services: each service, product, or feature offered (one fact per item or tight group: drain cleaning, sourdough loaves, estate planning, Botox)
 - not_offered: things the site explicitly says it does NOT do or offer
 - pricing: each stated price, plan, fee, or "free" claim, with the unit (per unit, per month, per session)
 - logistics: address, service area, phone, email, hours, booking method, languages
 - compliance: licenses, certifications, accreditations, insurance accepted, regulatory statements
-Rules: one fact per row; label is a short name ("Botox price", "Saturday hours"); value is the fact as stated, including units; skip marketing adjectives and testimonials; skip anything you are unsure of. Aim for 10 to 40 facts.
+Rules: one fact per row; label is a short name ("Water heater install price", "Saturday hours", "Head chef", "Contractor license"); value is the fact as stated, including units; skip marketing adjectives and testimonials; skip anything you are unsure of. Aim for 10 to 40 facts.
 Output ONLY a JSON array: [{"category": "<one of the categories>", "label": "<short name>", "value": "<the fact>", "sourceUrl": "<the PAGE url it came from>"}]`;
 
 export async function draftFactsFromPages(args: {

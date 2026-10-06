@@ -175,7 +175,9 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     const scanChecks = await getChecksForScan(db, latestInMonthScan.id);
     for (const c of scanChecks) {
       if (!c.mentioned) continue;
-      const snippet = extractSnippet(c.answerText, practiceNames);
+      // The row's own competitors tell the matcher that "X and Y are both
+      // good" is a list, so the sentence that earned the mention is quoted.
+      const snippet = extractSnippet(c.answerText, practiceNames, [...c.competitorsMentioned, ...c.namedOrder]);
       if (snippet) {
         bestQuote = { engine: ENGINE_LABELS[c.engine], prompt: c.promptText, snippet };
         break;

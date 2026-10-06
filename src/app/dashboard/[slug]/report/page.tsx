@@ -189,7 +189,7 @@ export default async function ReportPage({
         )}
       </section>
 
-      {/* 6. Practice notes */}
+      {/* 6. Notes for next month */}
       <section className="mb-10 break-inside-avoid">
         <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Next month</h2>
         <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">

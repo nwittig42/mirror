@@ -222,6 +222,31 @@ describe("buildReportData", () => {
     });
   });
 
+  // Review finding #17: a counted list mention gets its snippet. Without
+  // the row's competitors, "Glow MedSpa and Skin Bar LA" is one longer name
+  // to the matcher and the quote is skipped.
+  it("quotes a list answer that joins the business to a competitor by 'and'", async () => {
+    const db = await makeTestDb();
+    const { practiceId, promptIds } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [{ text: "Best medspa near me?", kind: "category" }],
+    });
+    const scan = await insertScan(db, practiceId, new Date("2026-07-10T12:00:00Z"), 50);
+    await insertCheck(db, scan.id, promptIds[0], {
+      engine: "perplexity", mentioned: true, position: "first",
+      answerText: "Glow MedSpa and Skin Bar LA are both good. Book online.",
+      competitorsMentioned: ["Skin Bar LA"], namedOrder: ["Glow MedSpa", "Skin Bar LA"],
+    });
+
+    const report = await buildReportData(db, practiceId, "2026-07");
+
+    expect(report.bestQuote).toEqual({
+      engine: "Perplexity",
+      prompt: "Best medspa near me?",
+      snippet: "Glow MedSpa and Skin Bar LA are both good",
+    });
+  });
+
   it("caps activities to 30, newest first, scoped to the month", async () => {
     const db = await makeTestDb();
     const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });

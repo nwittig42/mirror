@@ -34,11 +34,24 @@ const STATUS_ACTIVITY_LABEL: Partial<Record<FindingStatus, string>> = {
   dismissed: "Dismissed",
 };
 
-/** Operators only: creates a new monitored practice. */
-export async function createPractice(input: { name: string; slug: string; website?: string }): Promise<void> {
+/**
+ * Operators only: creates a new monitored business. The category and
+ * location are optional and share `updateReportDetails`' caps, so a business
+ * the operator creates by hand has a location on record from the start (the
+ * namesake guard does nothing without one).
+ */
+export async function createPractice(
+  input: { name: string; slug: string; website?: string; category?: string; location?: string },
+): Promise<void> {
   await requireOperator();
   const db = getDb();
-  await db.insert(practices).values({ name: input.name, slug: input.slug, website: input.website || null });
+  await db.insert(practices).values({
+    name: input.name,
+    slug: input.slug,
+    website: input.website || null,
+    category: input.category?.trim().slice(0, 60) || null,
+    location: input.location?.trim().slice(0, 80) || null,
+  });
   revalidatePath("/admin");
 }
 
@@ -51,8 +64,8 @@ export async function draftFactsFromWebsite(practiceId: string): Promise<{ added
   await requireOperator();
   const db = getDb();
   const [practice] = await db.select().from(practices).where(eq(practices.id, practiceId));
-  if (!practice) return { error: "Practice not found." };
-  if (!practice.website) return { error: "Add the practice's website first." };
+  if (!practice) return { error: "Business not found." };
+  if (!practice.website) return { error: "Add the business website first." };
   try {
     const pages = await fetchSitePages(practice.website);
     const drafts = await draftFactsFromPages({ businessName: practice.name, pages });

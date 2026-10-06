@@ -25,7 +25,9 @@ describe("one-page summary report", () => {
     expect(h).toContain(base.missedQuote!.text);
     expect(h).toContain("Why this matters");
     for (const a of actionsFor(base.prospect ? "visibility" : "master", base).slice(0, 3)) expect(h).toContain(a.title);
-    expect(h.replace(/<[^>]+>/g, " ")).not.toMatch(/visibility|citation|prompt/i);
+    const words = h.replace(/<[^>]+>/g, " ");
+    expect(words).not.toMatch(/visibility|citation|prompt/i);
+    expect(words).not.toMatch(/patient|practice|provider|treatment|med ?spa|botox/i);
   });
 
   it("for a prospect, holds back the fact check until the call", () => {

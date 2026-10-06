@@ -1,13 +1,14 @@
 /**
- * Live smoke test for all four engine adapters. Requires real API keys in
- * the environment (see src/lib/env.ts for the full required set). Not run
- * in CI or `npm run test`. This hits real vendor endpoints and costs money.
+ * Live smoke test for every engine adapter (Grok joins when XAI_API_KEY is
+ * set). Requires real API keys in the environment (see src/lib/env.ts for
+ * the full required set). Not run in CI or `npm run test`. This hits real
+ * vendor endpoints and costs money.
  *
  * Usage: npx tsx scripts/smoke-engines.ts
  */
 import { getAdapters } from "@/engines/index";
 
-const PROMPT = "best med spa in Santa Monica for Botox";
+const PROMPT = "What are the best plumbers in Portland, Oregon? Name specific businesses.";
 
 async function main() {
   const adapters = getAdapters();

@@ -21,7 +21,7 @@ Paste this into Claude Code from the root of your app, with this folder copied i
 | `src/scoring.ts` | Pure functions: score maths, color bands, sort orders, headlines, page lists per variant. |
 | `src/scoring.test.ts` | 13 sanity checks against the sample data (`npx tsx src/scoring.test.ts`). All pass. |
 | `src/tokens.ts` / `src/tokens.css` | Design tokens: colors, fonts, type sizes, radii, page size. Same values in both files. |
-| `data/sample-audit.json` | Full Glow MedSpa sample that matches `types.ts`. |
+| `data/sample-audit.json` | Full sample (the Harbor Plumbing demo) that matches `types.ts`. |
 | `reference/design-source/*.dc.html` | The approved design, one file per page (21 pages). See section 8 to read them. |
 | `reference/design-source/canvas.json` | Which page belongs to which variant, in order. |
 | `tsconfig.json` | Only for type-checking this folder. |
@@ -215,8 +215,21 @@ Measurements are CSS px at 96 dpi. Every page is **816 × 1056** with padding `4
 - A "Mistakes by AI tool" row via `mistakesByTool`: green "No mistakes" or red "n wrong".
 
 **Website check (`website_check`, `f_fix`)**
-- Segmented ring with one slice per check and "n/5 passed" in the center.
+- Segmented ring with one slice per check and "n/7 passed" in the center.
 - Rows on the status soft color, each with a status icon circle, the label, the why, a "Fix:" line when not passing, and a solid status pill.
+- Seven checks, in this order (ids from `src/core/website-check.ts`):
+
+  | Id | Label | What passes |
+  |---|---|---|
+  | `ai_allowed` | AI assistants are allowed to read your site | robots.txt does not block the AI crawlers from the whole site |
+  | `readable_text` | Your text is readable without special page code | the homepage has 500+ characters of text without running scripts |
+  | `facts_page` | You have a clear facts page | an about page plus a pricing page (prices, fees, estimates, quotes) or a services page |
+  | `machine_labels` | Prices and FAQs are labeled for machines | Offer, Product, Service, Menu or FAQPage schema on any fetched page |
+  | `sitemap` | You have a sitemap | a sitemap loads from robots.txt or /sitemap.xml |
+  | `business_schema` | Your business is labeled for machines | a LocalBusiness or Organization node with a phone or address, named for this business |
+  | `contact_visible` | Your phone, address and hours are easy to find | a phone or street address, and opening hours, in the plain text of the homepage or contact page |
+
+- Row budget: with more than five rows the why and the fix use the compact (12px) size and the fix is shown inline, so seven failing checks fit one sheet. Scans stored before the last two checks existed have five rows and render as before.
 
 **Action plan (`action_plan`)**
 - A 236 × 186 2×2 matrix: quick wins green-tint, big projects amber-tint, easy extras and later gray.

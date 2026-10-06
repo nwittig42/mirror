@@ -1,6 +1,6 @@
 export type Engine = "openai" | "anthropic" | "gemini" | "perplexity" | "grok";
 export const ENGINES: Engine[] = ["openai", "anthropic", "gemini", "perplexity", "grok"];
-// Display names for the check `engine` enum, shown anywhere a patient-facing
+// Display names for the check `engine` enum, shown anywhere a customer-facing
 // UI or report names the engine (answer cards, findings, the monthly report).
 export const ENGINE_LABELS: Record<Engine, string> = {
   openai: "ChatGPT",

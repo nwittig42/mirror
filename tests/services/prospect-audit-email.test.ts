@@ -42,11 +42,11 @@ describe("sendProspectReport", () => {
     const { sendProspectReport } = await import("@/services/prospect-audit-email");
     for (const env of ["DATABASE_URL", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "PERPLEXITY_API_KEY", "RESEND_API_KEY", "CRON_SECRET", "AUTH_SECRET"]) process.env[env] ||= "k";
     process.env.APP_URL ||= "http://localhost:3000";
-    const transport = vi.fn(async (_email: unknown) => undefined);
+    const transport = vi.fn().mockResolvedValue(undefined);
     const load = async () => r;
-    await sendProspectReport({ report: load, to: "kim@glow.example", contactName: "Kim", transport, pdf: async () => Buffer.from("%PDF-1") });
-    expect(transport.mock.calls[0][0]).toMatchObject({ to: "kim@glow.example", attachments: [{ filename: expect.stringMatching(/\.pdf$/) }] });
-    await sendProspectReport({ report: load, to: "kim@glow.example", contactName: "Kim", transport, pdf: async () => { throw new Error("no chrome"); } });
+    await sendProspectReport({ report: load, to: "dale@harbor-plumbing.example", contactName: "Dale", transport, pdf: async () => Buffer.from("%PDF-1") });
+    expect(transport.mock.calls[0][0]).toMatchObject({ to: "dale@harbor-plumbing.example", attachments: [{ filename: expect.stringMatching(/\.pdf$/) }] });
+    await sendProspectReport({ report: load, to: "dale@harbor-plumbing.example", contactName: "Dale", transport, pdf: async () => { throw new Error("no chrome"); } });
     expect(transport.mock.calls[1][0]).toMatchObject({ attachments: [] });
   });
 });

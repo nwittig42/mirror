@@ -29,8 +29,8 @@ export function PositionChip({ position }: { position: Position }) {
  * dangerouslySetInnerHTML), so it's inherently safe against anything the
  * scanned answer text might contain.
  */
-function HighlightedText({ text, names }: { text: string; names: string[] }) {
-  const ranges = highlightRanges(text, names);
+function HighlightedText({ text, names, others }: { text: string; names: string[]; others: string[] }) {
+  const ranges = highlightRanges(text, names, others);
   if (ranges.length === 0) return <>{text}</>;
 
   const segments: ReactNode[] = [];
@@ -58,6 +58,13 @@ export interface AnswerCardProps {
   searchQueries?: string[];
   tone?: string | null;
   toneReason?: string | null;
+  /**
+   * The other businesses the check found (its competitorsMentioned), so the
+   * highlight agrees with the position chip: in "Harbor Plumbing and Rose
+   * City Plumbing are both good" the name is only a mention, not the start
+   * of a longer name, once Rose City Plumbing is known.
+   */
+  others?: string[];
 }
 
 const TONE_STYLES: Record<string, string> = {
@@ -69,7 +76,7 @@ const TONE_STYLES: Record<string, string> = {
 
 /** One card per check: the prompt asked, which engine answered, and the verbatim answer with mentions highlighted. */
 export function AnswerCard({
-  promptText, engine, position, answerText, citations, practiceNames, searchQueries = [], tone, toneReason,
+  promptText, engine, position, answerText, citations, practiceNames, searchQueries = [], tone, toneReason, others = [],
 }: AnswerCardProps) {
   return (
     <article className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
@@ -94,7 +101,7 @@ export function AnswerCard({
         </p>
       )}
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-        <HighlightedText text={answerText} names={practiceNames} />
+        <HighlightedText text={answerText} names={practiceNames} others={others} />
       </p>
       {citations.length > 0 && (
         <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-900">

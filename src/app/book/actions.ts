@@ -26,7 +26,9 @@ export interface BookingState {
 // No non-function exports live here: a "use server" module may only export
 // async functions, so the form owns its own initial state.
 
-const FIELDS = ["practiceName", "websiteUrl", "contactName", "email", "phone", "bestTimes"] as const;
+const FIELDS = [
+  "practiceName", "websiteUrl", "category", "location", "contactName", "email", "phone", "bestTimes",
+] as const;
 
 /**
  * Read defensively rather than through loadEnv(): this runs in the catch, and

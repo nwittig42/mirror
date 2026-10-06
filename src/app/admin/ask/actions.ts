@@ -5,7 +5,6 @@ import { getDb } from "@/db";
 import { competitors, nameVariations, practices } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import { getAdapters } from "@/engines";
-import { detectMention } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
 import type { Engine, Position } from "@/core/types";
 
@@ -54,7 +53,7 @@ export async function askEngine(engine: Engine, question: string, practiceId: st
         const names = Array.from(new Set([practice.name, ...variations.map(v => v.text)]));
         const known = competitorRows.filter(c => c.status === "active").map(c => c.name);
         const { position, namedOrder } = classifyPosition(result.answer, names, known);
-        Object.assign(live, { mentioned: detectMention(result.answer, names), position, namedOrder });
+        Object.assign(live, { mentioned: position !== "absent", position, namedOrder });
       }
     }
     return live;

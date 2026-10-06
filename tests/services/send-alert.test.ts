@@ -6,17 +6,17 @@ import { composeAlert, composeBlockedAlert, composeDispatchAlert, composeProspec
 import type { NewFinding } from "@/services/scan-runner";
 
 const finding = (over: Partial<NewFinding> = {}): NewFinding => ({
-  claim: "Botox is $9 per unit",
-  factValue: "$14/unit",
+  claim: "A service call is $49",
+  factValue: "$89 diagnostic fee",
   severity: "critical",
   engine: "openai",
-  prompt: "How much is Botox at Glow MedSpa?",
+  prompt: "What does Harbor Plumbing and Drain charge for a service call?",
   ...over,
 });
 
 const args = (findings: NewFinding[]) => ({
-  practiceName: "Glow MedSpa",
-  slug: "glow",
+  practiceName: "Harbor Plumbing and Drain",
+  slug: "harbor-plumbing",
   findings,
   appUrl: "https://app.example.com",
 });
@@ -46,27 +46,27 @@ describe("composeAlert", () => {
     expect(composeAlert(args([finding({ severity: "minor" })]))).toBeNull();
   });
 
-  it("puts the practice and severity counts in the subject", () => {
+  it("puts the business and severity counts in the subject", () => {
     const composed = composeAlert(args([
       finding({ severity: "critical" }),
-      finding({ severity: "major", claim: "Offers CoolSculpting" }),
+      finding({ severity: "major", claim: "Offers 24/7 emergency service" }),
       finding({ severity: "major", claim: "Open Sundays" }),
       finding({ severity: "minor", claim: "typo in bio" }),
     ]));
-    expect(composed?.subject).toBe("Mirror alert: Glow MedSpa — 1 critical, 2 major");
+    expect(composed?.subject).toBe("Mirror alert for Harbor Plumbing and Drain: 1 critical, 2 major");
   });
 
   it("omits a severity from the subject when it has no findings", () => {
     const composed = composeAlert(args([finding({ severity: "major" })]));
-    expect(composed?.subject).toBe("Mirror alert: Glow MedSpa — 1 major");
+    expect(composed?.subject).toBe("Mirror alert for Harbor Plumbing and Drain: 1 major");
   });
 
   it("shows the claim, the truth, the engine, and the prompt", () => {
     const composed = composeAlert(args([finding()]));
     expect(composed?.html).toContain("ChatGPT said:");
-    expect(composed?.html).toContain("Botox is $9 per unit");
-    expect(composed?.html).toContain("$14/unit");
-    expect(composed?.html).toContain("How much is Botox at Glow MedSpa?");
+    expect(composed?.html).toContain("A service call is $49");
+    expect(composed?.html).toContain("$89 diagnostic fee");
+    expect(composed?.html).toContain("What does Harbor Plumbing and Drain charge for a service call?");
   });
 
   it("flags a finding with no matching fact instead of showing a blank truth", () => {
@@ -75,9 +75,18 @@ describe("composeAlert", () => {
     expect(composed?.html).not.toContain("<strong>Truth:</strong>");
   });
 
-  it("links to the practice's accuracy page", () => {
+  // The operator reads this on a phone between jobs; an em dash in a subject
+  // line or a body is the one typographic rule the product keeps everywhere.
+  it("uses no em dash in the subject or the body", () => {
+    const composed = composeAlert(args([finding(), finding({ factValue: null, severity: "major" })]));
+    expect(composed?.subject).not.toContain("\u2014");
+    expect(composed?.html).not.toContain("\u2014");
+    expect(composed?.html).not.toContain("&mdash;");
+  });
+
+  it("links to the business's accuracy page", () => {
     const composed = composeAlert(args([finding()]));
-    expect(composed?.html).toContain("https://app.example.com/dashboard/glow/accuracy");
+    expect(composed?.html).toContain("https://app.example.com/dashboard/harbor-plumbing/accuracy");
   });
 
   it("marks itself internal so a forwarded copy can't be mistaken for the client email", () => {
@@ -116,12 +125,12 @@ describe("sendAlert", () => {
     delete process.env.OPERATOR_EMAIL;
   });
 
-  const practice = { id: "", name: "Glow MedSpa", slug: "glow" };
+  const practice = { id: "", name: "Harbor Plumbing and Drain", slug: "harbor-plumbing" };
 
   it("sends to ALERT_EMAIL", async () => {
     process.env.ALERT_EMAIL = "nwittig@pipelinepath.io";
     const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
 
     const transport = vi.fn().mockResolvedValue(undefined);
     await sendAlert(db, { ...practice, id: practiceId }, [finding()], transport);
@@ -136,7 +145,7 @@ describe("sendAlert", () => {
   it("falls back to OPERATOR_EMAIL when ALERT_EMAIL is unset", async () => {
     process.env.OPERATOR_EMAIL = "operator@mirror.example";
     const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
 
     const transport = vi.fn().mockResolvedValue(undefined);
     await sendAlert(db, { ...practice, id: practiceId }, [finding()], transport);
@@ -147,7 +156,7 @@ describe("sendAlert", () => {
   it("sends nothing when the scan opened no alertable findings", async () => {
     process.env.ALERT_EMAIL = "nwittig@pipelinepath.io";
     const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
 
     const transport = vi.fn().mockResolvedValue(undefined);
     await sendAlert(db, { ...practice, id: practiceId }, [finding({ severity: "minor" })], transport);
@@ -157,11 +166,11 @@ describe("sendAlert", () => {
   });
 
   // A flaky email provider must not fail the cron loop for the remaining
-  // practices; the findings are already durably in the database either way.
+  // businesses; the findings are already durably in the database either way.
   it("swallows a transport failure and logs it as an activity", async () => {
     process.env.ALERT_EMAIL = "nwittig@pipelinepath.io";
     const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
 
     const transport = vi.fn().mockRejectedValue(new Error("resend down"));
     await expect(
@@ -178,40 +187,40 @@ describe("sendAlert", () => {
 describe("composeBlockedAlert", () => {
   it("says the scan was held back and why, escaping the reason", () => {
     const { subject, html } = composeBlockedAlert({
-      practiceName: "Glow MedSpa", slug: "glow", appUrl: "https://app.example.com",
+      practiceName: "Harbor Plumbing and Drain", slug: "harbor-plumbing", appUrl: "https://app.example.com",
       reason: "Only 40% of answers came back. <Gemini> didn't respond.",
     });
-    expect(subject).toBe("Mirror: scan blocked for Glow MedSpa");
+    expect(subject).toBe("Mirror: scan blocked for Harbor Plumbing and Drain");
     expect(html).toContain("&lt;Gemini&gt;");
     expect(html).toContain("Last week's score stays up");
   });
 });
 
 describe("composeDispatchAlert", () => {
-  it("lists the practices whose scan never started", () => {
+  it("lists the businesses whose scan never started", () => {
     const out = composeDispatchAlert([
-      { practice: "glow", dispatched: false, error: "Error: scan-practice 401" },
-      { practice: "skinbar", dispatched: true },
+      { practice: "harbor-plumbing", dispatched: false, error: "Error: scan-practice 401" },
+      { practice: "rose-city-rooter", dispatched: true },
     ]);
     expect(out?.subject).toBe("Mirror: 1 weekly scan didn't start");
-    expect(out?.html).toContain("glow");
-    expect(out?.html).not.toContain("skinbar");
+    expect(out?.html).toContain("harbor-plumbing");
+    expect(out?.html).not.toContain("rose-city-rooter");
   });
   it("is null when every scan started", () => {
-    expect(composeDispatchAlert([{ practice: "glow", dispatched: true }])).toBeNull();
+    expect(composeDispatchAlert([{ practice: "harbor-plumbing", dispatched: true }])).toBeNull();
   });
 });
 
 describe("composeProspectAlert", () => {
   it("says the report is ready and links straight to the customer", () => {
-    const out = composeProspectAlert({ practiceName: "Glow <MedSpa>", practiceId: "p1", status: "ready", note: null, appUrl: "https://app.example" });
-    expect(out.subject).toBe("Report ready: Glow <MedSpa>. Review it before the call");
-    expect(out.html).toContain("Glow &lt;MedSpa&gt;");
+    const out = composeProspectAlert({ practiceName: "Harbor <Plumbing>", practiceId: "p1", status: "ready", note: null, appUrl: "https://app.example" });
+    expect(out.subject).toBe("Report ready: Harbor <Plumbing>. Review it before the call");
+    expect(out.html).toContain("Harbor &lt;Plumbing&gt;");
     expect(out.html).toContain("https://app.example/admin/practices/p1/overview");
   });
   it("says what needs a look when setup hit a problem", () => {
-    const out = composeProspectAlert({ practiceName: "Glow", practiceId: "p1", status: "needs_attention", note: "Their website couldn't be read.", appUrl: "https://app.example" });
-    expect(out.subject).toBe("Needs a look: Glow's report");
+    const out = composeProspectAlert({ practiceName: "Harbor", practiceId: "p1", status: "needs_attention", note: "Their website couldn't be read.", appUrl: "https://app.example" });
+    expect(out.subject).toBe("Needs a look: Harbor's report");
     expect(out.html).toContain("couldn&#39;t be read");
   });
 });

@@ -49,7 +49,7 @@ export function ClientAccess({
           name="email"
           type="email"
           required
-          placeholder="client@practice.com"
+          placeholder="owner@example.com"
           className={`${inputClass} flex-1`}
         />
         <button type="submit" disabled={pending} className={`${primaryButtonClass} disabled:opacity-50`}>

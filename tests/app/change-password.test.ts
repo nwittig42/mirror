@@ -26,7 +26,7 @@ function signedInAs(user: { id: string }, channel: AuthChannel) {
 
 async function seedUser(db: Db, over: Partial<typeof schema.users.$inferInsert> = {}) {
   const [user] = await db.insert(schema.users)
-    .values({ email: "client@practice.test", role: "client", ...over })
+    .values({ email: "client@business.test", role: "client", ...over })
     .returning();
   return user;
 }

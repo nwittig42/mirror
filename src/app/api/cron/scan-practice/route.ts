@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
   const db = getDb();
   const [practice] = await db.select().from(practices).where(eq(practices.id, id));
-  if (!practice || !practice.active) return new Response("no such active practice", { status: 404 });
+  if (!practice || !practice.active) return new Response("no such active business", { status: 404 });
 
   // Vercel can deliver a cron twice. One weekly scan per practice: anything
   // started in the last 6 hours means this one already ran or is running.

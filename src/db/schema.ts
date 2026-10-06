@@ -243,6 +243,11 @@ export const leads = pgTable("leads", {
   email: text("email").notNull(),
   phone: text("phone"),
   bestTimes: text("best_times"),
+  // What kind of business it is and where, as the prospect typed them on
+  // /book. Optional; authoritative over the question drafter's guesses when
+  // set, and what the namesake guard and the fallback prompts rely on.
+  category: text("category"),
+  location: text("location"),
   status: leadStatusEnum("status").notNull().default("preparing"),
   // Set once setup creates the practice. Null while preparing or if setup died early.
   practiceId: uuid("practice_id").references(() => practices.id),

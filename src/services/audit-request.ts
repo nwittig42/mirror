@@ -12,7 +12,7 @@ import { isSafeHttpUrl } from "@/lib/url";
  */
 
 /**
- * Owners type "glowmedspa.com", not "https://glowmedspa.com". Prefixing the
+ * Owners type "harborplumbing.com", not "https://harborplumbing.com". Prefixing the
  * scheme before validating turns the common input into a pass rather than a
  * scolding, and anything that is not http(s) after prefixing still fails
  * `isSafeHttpUrl` — "javascript:alert(1)" becomes "https://javascript:alert(1)",
@@ -26,7 +26,7 @@ export const auditRequestSchema = z.object({
   practiceName: z
     .string()
     .trim()
-    .min(2, "Tell us the practice name.")
+    .min(2, "Tell us the business name.")
     .max(120, "That's longer than we can store, so please abbreviate it."),
   websiteUrl: z
     .string()
@@ -35,6 +35,11 @@ export const auditRequestSchema = z.object({
     .max(300, "That URL is too long.")
     .transform(withScheme)
     .refine(isSafeHttpUrl, "That doesn't look like a website address."),
+  // Both optional. When given they are authoritative over the question
+  // drafter's guesses and feed the namesake guard, so a plumber in Portland
+  // is not scored against answers about a plumber in Denver.
+  category: z.string().trim().max(60, "Keep this under 60 characters."),
+  location: z.string().trim().max(80, "Keep this under 80 characters."),
   contactName: z.string().trim().min(2, "Tell us your name.").max(80, "That name is too long."),
   email: z.string().trim().email("Check this email address.").max(200, "That email is too long."),
   phone: z.string().trim().max(40, "That phone number is too long."),
@@ -58,11 +63,15 @@ export function composeAuditRequest(req: AuditRequest): { subject: string; html:
   const subject = `Audit request: ${req.practiceName}`;
 
   const rows = [
-    row("Practice", escapeHtml(req.practiceName)),
+    row("Business", escapeHtml(req.practiceName)),
     row(
       "Website",
       `<a href="${escapeHtml(req.websiteUrl)}" style="color:#2563eb;">${escapeHtml(req.websiteUrl)}</a>`,
     ),
+    // Kept next to the website so the operator reads what the business is
+    // and where before who sent it.
+    ...(req.category ? [row("Kind of business", escapeHtml(req.category))] : []),
+    ...(req.location ? [row("City or area", escapeHtml(req.location))] : []),
     row("Contact", escapeHtml(req.contactName)),
     row("Email", `<a href="mailto:${escapeHtml(req.email)}" style="color:#2563eb;">${escapeHtml(req.email)}</a>`),
   ];
@@ -120,7 +129,7 @@ export async function sendAuditRequest(
     from: env.EMAIL_FROM,
     subject,
     html,
-    // Lets the operator reply straight to the practice from their inbox.
+    // Lets the operator reply straight to the business from their inbox.
     replyTo: req.email,
   });
 }

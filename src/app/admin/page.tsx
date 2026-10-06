@@ -32,12 +32,17 @@ async function handleCreatePractice(formData: FormData): Promise<void> {
   "use server";
   const name = formData.get("name");
   const slug = formData.get("slug");
-  const website = formData.get("website");
+  const optional = (field: string) => {
+    const raw = formData.get(field);
+    return typeof raw === "string" && raw.trim() ? raw.trim() : undefined;
+  };
   if (typeof name !== "string" || typeof slug !== "string" || !name.trim() || !slug.trim()) return;
   await createPractice({
     name: name.trim(),
     slug: slug.trim(),
-    website: typeof website === "string" && website.trim() ? website.trim() : undefined,
+    website: optional("website"),
+    category: optional("category"),
+    location: optional("location"),
   });
 }
 
@@ -55,7 +60,7 @@ export default async function AdminPage() {
       <header className="mb-8">
         <h1 className="text-[26px] font-bold tracking-tight text-black dark:text-zinc-50">Customers</h1>
         <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-          Every practice {appName} monitors. Open one to see everything about it, or view its dashboard as the customer sees it.
+          Every business {appName} monitors. Open one to see everything about it, or view its dashboard as the customer sees it.
         </p>
         {openSupport.length > 0 && (
           <Link href="/admin/support" className="mt-3 inline-block rounded-md px-3 py-2 text-[13px] font-medium"
@@ -82,6 +87,9 @@ export default async function AdminPage() {
                       <span className="font-semibold text-black">{l.practiceName}</span>
                       <Pill tone={st.tone}>{st.label}</Pill>
                     </div>
+                    {(l.category || l.location) && (
+                      <div className="text-[13px] text-zinc-700">{[l.category, l.location].filter(Boolean).join(" · ")}</div>
+                    )}
                     <div className="text-[13px] text-zinc-500">
                       {l.contactName} · <a href={`mailto:${l.email}`} className="hover:underline">{l.email}</a>
                       {l.phone ? ` · ${l.phone}` : ""} · {l.websiteUrl} · booked {formatDate(l.createdAt)}
@@ -105,9 +113,9 @@ export default async function AdminPage() {
       <section>
         <details className="group mb-4">
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Practices</h2>
+            <h2 className="text-sm font-medium text-black dark:text-zinc-50">Businesses</h2>
             <span className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-[13px] font-medium text-black hover:border-zinc-500">
-              + Add a practice
+              + Add a business
             </span>
           </summary>
           <div className="mt-3 rounded-[10px] border border-zinc-200 p-4 dark:border-zinc-800">
@@ -115,7 +123,7 @@ export default async function AdminPage() {
               <input
                 name="name"
                 required
-                placeholder="Practice name"
+                placeholder="Business name"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
               />
               <input
@@ -130,18 +138,33 @@ export default async function AdminPage() {
                 placeholder="https://example.com (optional)"
                 className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
               />
+              {/* Same caps as the practice page's "Report details" form. A
+                  location is what lets the namesake guard tell this business
+                  from one with the same name somewhere else. */}
+              <input
+                name="category"
+                maxLength={60}
+                placeholder="Kind of business, e.g. Plumber (optional)"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              />
+              <input
+                name="location"
+                maxLength={80}
+                placeholder="City or area, e.g. Portland, OR (optional)"
+                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              />
               <button
                 type="submit"
                 className="rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 sm:col-span-3 sm:w-fit dark:bg-white dark:text-black dark:hover:bg-zinc-200"
               >
-                Create practice
+                Create business
               </button>
             </form>
           </div>
         </details>
 
         {practiceRows.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No practices yet.</p>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">No businesses yet.</p>
         ) : (
           <div className="text-sm">
             <div className="hidden grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_240px] gap-4 border-b border-[#e4e4e7] pb-2 text-[13px] text-zinc-500 sm:grid">

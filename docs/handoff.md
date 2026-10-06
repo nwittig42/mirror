@@ -1,4 +1,4 @@
-# Mirror handoff (last updated 2026-09-03)
+# Mirror handoff (last updated 2026-10-05)
 
 Paste the block below into a fresh session started in `~/geo-platform`.
 
@@ -158,3 +158,92 @@ of four engines claim Offerloop scrapes LinkedIn, which it does not.
 - No em dashes in user-facing copy.
 - Verify with real runs, not just tests. The judge bug and the dead Gemini model were both
   invisible to a green test suite.
+
+---
+
+## 2026-10-05: the general small-business algorithm (`feat/general-business-algorithm`)
+
+Everything above this line describes the branch as it stood on 2026-09-03 and is left as
+written. This section is what the next session needs to know about the branch on top of it.
+
+**Where the design is:** `docs/superpowers/specs/2026-10-05-general-business-algorithm-design.md`,
+approved after a three-lens adversarial review. Every rule in it is a decision procedure with
+named test inputs, and those inputs are the unit tests. It supersedes the vocabulary lock in
+`docs/plans/2026-07-28-geo-monitoring-mvp.md`. Open work item 5 above ("Dashboard vocabulary is
+med-spa-only") is closed by it.
+
+**What did not change:** the score formulas, weights, caps and thresholds (visibility 50/20/15
+rescaled over 0.85, fact score 100 minus 25/12/4 with price errors x1.5, overall 70/30 with a
+critical cap at 70), branded prompts never counting toward visibility, the 75% coverage block,
+the Thursday scan and Friday Pulse, the engine adapters, the PDF renderer, and every database
+identifier and route (`practices`, `practice_id`, `/admin/practices/[id]`, `/dashboard/[slug]`).
+
+**What changed, by spec section:**
+
+1. **Name matching** (`src/core/mention.ts`, `src/core/position.ts`): a tolerant matcher
+   (trailing legal suffixes and a leading article optional, apostrophes and case boundaries
+   forgiven, every other token required, so "Harbor Plumbing" counts for "Harbor Plumbing LLC"
+   but "Main Street Dental Group" never matches "Main Street Dental Associates"); a longer-name
+   guard ("Harbor Plumbing & Heating" is a different business); echo detection ("I couldn't find
+   any information about Harbor Plumbing" is not a mention). One analysis now drives both
+   `mentioned` and `position`, so a check can no longer be named with position absent. A
+   branded answer that only echoes the name is not judged and cannot push the fact score up.
+2. **Namesake guard** (`src/services/tone-rater.ts`, `src/services/scan-runner.ts`): the tone
+   rater also says whether the answer is about the same business and quotes its evidence. A
+   check is vetoed only when the business has a location, the evidence is really in the
+   answer, and the sentence naming the business lacks its city. Vetoed checks count as absent,
+   are not judged, show a "Different business" pill in the admin answers tab, and are never
+   quoted as the "AI recommended others" line. The admin "Add a business" form takes a category
+   and a location so a hand-made business has them from the start.
+3. **Competitor extraction for any trade** (`src/services/competitor-extractor.ts`,
+   `src/core/competitors.ts`): chains and franchises count as competitors; directories, review
+   sites and marketplaces are dropped by exact name; a discovered name that is a client name
+   plus a conjunction tail is a different business and is kept.
+4. **Questions for any trade** (`src/services/question-drafter.ts`, `src/core/prompts.ts`,
+   `src/services/prospect-setup.ts`): the drafter is told the lead's category and location as
+   fact when the lead gave them; a deterministic six-question fallback (four category, two
+   branded, every one naming the location) is used when the drafter returns nothing and both
+   are known. No "near me" phrasing anywhere: the engine adapters send no user location.
+5. **/book** gains "What kind of business is it?" and "City or area" (optional, 60 and 80
+   characters); `leads` gains `category` and `location`, applied with `npm run db:push`. Both
+   show in the admin leads list and the internal audit-request email, and are copied to the
+   business on prospect setup.
+6. **Sources from every trade** (`src/core/citations.ts`): home-services, legal, dining,
+   travel, real-estate, automotive, care and wedding directories classify as reviews; the six
+   source types in the report are unchanged.
+7. **Website checks** go from five to seven: `business_schema` ("Your business is labeled for
+   machines") and `contact_visible` ("Your phone, address and hours are easy to find"), with
+   `facts_page` made trade-neutral (about plus services passes; fees, estimates and quotes
+   count as pricing). The report's website page fits seven rows on one sheet. Older scans
+   stored five checks and keep rendering.
+8. **Words people read**: "business", "customers", "team" or "people" and "services"
+   everywhere a prospect, client or operator reads, including the landing page, `/book`,
+   `/login`, `/app`, `/change-password`, the dashboard and admin, the report pages, the
+   emails, the README and the call script. The Pulse subject is now "What AI told customers
+   about <name> this week". Fact categories keep their enum values and read Identity, People
+   and credentials, Services and products, Not offered, Pricing, Logistics, Licenses and
+   compliance. Acceptance gate: `grep -rniE "patient|practice|provider|treatment|med ?spa|botox|injector" src --include=*.tsx --include=*.ts`
+   finds nothing inside a user-facing string.
+9. **Demo data**: `scripts/seed.ts` now creates Harbor Plumbing and Drain, a fictional plumber
+   in Portland, OR (`/dashboard/harbor-plumbing`, category "Plumber", location "Portland, OR"),
+   with facts in all seven categories, ten prompts (six category, two branded, two
+   informational, the city in every category and branded prompt), three competitors and two
+   name variations. Still idempotent by slug. A database that holds the old "glow" demo keeps
+   it and gains this one. The landing page's example card and `src/report/sample-audit.json`
+   are the same business.
+
+**The first scan after this ships: say this on the call.** The named rate moves the first time
+every existing client is scanned, and no formula changed. Tolerant matching adds mentions that
+exact matching missed; echo detection, the longer-name guard and the namesake guard remove
+mentions that were never real. Expect a one-week step in each client's trend, in either
+direction, and explain it as the measurement getting more accurate, not as their visibility
+changing. The README carries the same note.
+
+**Verification before merge**, per the spec's Testing section: the full suite, `tsc --noEmit`,
+`npm run lint` and `next build`; then, against a local database with the seed loaded, submit
+`/book` with the new fields and watch the lead reach admin with them, create a business with a
+category and a location, run a scan with fake engines, open the dashboard, the four report
+variants (the website page with seven rows) and the admin overview, issue a client password,
+sign in as the client, change it, and land on the dashboard. The `drizzle/` migration folder
+was deliberately not regenerated; schema changes go in with `npm run db:push` as they have
+since audit v2.

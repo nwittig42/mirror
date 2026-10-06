@@ -6,6 +6,8 @@ import { EngineError } from "@/engines/types";
 import { eq } from "drizzle-orm";
 import { getLatestScan, scanStartedWithin } from "@/lib/queries";
 import { competitors, findings as findingsTable, scans as scansTable } from "@/db/schema";
+import type { Db } from "@/db";
+import type { WebsiteCheckResult } from "@/core/website-check";
 
 const clean = async () => ({ wrong: [], right: [] });
 
@@ -122,6 +124,8 @@ describe("runScan competitor discovery", () => {
       prompts: [{ text: "Best med spa in Santa Monica", kind: "category" }],
       competitors: ["Skin Bar LA"],
     });
+    // "Skin Bar LA and Glow MedSpa" is two known names joined by a
+    // conjunction: a list, which the longer-name guard leaves alone.
     const answer = "Nuvo Aesthetics is the top pick. Skin Bar LA and Glow MedSpa are also good.";
     const extractor = async () => ["Nuvo Aesthetics", "Glow MedSpa"];
     await runScan(db, practiceId, [fakeAdapter("openai", answer)], clean, extractor);
@@ -596,6 +600,367 @@ describe("runScan judge retries", () => {
       { retryDelaysMs: [0], finalRetryDelayMs: 0 });
     expect(calls).toBe(2);
     expect(await db.query.findings.findMany()).toHaveLength(1);
+  });
+});
+
+describe("runScan one analysis drives mentioned, judge and tone", () => {
+  const botox = { category: "pricing" as const, label: "Botox price", value: "$13/unit" };
+
+  it("does not judge or rate a branded answer that only echoes the name, leaving the fact score empty", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa", prompts: [{ text: "Botox at Glow MedSpa?", kind: "branded" }], facts: [botox],
+    });
+    let judgeCalls = 0;
+    const rated: string[] = [];
+    await runScan(db, practiceId, [fakeAdapter("openai", "I couldn't find any information about Glow MedSpa.")],
+      async () => { judgeCalls++; return { wrong: [], right: [] }; }, async () => [],
+      { rateTone: async ({ answer }) => { rated.push(answer); return { tone: "neutral" as const, reason: "x" }; } });
+    expect(judgeCalls).toBe(0);
+    expect(rated).toEqual([]);
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({ mentioned: false, position: "absent", tone: null, toneReason: null, factsConfirmed: [] });
+    // Not judged at all, so N/A rather than a clean 100.
+    expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+  });
+
+  it("still judges a branded answer that never names the business, since it is not an echo", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa", prompts: [{ text: "Botox at Glow MedSpa?", kind: "branded" }], facts: [botox],
+    });
+    const judge = async () => ({ wrong: [{ claim: "Botox is $9/unit", factLabel: "Botox price", severity: "major" as const }], right: [] });
+    await runScan(db, practiceId, [fakeAdapter("openai", "The clinic on Main Street charges $9 a unit.")], judge, async () => []);
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({ mentioned: false, position: "absent" });
+    expect(await db.query.findings.findMany()).toHaveLength(1);
+    expect((await db.query.scans.findFirst())?.factScore).toBe(82);
+  });
+
+  it.each([[[]], [["Harbor Plumbing & Heating"]]])(
+    "stores a longer business name that starts with the client's as absent (known competitors: %j)",
+    async known => {
+      const db = await makeTestDb();
+      const { practiceId } = await seedPractice(db, {
+        name: "Harbor Plumbing", prompts: [{ text: "Best plumber in Portland", kind: "category" }],
+        facts: [{ category: "pricing", label: "Service call fee", value: "$89" }], competitors: known,
+      });
+      let judgeCalls = 0;
+      const rated: string[] = [];
+      await runScan(db, practiceId, [fakeAdapter("openai", "Harbor Plumbing & Heating is top rated.")],
+        async () => { judgeCalls++; return { wrong: [], right: [] }; }, async () => [],
+        { rateTone: async ({ answer }) => { rated.push(answer); return { tone: "positive" as const, reason: "x" }; } });
+      const [check] = await db.query.checks.findMany();
+      expect(check).toMatchObject({
+        mentioned: false, position: "absent", tone: null, competitorsMentioned: known, namedOrder: known,
+      });
+      expect(judgeCalls).toBe(0);
+      expect(rated).toEqual([]);
+      expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+    },
+  );
+
+  it("discards the judge's verdict and the tone when the record phase finds the business absent", async () => {
+    // "Glow" alone matches inside "Glow MedSpa", so the network phase's cheap
+    // pre-filter calls the judge and the rater. The record phase ranks
+    // against the known competitor "Glow MedSpa", whose longer span swallows
+    // the client's, and finds the client absent: nothing from that answer
+    // may count.
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow", prompts: [{ text: "Best med spa", kind: "category" }],
+      facts: [botox, { category: "logistics", label: "Hours", value: "9am-5pm" }], competitors: ["Glow MedSpa"],
+    });
+    let judgeCalls = 0;
+    const judge = async () => {
+      judgeCalls++;
+      return { wrong: [{ claim: "Botox is $9", factLabel: "Botox price", severity: "major" as const }], right: ["Hours"] };
+    };
+    await runScan(db, practiceId, [fakeAdapter("openai", "Glow MedSpa is great.")], judge, async () => [],
+      { rateTone: async () => ({ tone: "positive" as const, reason: "Called great" }) });
+    expect(judgeCalls).toBe(1);
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({
+      mentioned: false, position: "absent", tone: null, toneReason: null, factsConfirmed: [], namedOrder: ["Glow MedSpa"],
+    });
+    expect(await db.query.findings.findMany()).toHaveLength(0);
+    expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+  });
+
+  it("keeps a competitor discovered inside an echo sentence, since competitor names are never echo-filtered", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa", prompts: [{ text: "Best med spa", kind: "category" }],
+    });
+    const answer = "I couldn't find anything about Glow MedSpa, so try Nuvo Aesthetics instead.";
+    await runScan(db, practiceId, [fakeAdapter("openai", answer)], clean, async () => ["Nuvo Aesthetics"]);
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({ mentioned: false, position: "absent", namedOrder: ["Nuvo Aesthetics"] });
+    expect((await db.query.competitors.findMany()).map(c => c.name)).toEqual(["Nuvo Aesthetics"]);
+  });
+
+  it("passes the business's name variations to the website check", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing", website: "harbor.example", prompts: [{ text: "Best plumber", kind: "category" }],
+    });
+    const seen: unknown[][] = [];
+    const checkWebsite = async (...args: unknown[]): Promise<WebsiteCheckResult> => {
+      seen.push(args);
+      return { checkedAt: "2026-10-01T00:00:00.000Z", checks: [], pages: [], homepageText: "" };
+    };
+    await runScan(db, practiceId, [fakeAdapter("openai", "Harbor Plumbing.")], clean, async () => [], { checkWebsite });
+    expect(seen).toEqual([["harbor.example", undefined, { names: ["Harbor Plumbing"] }]]);
+    expect((await db.query.scans.findFirst())?.websiteCheck?.checkedAt).toBe("2026-10-01T00:00:00.000Z");
+  });
+});
+
+describe("runScan namesake guard", () => {
+  const fee = { category: "pricing" as const, label: "Service call fee", value: "$89" };
+  const hours = { category: "logistics" as const, label: "Hours", value: "Mon-Fri 8am-5pm" };
+  const prompt = { text: "What do you know about Harbor Plumbing?", kind: "branded" as const };
+  const denver = "Harbor Plumbing is a well-reviewed plumber in Denver, CO. Their service call fee is $49 and they open at 8am on weekdays.";
+  const differentBusiness = { tone: "positive" as const, reason: "Recommended", sameBusiness: false, evidence: "in Denver, CO" };
+  // On any answer: a $49 fee is wrong, the hours are right.
+  const judge = async ({ answer }: { answer: string }) => ({
+    wrong: answer.includes("$49")
+      ? [{ claim: "Service call fee is $49", factLabel: "Service call fee", severity: "major" as const }] : [],
+    right: ["Hours"],
+  });
+
+  /** What a scan of the Denver answer records when the guard stays out of it. */
+  const expectUntouched = async (db: Db, tone: { tone: string | null; toneReason: string | null }) => {
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({ mentioned: true, position: "first", ...tone });
+    expect(check.factsConfirmed).toHaveLength(1);
+    const rows = await db.query.findings.findMany();
+    expect(rows.map(r => r.claim)).toEqual(["Service call fee is $49"]);
+    expect((await db.query.scans.findFirst())?.factScore).toBe(82); // one major price error
+    const activities = await db.query.activities.findMany();
+    expect(activities.some(a => a.description.startsWith("namesake:"))).toBe(false);
+  };
+
+  it("vetoes a namesake: wrong fact not opened, right facts not confirmed, not judged, reason stored, line logged", async () => {
+    const db = await makeTestDb();
+    const { practiceId, factIds } = await seedPractice(db, {
+      name: "Harbor Plumbing", category: "Plumber", location: "Portland, OR", prompts: [prompt], facts: [fee, hours],
+    });
+    const portland = "Harbor Plumbing in Portland, OR charges $89 for a service call and opens at 8am on weekdays.";
+    const seen: unknown[] = [];
+    const rateTone = async (args: { answer: string }) => {
+      seen.push(args);
+      return args.answer.includes("Denver")
+        ? differentBusiness
+        : { tone: "positive" as const, reason: "Recommended", sameBusiness: true, evidence: null };
+    };
+    await runScan(db, practiceId, [fakeAdapter("openai", denver), fakeAdapter("perplexity", portland)], judge, async () => [],
+      { rateTone });
+
+    const checks = await db.query.checks.findMany();
+    const vetoed = checks.find(c => c.engine === "openai")!;
+    expect(vetoed).toMatchObject({
+      mentioned: false, position: "absent", competitorsMentioned: [], namedOrder: [],
+      tone: null, toneReason: "Different business: in Denver, CO", factsConfirmed: [],
+    });
+    // The other engine's answer is about this business and counts as usual.
+    const kept = checks.find(c => c.engine === "perplexity")!;
+    expect(kept).toMatchObject({ mentioned: true, position: "first", tone: "positive", toneReason: "Recommended" });
+    expect(kept.factsConfirmed).toEqual([factIds[1]]);
+    // The wrong fee never became a finding, and only the kept answer was judged (100, not 82).
+    expect(await db.query.findings.findMany()).toHaveLength(0);
+    expect((await db.query.scans.findFirst())?.factScore).toBe(100);
+
+    const activities = await db.query.activities.findMany();
+    const line = activities.find(a => a.description.startsWith("namesake:"));
+    expect(line?.description).toBe(
+      "namesake: openai described a different Harbor Plumbing on prompt What do you know about Harbor Plumbing? (in Denver, CO)",
+    );
+    expect(line?.visibility).toBe("internal");
+    // The rater is told what is on record, so it can tell this business from a namesake.
+    expect(seen).toContainEqual({
+      answer: denver, businessNames: ["Harbor Plumbing"],
+      context: { category: "Plumber", location: "Portland, OR", website: null },
+    });
+  });
+
+  it("does not veto when the business has no location on record", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", category: "Plumber", prompts: [prompt], facts: [fee, hours] });
+    await runScan(db, practiceId, [fakeAdapter("openai", denver)], judge, async () => [], { rateTone: async () => differentBusiness });
+    await expectUntouched(db, { tone: "positive", toneReason: "Recommended" });
+  });
+
+  it("does not veto when the evidence is not in the answer", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts: [prompt], facts: [fee, hours] });
+    await runScan(db, practiceId, [fakeAdapter("openai", denver)], judge, async () => [],
+      { rateTone: async () => ({ ...differentBusiness, evidence: "in Boise, ID" }) });
+    await expectUntouched(db, { tone: "positive", toneReason: "Recommended" });
+  });
+
+  it("does not veto when the sentence naming the business names the city", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts: [prompt], facts: [fee, hours] });
+    const both = "Harbor Plumbing serves Portland and Denver, CO; their service call fee is $49 and they open at 8am.";
+    await runScan(db, practiceId, [fakeAdapter("openai", both)], judge, async () => [],
+      { rateTone: async () => ({ ...differentBusiness, evidence: "Denver, CO" }) });
+    await expectUntouched(db, { tone: "positive", toneReason: "Recommended" });
+  });
+
+  it("changes nothing when the rater throws", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts: [prompt], facts: [fee, hours] });
+    await runScan(db, practiceId, [fakeAdapter("openai", denver)], judge, async () => [],
+      { rateTone: async () => { throw new Error("down"); } });
+    await expectUntouched(db, { tone: null, toneReason: null });
+  });
+
+  // Review findings #10, #14 and #29: a veto takes the business out of the
+  // ranking and nothing else. The competitors the same analysis found stay
+  // on the row, including one joined to the namesake by "and", which a
+  // re-run of the matcher without the practice names used to lose (the
+  // longer-name guard no longer knew that the word after "and" starts a
+  // business).
+  const category = { text: "Best plumber in Portland", kind: "category" as const };
+  it.each([
+    // The plain form: the competitor in its own sentence.
+    ["Roto-Rooter", "Roto-Rooter is better. Harbor Plumbing is a well-reviewed plumber in Denver, CO. Their service call fee is $49."],
+    // Finding #14: the competitor joined to the namesake by "and".
+    ["Roto-Rooter", "Harbor Plumbing is a plumber in Denver, CO. Roto-Rooter and Harbor Plumbing are both good."],
+    // Finding #10: the competitor first, then "and" the namesake, in one sentence.
+    ["Rose City Plumbing", "Rose City Plumbing and Harbor Plumbing are both solid options in Denver, CO. Harbor charges $49 per call."],
+  ])("keeps the competitor %s on a vetoed row: %s", async (competitor, answer) => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing", category: "Plumber", location: "Portland, OR", prompts: [category], facts: [fee, hours],
+      competitors: [competitor],
+    });
+    await runScan(db, practiceId, [fakeAdapter("openai", answer)], judge, async () => [], { rateTone: async () => differentBusiness });
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({
+      mentioned: false, position: "absent", competitorsMentioned: [competitor], namedOrder: [competitor],
+      tone: null, toneReason: "Different business: in Denver, CO", factsConfirmed: [],
+    });
+    expect(await db.query.findings.findMany()).toHaveLength(0);
+    expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+    const activities = await db.query.activities.findMany();
+    expect(activities.some(a => a.description.startsWith("namesake: openai described a different Harbor Plumbing"))).toBe(true);
+  });
+
+  // Review finding #11: the guard is given the reconciled competitor list,
+  // so "<namesake> and <known competitor>" is two businesses for the guard
+  // just as it is for classifyPosition. Before, the guard found no
+  // occurrence, returned null, and the Denver namesake was stored as named
+  // first with the $49 fee opened as a finding against the Portland facts.
+  it("vetoes a namesake joined to a known competitor by 'and'", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing", category: "Plumber", location: "Portland, OR", prompts: [category], facts: [fee, hours],
+      competitors: ["Roto-Rooter"],
+    });
+    const listed = "Harbor Plumbing and Roto-Rooter both serve Denver, CO. Harbor charges $49 per call.";
+    await runScan(db, practiceId, [fakeAdapter("openai", listed)], judge, async () => [],
+      { rateTone: async () => ({ ...differentBusiness, evidence: "both serve Denver, CO" }) });
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({
+      mentioned: false, position: "absent", competitorsMentioned: ["Roto-Rooter"], namedOrder: ["Roto-Rooter"],
+      tone: null, toneReason: "Different business: both serve Denver, CO", factsConfirmed: [],
+    });
+    expect(await db.query.findings.findMany()).toHaveLength(0);
+    expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+  });
+
+  it("keeps the mention when the sentence listing both businesses names the city", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing", category: "Plumber", location: "Portland, OR", prompts: [category], facts: [fee, hours],
+      competitors: ["Roto-Rooter"],
+    });
+    const both = "Harbor Plumbing and Roto-Rooter both serve Portland and Denver, CO. Harbor charges $49 per call.";
+    await runScan(db, practiceId, [fakeAdapter("openai", both)], judge, async () => [],
+      { rateTone: async () => ({ ...differentBusiness, evidence: "Denver, CO" }) });
+    await expectUntouched(db, { tone: "positive", toneReason: "Recommended" });
+    const [check] = await db.query.checks.findMany();
+    expect(check).toMatchObject({ competitorsMentioned: ["Roto-Rooter"], namedOrder: ["Harbor Plumbing", "Roto-Rooter"] });
+  });
+});
+
+describe("runScan pre-filter and record phase disagreeing in the named direction", () => {
+  const fee = { category: "pricing" as const, label: "Service call fee", value: "$89" };
+  const prompts = [
+    { text: "Who is a good plumber in Portland?", kind: "category" as const },
+    { text: "Who are the best plumbers in Portland?", kind: "category" as const },
+  ];
+  const answers: Record<string, string> = {
+    "Who is a good plumber in Portland?": "Rose City Plumbing is great.",
+    "Who are the best plumbers in Portland?": "Harbor Plumbing and Rose City Plumbing are both good. Harbor charges $49.",
+  };
+  const adapter: EngineAdapter = { name: "openai", run: async p => ({ answer: answers[p], citations: [] }) };
+  // The extractor finds Rose City Plumbing in the first answer and fails on
+  // the second, so the second answer's pre-filter never learns that "and
+  // Rose City Plumbing" starts a business and reads the client's name as
+  // the first words of a longer one.
+  const extractor = async ({ answer }: { answer: string }) => {
+    if (answer.startsWith("Harbor")) throw new Error("extractor blew up");
+    return ["Rose City Plumbing"];
+  };
+
+  // Review finding #19: the row is stored as named (the record phase knows
+  // Rose City Plumbing by then), but the judge and the rater never ran on
+  // it. The operator is told, so a named answer with no fact check and no
+  // tone is a logged gap rather than a silent one.
+  it("warns when a named earned answer was neither fact-checked nor rated", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts, facts: [fee] });
+    let judgeCalls = 0;
+    const rated: string[] = [];
+    await runScan(db, practiceId, [adapter],
+      async () => { judgeCalls++; return { wrong: [], right: [] }; }, extractor,
+      { concurrency: 1, rateTone: async ({ answer }) => { rated.push(answer); return { tone: "positive" as const, reason: "x" }; } });
+    expect(judgeCalls).toBe(0);
+    expect(rated).toEqual([]);
+    const rows = await db.query.checks.findMany();
+    const named = rows.find(r => r.answerText.startsWith("Harbor"))!;
+    expect(named).toMatchObject({
+      mentioned: true, position: "first", namedOrder: ["Harbor Plumbing", "Rose City Plumbing"], tone: null, factsConfirmed: [],
+    });
+    expect((await db.query.scans.findFirst())?.factScore).toBeNull();
+    const warnings = (await db.query.activities.findMany()).filter(a => a.description.includes("named the business"));
+    expect(warnings.map(w => w.description)).toEqual([
+      "scan warning: openai named the business on prompt Who are the best plumbers in Portland? but the answer was not fact-checked and not rated",
+    ]);
+    expect(warnings[0].visibility).toBe("internal");
+  });
+
+  it("names only the gap that exists, and stays quiet when there is nothing to have run", async () => {
+    // No fact sheet and no rater: the named row is complete as stored.
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts });
+    await runScan(db, practiceId, [adapter], clean, extractor, { concurrency: 1 });
+    const rows = await db.query.checks.findMany();
+    expect(rows.find(r => r.answerText.startsWith("Harbor"))).toMatchObject({ mentioned: true, position: "first" });
+    expect((await db.query.activities.findMany()).some(a => a.description.includes("named the business"))).toBe(false);
+
+    // A fact sheet but no rater: only the fact check is reported missing.
+    const db2 = await makeTestDb();
+    const { practiceId: p2 } = await seedPractice(db2, { name: "Harbor Plumbing", location: "Portland, OR", prompts, facts: [fee] });
+    await runScan(db2, p2, [adapter], clean, extractor, { concurrency: 1 });
+    const lines = (await db2.query.activities.findMany()).filter(a => a.description.includes("named the business"));
+    expect(lines.map(l => l.description)).toEqual([
+      "scan warning: openai named the business on prompt Who are the best plumbers in Portland? but the answer was not fact-checked",
+    ]);
+  });
+
+  it("does not warn on a normal scan, where the pre-filter and the record phase agree", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing", location: "Portland, OR", prompts, facts: [fee], competitors: ["Rose City Plumbing"],
+    });
+    let judgeCalls = 0;
+    await runScan(db, practiceId, [adapter], async () => { judgeCalls++; return { wrong: [], right: [] }; }, async () => [],
+      { rateTone: async () => ({ tone: "positive" as const, reason: "x" }) });
+    expect(judgeCalls).toBe(1);
+    expect((await db.query.activities.findMany()).some(a => a.description.includes("named the business"))).toBe(false);
   });
 });
 

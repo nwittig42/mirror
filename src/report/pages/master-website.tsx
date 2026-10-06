@@ -3,6 +3,7 @@ import { EmptyState, NoteBox, ReportPage, StagePill, Takeaway, nn, text, type Pa
 import { conicDonut, headlines, sortedChecks } from "@/report/scoring";
 import { color, statusColor } from "@/report/tokens";
 import type { CheckStatus, WebsiteCheck } from "@/report/types";
+import { estLines } from "@/report/pages/f-true-false";
 
 const STATUS: Record<CheckStatus, { status: string; iconBg: string; soft: string }> = {
   pass: { status: "Pass", iconBg: statusColor.good.fill, soft: statusColor.good.soft },
@@ -13,19 +14,29 @@ const STATUS: Record<CheckStatus, { status: string; iconBg: string; soft: string
 const WORDS = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
 const numberWord = (n: number) => WORDS[n] ?? String(n);
 
-function StatusIcon({ status }: { status: CheckStatus }) {
+/* What the sheet leaves for the rows under the title block, the takeaway and the note (px). */
+const ROWS_BUDGET = 530;
+/** Height the rows take at the regular size, estimated the way f-fix budgets its sheet. */
+function regularRowsHeight(checks: WebsiteCheck[]): number {
+  return checks.reduce((h, c) => {
+    const fix = c.status !== "pass" && c.fix ? 3 + estLines(c.fix, 13, 496) * 18.85 : 0;
+    return h + 10 + 24 + 18 + 3 + estLines(c.why, 13, 496) * 18.85 + fix;
+  }, -10);
+}
+
+function StatusIcon({ status, size = 17 }: { status: CheckStatus; size?: number }) {
   if (status === "pass") {
     return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
     );
   }
   if (status === "warn") {
     return (
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" aria-hidden="true"><path d="M12 6v8" /><path d="M12 18.5v.5" /></svg>
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" aria-hidden="true"><path d="M12 6v8" /><path d="M12 18.5v.5" /></svg>
     );
   }
   return (
-    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" aria-hidden="true"><path d="M7 7l10 10" /><path d="M17 7L7 17" /></svg>
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth="3.5" strokeLinecap="round" aria-hidden="true"><path d="M7 7l10 10" /><path d="M17 7L7 17" /></svg>
   );
 }
 
@@ -64,9 +75,16 @@ export function WebsitePage({ r, ctx }: PageProps) {
     : n("fail") + n("warn") === 0
       ? headlines(r).website
       : `${headlines(r).website}${n("fail") ? " The failures make it hard for AI to find your prices and facts." : " The rest need a quick look."}`;
+  // Row budget: past five rows the sheet is full, so the why and the fix drop
+  // to the compact size and share one line, and the rows sit closer. Seven
+  // failing checks then fit one sheet. Fewer rows keep the regular size
+  // unless their fix lines alone would run over the footer.
+  const compact = total > 5 || regularRowsHeight(checks) > ROWS_BUDGET;
+  const body = compact ? { fontSize: 12, lineHeight: 1.3 } : { fontSize: 13, lineHeight: 1.45 };
+  const icon = compact ? 28 : 34;
 
   return (
-    <ReportPage r={r} ctx={ctx} section={`${nn(ctx.index)} · Website check`}>
+    <ReportPage r={r} ctx={ctx} section={`${nn(ctx.index)} · Website check`} gap={compact ? 14 : 18}>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 250px", gap: 24, alignItems: "center" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           <StagePill stage="fix" />
@@ -96,22 +114,29 @@ export function WebsitePage({ r, ctx }: PageProps) {
       <Takeaway>{take}</Takeaway>
 
       {total ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: compact ? 5 : 10 }}>
           {checks.map(c => {
             const s = STATUS[c.status];
+            const fix = c.status !== "pass" ? c.fix : undefined;
             return (
-              <div key={c.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 92px", gap: 14, padding: "12px 16px", borderRadius: 16, background: s.soft, alignItems: "start" }}>
-                <span style={{ width: 34, height: 34, borderRadius: 17, background: s.iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <StatusIcon status={c.status} />
+              <div key={c.id} style={{ display: "grid", gridTemplateColumns: compact ? "28px 1fr 64px" : "40px 1fr 92px", gap: compact ? 10 : 14, padding: compact ? "7px 12px" : "12px 16px", borderRadius: compact ? 12 : 16, background: s.soft, alignItems: "start" }}>
+                <span style={{ width: icon, height: icon, borderRadius: icon / 2, background: s.iconBg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <StatusIcon status={c.status} size={compact ? 14 : 17} />
                 </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800 }}>{c.label}</span>
-                  <span style={{ fontSize: 13, lineHeight: 1.45, color: color.text2 }}>{c.why}</span>
-                  {c.status !== "pass" && c.fix && (
-                    <span style={{ fontSize: 13, lineHeight: 1.45, color: color.ink }}><strong>Fix:</strong> {c.fix}</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: compact ? 2 : 3 }}>
+                  <span style={{ fontSize: compact ? 14 : 15, fontWeight: 800, lineHeight: compact ? 1.2 : undefined }}>{c.label}</span>
+                  {compact ? (
+                    <span style={{ ...body, color: color.text2 }}>
+                      {c.why}{fix && <> <strong style={{ color: color.ink }}>Fix:</strong> <span style={{ color: color.ink }}>{fix}</span></>}
+                    </span>
+                  ) : (
+                    <>
+                      <span style={{ ...body, color: color.text2 }}>{c.why}</span>
+                      {fix && <span style={{ ...body, color: color.ink }}><strong>Fix:</strong> {fix}</span>}
+                    </>
                   )}
                 </div>
-                <span style={{ justifySelf: "end", fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", padding: "5px 12px", borderRadius: 99, background: s.iconBg, color: "#FFFFFF" }}>{s.status}</span>
+                <span style={{ justifySelf: "end", fontSize: compact ? 10.5 : 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", padding: compact ? "4px 9px" : "5px 12px", borderRadius: 99, background: s.iconBg, color: "#FFFFFF" }}>{s.status}</span>
               </div>
             );
           })}
