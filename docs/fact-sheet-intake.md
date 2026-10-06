@@ -2,12 +2,16 @@
 
 The fact sheet is the source of truth every AI answer is checked against. A fact
 on the sheet can make an answer "wrong", so it has to be confirmed by the client,
-not guessed by us.
+not guessed by us. The script below works for any business: a plumber, a bakery,
+a law firm, a gym, a med spa. The examples are the demo business, Harbor Plumbing
+and Drain, a fictional plumber in Portland, OR.
 
 ## Before the call (10 minutes)
 
-1. Make sure the practice has its website set in `/admin`.
-2. Press **Draft from website** on the practice page (or run
+1. Make sure the business has its website, category and location set in `/admin`.
+   The category and location feed the question drafter and the namesake guard, so
+   a business with a common name needs its city on record before its first scan.
+2. Press **Draft from website** on the business page (or run
    `npx tsx --env-file=.env.local scripts/draft-facts.ts <slug>`).
 3. Skim the drafts. Reject anything that is marketing copy rather than a fact.
 4. Note the gaps: categories below with nothing drafted are the questions to ask.
@@ -28,22 +32,27 @@ here that's wrong, or anything missing that customers ask about, tell me."
 
 | Category | Ask | Examples |
 |---|---|---|
-| Identity | What's the one-line description you'd want AI to give? Founded when, by whom? Any old names? | "Glow MedSpa is a medical spa in Santa Monica." Founded 2019. |
-| Providers | Who delivers the service? Exact titles and credentials. | "Dr. Jane Lee, MD, board-certified dermatologist" |
-| Services | Every service or product you offer today. | Botox, filler, laser hair removal |
-| Not offered | What do people assume you do that you don't? | "No surgical procedures", "No weekend appointments" |
-| Pricing | Every price you're comfortable being quoted, with the unit. Anything free? | "$13 per unit", "Free consultation" |
-| Logistics | Address, service area, hours, phone, how to book, languages. | "Open Tue to Sat 10am to 6pm" |
-| Compliance | Licenses, certifications, insurance accepted, anything regulated. | "Licensed by the California Medical Board" |
+| Identity | What's the one-line description you'd want AI to give? Founded when, by whom? Any old names? | "Harbor Plumbing and Drain is a residential plumbing company in Portland, OR." Founded 2012. |
+| People and credentials | Who delivers the service or runs the business? Exact titles, licenses and credentials, as written. | "Dale Okafor, owner, Oregon-licensed journeyman plumber" |
+| Services and products | Every service or product you offer today, under its real name. | Drain cleaning, water heater replacement, repiping |
+| Not offered | What do people assume you do that you don't? | "No 24/7 emergency service", "No septic work" |
+| Pricing | Every price you're comfortable being quoted, with the unit. Fees, estimates, how you quote. Anything free? | "$89 service call", "Free estimates" |
+| Logistics | Address, service area, hours, phone, how to book, languages. | "Open Mon to Fri 7am to 6pm" |
+| Licenses and compliance | Licenses, certifications, bonding and insurance, anything regulated. | "Oregon CCB #221467, bonded and insured" |
 
 **Price first.** Price is the fact AI gets wrong most, and it counts 1.5x in the
 fact score. Get every price the client is willing to publish, and ask whether any
-old prices are still floating around (old menus, old promos, review sites).
+old prices are still floating around (old menus, old flyers, review sites).
 
 **Not offered matters.** A claim that you offer something you don't is scored as
 critical. The "not offered" list is how the checker catches it.
 
-**Make each fact checkable.** "Great prices" is not a fact. "$13 per unit" is.
+**Licenses are the other critical.** A license or certification AI awards you that
+you do not hold ("licensed in Oregon and Washington" when it is Oregon only) is a
+compliance problem for the client, so write down exactly which bodies license them
+and where.
+
+**Make each fact checkable.** "Great prices" is not a fact. "$89 service call" is.
 
 ## After the call
 
