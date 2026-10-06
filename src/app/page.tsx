@@ -7,9 +7,12 @@ import { MirrorLockup } from "@/components/mirror-mark";
  * audit-request form every CTA below points at).
  * The signed-in role router that used to live here now sits at /app.
  *
- * Copy follows the ICP vocabulary locked in docs/plans: the entity is a
- * "practice" (never brand/business), readers of AI answers are "patients"
- * (never users/customers), staff are "providers", offerings are "treatments".
+ * Copy follows section 8 of
+ * docs/superpowers/specs/2026-10-05-general-business-algorithm-design.md: the
+ * entity is a "business" (never practice), readers of AI answers are
+ * "customers" (never patients), staff are the "team" or "people" (never
+ * providers), offerings are "services" (never treatments). The fictional
+ * plumber in the example card is the same demo scripts/seed.ts creates.
  *
  * Deliberately static: no session read, no database call. It renders for a
  * cold visitor with no DATABASE_URL reachable, which is what makes it safe to
@@ -17,26 +20,27 @@ import { MirrorLockup } from "@/components/mirror-mark";
  */
 
 export const metadata: Metadata = {
-  title: "Mirror: See what AI tells your patients",
+  title: "Mirror: See what AI tells your customers",
   description:
-    "Mirror monitors what ChatGPT, Claude, Gemini, Grok, and Perplexity tell patients about your practice, catches the errors, and fixes them at the source.",
+    "Mirror monitors what ChatGPT, Claude, Gemini, Grok, and Perplexity tell customers about your business, catches the errors, and fixes them at the source.",
 };
 
 const STATS = [
   {
-    n: "80%",
-    label: "of AI citations for aesthetic medicines already belong to just two pharma brands",
-    src: "5W Index via PRNewswire, 2026",
+    n: "72.5%",
+    label:
+      "of local-discovery citations in Google AI Mode go to Yelp, 62.1% in Perplexity, and 91 to 97% of them come from category prompts, not brand prompts",
+    src: "Foundation / AirOps analysis of 28M+ local AI responses, Q4 2025, foundationinc.co",
   },
   {
     n: "0.664",
-    label: "correlation between mentions of a practice and its AI visibility, against 0.218 for backlinks",
+    label: "correlation between mentions of a business and its AI visibility, against 0.218 for backlinks",
     src: "Citation-study patterns, see our operating manual",
   },
   {
-    n: "4",
-    label: "answer engines scanned every week, on the prompts your patients actually type",
-    src: "ChatGPT · Claude · Gemini · Perplexity",
+    n: "5",
+    label: "answer engines scanned every week, on the prompts your customers actually type",
+    src: "ChatGPT · Claude · Gemini · Grok · Perplexity",
   },
 ];
 
@@ -44,16 +48,16 @@ const ADVANTAGES = [
   {
     body: (
       <>
-        <strong>Patients ask the machine first.</strong> Before they read your reviews, they ask which practice near
-        them is best. You are either in that answer or you are not.
+        <strong>Customers ask the machine first.</strong> Before they read your reviews, they ask which business in
+        their city is best. You are either in that answer or you are not.
       </>
     ),
   },
   {
     body: (
       <>
-        <strong>Being wrong is worse than being absent.</strong> An engine that invents a treatment you do not offer,
-        or a credential you do not hold, is a compliance problem wearing a marketing costume.
+        <strong>Being wrong is worse than being absent.</strong> An engine that invents a service you do not offer,
+        or a license you do not hold, is a compliance problem wearing a marketing costume.
       </>
     ),
   },
@@ -61,7 +65,7 @@ const ADVANTAGES = [
     body: (
       <>
         <strong>You cannot fix what you cannot see.</strong> There is no dashboard inside ChatGPT. Without monitoring,
-        the first time you learn what it says is when a patient repeats it back to you.
+        the first time you learn what it says is when a customer repeats it back to you.
       </>
     ),
   },
@@ -79,17 +83,17 @@ const STEPS = [
   {
     num: "01",
     title: "We build your Fact Sheet",
-    body: "Every provider and verified credential, every treatment under its real brand name, your hours and pricing, and the list of what you explicitly do not offer.",
+    body: "Every person on your team and their verified credentials, every service under its real name, your hours and pricing, and the list of what you explicitly do not offer.",
     bullets: [
-      "Credentials checked against the state medical and nursing boards",
-      "Name variations captured, because patients search for the provider as often as the practice",
+      "Credentials checked against the state licensing board",
+      "Name variations captured, because customers search for the owner as often as the business",
       "The not-offered list is the bait an engine hallucinates into",
     ],
   },
   {
     num: "02",
     title: "We scan five AI assistants, every week",
-    body: "A fixed battery of prompts: your neighborhood, your hero treatments, and direct questions about your practice by name, run against all five AI assistants.",
+    body: "A fixed battery of prompts: your city, your core services, and direct questions about your business by name, run against all five AI assistants.",
     bullets: [
       "Whether you were named, and where in the answer",
       "Which competitors were named beside you",
@@ -102,7 +106,7 @@ const STEPS = [
     title: "We fix it at the source",
     body: "Findings become work: corrections to your own pages, directory and profile cleanup, and the structured answers engines prefer to quote.",
     bullets: [
-      "Your site is the top citation source in the medical vertical",
+      "Your own site and your listings supply most of the citations",
       "Mentions move visibility more than links do",
       "Every month you get the accuracy report, and what changed",
     ],
@@ -112,7 +116,7 @@ const STEPS = [
 const INCLUDED = [
   {
     title: "Weekly scans",
-    body: "Four engines, a fixed prompt battery, every week. Trends you can actually read over ninety days.",
+    body: "Five engines, a fixed prompt battery, every week. Trends you can actually read over ninety days.",
   },
   {
     title: "Hallucination detection",
@@ -120,11 +124,11 @@ const INCLUDED = [
   },
   {
     title: "AI Visibility Score",
-    body: "One number across citation rate, position, and breadth, with accuracy as a hard ceiling on it.",
+    body: "One number: 70% how visible you are (named, rank, reach) and 30% how accurate AI is about you. A serious wrong fact caps it at 70.",
   },
   {
     title: "Competitor share of voice",
-    body: "Who gets named when you don’t, on the prompts that matter in your neighborhood.",
+    body: "Who gets named when you don’t, on the prompts that matter in your city.",
   },
   {
     title: "Verbatim answers",
@@ -147,40 +151,41 @@ const FAQ = [
   },
   {
     q: "What counts as a hallucination?",
-    a: "Any claim in an engine's answer that contradicts your Fact Sheet: a treatment you do not offer, a credential you do not hold, an address or price that is out of date. Because you approve the Fact Sheet, you decide what the truth is before we start measuring against it.",
+    a: "Any claim in an engine's answer that contradicts your Fact Sheet: a service you do not offer, a license you do not hold, an address or price that is out of date. Because you approve the Fact Sheet, you decide what the truth is before we start measuring against it.",
   },
   {
     q: "How long before anything changes?",
     a: "The baseline scan is immediate. You will see what the engines say about you today. Corrections at the source typically take one to two scan cycles to appear in answers, and the ninety-day trend is where the question of whether it is working actually gets settled.",
   },
   {
-    q: "Do you work with practices outside Los Angeles?",
-    a: "We are concentrated in LA right now because neighborhood-level prompts are where the competition is sharpest and where we can do the source-side work properly. Ask, and we will tell you honestly whether we can serve your market well.",
+    q: "Which businesses does this work for?",
+    a: "Any business customers find by asking for a kind of service in a place: plumbers, bakeries, law firms, gyms, dentists, contractors, salons. If a customer could find you by asking an AI assistant for the best plumber, bakery or law firm in your city, this applies to you. The Fact Sheet, the prompts and the competitor list are built for your trade and your city, so the scan measures the questions your customers actually ask.",
   },
 ];
 
 /* A real-shaped example of what a scan returns: a verbatim answer with the
-   false clause marked and the Fact Sheet contradiction stated underneath.
-   The practice is fictional. This is an illustration of the output format,
-   not a captured result, and the proof section says so in visible copy. */
+   false clauses marked and the Fact Sheet contradictions stated underneath.
+   The business is fictional (the same demo plumber scripts/seed.ts creates).
+   This is an illustration of the output format, not a captured result, and
+   the proof section says so in visible copy. */
 function AnswerCard() {
   return (
     <figure className="mk-answer" style={{ margin: 0 }}>
       <figcaption className="mk-answer-head">
         <span className="mk-answer-engine">ChatGPT</span>
-        <span className="mk-answer-meta">Prompt: “best med spa in Santa Monica for lip filler”</span>
+        <span className="mk-answer-meta">Prompt: “best plumber in Portland for a water heater replacement”</span>
       </figcaption>
       <div className="mk-answer-body">
-        For lip filler in Santa Monica, a frequently mentioned option is{" "}
-        <strong style={{ color: "#1a1a18" }}>Glow MedSpa</strong>. They offer a broad range of injectables and{" "}
-        <span className="mk-false">are supervised by a board-certified plastic surgeon</span>. They also provide{" "}
-        <span className="mk-false">CO₂ laser resurfacing</span> and walk-in appointments.
+        For a water heater replacement in Portland, a frequently mentioned option is{" "}
+        <strong style={{ color: "#1a1a18" }}>Harbor Plumbing and Drain</strong>. They handle tank and tankless units
+        and <span className="mk-false">are licensed in both Oregon and Washington</span>. They also offer{" "}
+        <span className="mk-false">24/7 emergency service</span> and free estimates.
       </div>
       <div className="mk-answer-foot">
         <span className="mk-flag-dot" />
         <p className="txt" style={{ margin: 0 }}>
-          <strong>2 contradictions with your Fact Sheet.</strong> The practice is supervised by a board-certified
-          dermatologist, not a plastic surgeon, and CO₂ resurfacing is on the not-offered list.
+          <strong>2 contradictions with your Fact Sheet.</strong> The business holds an Oregon CCB license only, not a
+          Washington one, and 24/7 emergency service is on the not-offered list.
         </p>
       </div>
     </figure>
@@ -223,27 +228,27 @@ export default function LandingPage() {
           />
           <div className="mk-inner mk-hero-grid">
             <div>
-              <span className="mk-eyebrow">AI visibility for aesthetic practices</span>
+              <span className="mk-eyebrow">AI visibility for small businesses</span>
               <h1 className="mk-display mk-h1" style={{ marginTop: 18 }}>
-                Your patients ask
+                Your customers ask
                 <br />
                 AI first.
               </h1>
               <p className="mk-lede">
-                Make sure it says the right things about your practice. Every week, Mirror asks ChatGPT, Claude,
-                Gemini, Grok, and Perplexity the questions your patients are already asking, then shows you exactly what
-                they answered, what they got wrong, and what it takes to change it.
+                Make sure it says the right things about your business. Every week, Mirror asks ChatGPT, Claude,
+                Gemini, Grok, and Perplexity the questions your customers are already asking, then shows you exactly
+                what they answered, what they got wrong, and what it takes to change it.
               </p>
               <div className="btns">
                 <Link href="/book" className="mk-btn">
-                  See your practice’s answers
+                  See what AI says about you
                 </Link>
                 <a href="#how" className="mk-btn-sec">
                   How it works
                 </a>
               </div>
               <p className="trust">
-                <span>30 minutes, on a call, on your real practice</span>
+                <span>30 minutes, on a call, on your real business</span>
                 <span aria-hidden="true" style={{ color: "#a8763e" }}>
                   ·
                 </span>
@@ -261,6 +266,7 @@ export default function LandingPage() {
             <span className="eng">ChatGPT</span>
             <span className="eng">Claude</span>
             <span className="eng">Gemini</span>
+            <span className="eng">Grok</span>
             <span className="eng">Perplexity</span>
           </div>
         </section>
@@ -294,7 +300,7 @@ export default function LandingPage() {
               </p>
               <div style={{ display: "flex", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
                 <Link href="/book" className="mk-btn">
-                  See your practice’s answers
+                  See what AI says about you
                 </Link>
                 <a href="#faq" className="mk-btn-sec">
                   Read the FAQ
@@ -340,12 +346,13 @@ export default function LandingPage() {
                   <div>
                     {s.num === "01" && (
                       <div className="mk-panel">
-                        <div className="mk-panel-label">Fact Sheet · Glow MedSpa</div>
+                        <div className="mk-panel-label">Fact Sheet · Harbor Plumbing and Drain</div>
+                        {/* The counts are what scripts/seed.ts creates for this business. */}
                         {[
-                          ["Providers", "3 verified"],
-                          ["Treatments", "24 listed"],
-                          ["Not offered", "9 listed"],
-                          ["Name variations", "6 tracked"],
+                          ["People", "2 verified"],
+                          ["Services", "6 listed"],
+                          ["Not offered", "2 listed"],
+                          ["Name variations", "2 tracked"],
                         ].map(([k, v]) => (
                           <div className="mk-bar" key={k}>
                             <span style={{ flex: 1 }}>{k}</span>
@@ -357,10 +364,14 @@ export default function LandingPage() {
                     {s.num === "02" && (
                       <div className="mk-panel">
                         <div className="mk-panel-label">Citation rate by engine</div>
+                        {/* Illustrative figures, one row per engine the strip above
+                            names, so the panel does not show four engines under a
+                            promise of five. */}
                         {([
                           ["ChatGPT", 72],
                           ["Perplexity", 58],
                           ["Gemini", 41],
+                          ["Grok", 36],
                           ["Claude", 30],
                         ] as const).map(([k, v]) => (
                           <div className="mk-bar" key={k}>
@@ -378,14 +389,17 @@ export default function LandingPage() {
                         <div className="mk-panel-label">AI Visibility Score</div>
                         <div className="mk-score">
                           <span className="val">68</span>
-                          <span className="of">/ 100 · capped by 1 open inaccuracy</span>
+                          <span className="of">/ 100 · 70% visibility, 30% fact accuracy</span>
                         </div>
+                        {/* The four parts and their points match the score page of the
+                            audit report (build-report.ts): visibility's 50/20/15 split
+                            scaled into its 70 points, plus 30 for fact accuracy. */}
                         <div style={{ marginTop: 20 }}>
                           {([
-                            ["Citation rate", 50],
-                            ["Position", 20],
-                            ["Breadth", 15],
-                            ["Accuracy", 15],
+                            ["How often you're named", 41],
+                            ["How high you rank", 17],
+                            ["How many AI tools name you", 12],
+                            ["How accurate AI is about you", 30],
                           ] as const).map(([k, v]) => (
                             <div className="mk-bar" key={k}>
                               <span style={{ flex: 1 }}>{k}</span>
@@ -412,9 +426,9 @@ export default function LandingPage() {
               </h2>
               <hr className="mk-rule" />
               <p className="mk-lede" style={{ fontSize: 17 }}>
-                Ranking well while being described falsely is not a win. A practice with an open inaccuracy cannot score
-                above 70 in Mirror, however often it gets cited, because a patient who arrives expecting a treatment
-                you do not offer is a worse outcome than one who never heard of you.
+                Ranking well while being described falsely is not a win. A business with an open inaccuracy cannot
+                score above 70 in Mirror, however often it gets cited, because a customer who arrives expecting a
+                service you do not offer is a worse outcome than one who never heard of you.
               </p>
               <p className="mk-body">
                 Every answer is kept verbatim and dated, so you can see the exact sentence, the engine that wrote it,
@@ -424,8 +438,8 @@ export default function LandingPage() {
             <div>
               <AnswerCard />
               <p className="mk-body" style={{ fontSize: 12.5, marginTop: 14 }}>
-                Illustrative example on a fictional practice. Your audit runs against your real practice, on your real
-                neighborhood prompts.
+                Illustrative example on a fictional business. Your audit runs against your real business, on the
+                prompts your customers type about your city.
               </p>
             </div>
           </div>
@@ -455,7 +469,7 @@ export default function LandingPage() {
           <div className="mk-inner narrow">
             <span className="mk-eyebrow">Questions</span>
             <h2 className="mk-display mk-h2" style={{ marginTop: 14 }}>
-              What practice owners ask first.
+              What business owners ask first.
             </h2>
             <div className="mk-faq">
               {FAQ.map((f) => (
@@ -473,13 +487,13 @@ export default function LandingPage() {
           <div className="mk-inner narrow" style={{ textAlign: "center" }}>
             <h2 className="mk-display mk-h2">Find out what they’re saying about you.</h2>
             <p className="mk-lede" style={{ margin: "20px auto 0", textAlign: "center" }}>
-              We run your practice through all five AI assistants before we speak, then take thirty minutes to walk you
+              We run your business through all five AI assistants before we speak, then take thirty minutes to walk you
               through the verbatim answers, the contradictions, and your baseline score. No engagement required to see
               it.
             </p>
             <div style={{ display: "flex", gap: 12, marginTop: 34, justifyContent: "center", flexWrap: "wrap" }}>
               <Link className="mk-btn" href="/book">
-                See your practice’s answers
+                See what AI says about you
               </Link>
               <a className="mk-btn-sec" href="#how">
                 See how it works
@@ -503,14 +517,14 @@ export default function LandingPage() {
             <a href="#faq">FAQ</a>
           </div>
           <div className="col">
-            <span className="head">Practice</span>
+            <span className="head">Your business</span>
             <Link href="/login">Client log in</Link>
             <Link href="/book">Book your audit call</Link>
           </div>
         </div>
         <div className="mk-footer-legal">
-          © 2026 Mirror. Not affiliated with OpenAI, Anthropic, Google, or Perplexity. Engine names are used only to
-          identify the systems monitored.
+          © 2026 Mirror. Not affiliated with OpenAI, Anthropic, Google, xAI, or Perplexity. Engine names are used only
+          to identify the systems monitored.
         </div>
       </footer>
     </div>

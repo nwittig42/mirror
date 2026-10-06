@@ -34,14 +34,15 @@ export const maxDuration = 800;
 
 const MAX_ACTIVE_PROMPTS = 10;
 
+// Enum values are database identifiers and stay; only the labels are read.
 const CATEGORY_LABELS: Record<FactCategory, string> = {
   identity: "Identity",
-  providers: "Providers",
-  services: "Services",
+  providers: "People and credentials",
+  services: "Services and products",
   not_offered: "Not offered",
   pricing: "Pricing",
   logistics: "Logistics",
-  compliance: "Compliance",
+  compliance: "Licenses and compliance",
 };
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
@@ -327,11 +328,11 @@ export default async function PracticeDetailPage({
       <section className="mb-10">
         <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Report details</h2>
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          Used in the report: &ldquo;When people ask AI for a <em>med spa</em> in <em>Santa Monica</em>...&rdquo;
+          Used in the report: &ldquo;When people ask AI for a <em>plumber</em> in <em>Portland</em>...&rdquo;
         </p>
         <form action={handleUpdateReportDetails.bind(null, practiceId)} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <input name="category" defaultValue={practice.category ?? ""} placeholder="Category (e.g. Med spa)" className={inputClass} />
-          <input name="location" defaultValue={practice.location ?? ""} placeholder="Location (e.g. Santa Monica, CA)" className={inputClass} />
+          <input name="category" defaultValue={practice.category ?? ""} placeholder="Kind of business (e.g. Plumber)" className={inputClass} />
+          <input name="location" defaultValue={practice.location ?? ""} placeholder="Location (e.g. Portland, OR)" className={inputClass} />
           <button type="submit" className={primaryButtonClass}>Save</button>
         </form>
       </section>
@@ -414,8 +415,8 @@ export default async function PracticeDetailPage({
               <option key={cat} value={cat}>{CATEGORY_LABELS[cat]}</option>
             ))}
           </select>
-          <input name="label" required placeholder="Label (e.g. Botox price)" className={inputClass} />
-          <input name="value" required placeholder="Value (e.g. $13/unit)" className={inputClass} />
+          <input name="label" required placeholder="Label (e.g. Service call fee)" className={inputClass} />
+          <input name="value" required placeholder="Value (e.g. $89)" className={inputClass} />
           <button type="submit" className={primaryButtonClass}>Add fact</button>
         </form>
 

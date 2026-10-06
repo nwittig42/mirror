@@ -143,7 +143,7 @@ export function MirrorLockup({
             color: tone === "ink" ? "#78746c" : "rgba(247,245,240,0.6)",
           }}
         >
-          See what AI tells your patients.{" "}
+          See what AI tells your customers.{" "}
           <span style={{ color: "#a8763e" }}>Own your GEO.</span>
         </span>
       )}

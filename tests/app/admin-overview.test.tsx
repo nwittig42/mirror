@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests } from "@/db";
 import { runScan } from "@/services/scan-runner";
@@ -19,6 +20,7 @@ vi.mock("@/lib/auth", async () => {
 });
 
 import CustomerOverviewPage from "@/app/admin/practices/[id]/overview/page";
+import { AnswersTab } from "@/app/admin/practices/[id]/overview/sections";
 
 const TABS = ["account", "scores", "reports", "answers", "facts", "setup", "emails", "support", "log"];
 
@@ -49,5 +51,33 @@ describe("customer overview page", () => {
       const page = await CustomerOverviewPage({ params: Promise.resolve({ id: practiceId }), searchParams: Promise.resolve({ tab }) });
       expect(page).toBeTruthy();
     }
+  });
+});
+
+describe("AnswersTab", () => {
+  const question = (toneReason: string | null) => ({
+    prompt: "Best plumber in Portland",
+    kind: "category",
+    answers: [{
+      engine: "openai" as const, answerText: "Harbor Plumbing in Denver, CO is well reviewed.",
+      position: "absent", citations: ["https://yelp.com/x"], toneReason,
+    }],
+    missing: [],
+  });
+
+  it("shows a Different business pill with the evidence on a vetoed namesake", () => {
+    const html = renderToStaticMarkup(
+      <AnswersTab date={new Date("2026-10-01")} questions={[question("Different business: in Denver, CO")]} />,
+    );
+    expect(html).toContain("Different business");
+    expect(html).toContain("in Denver, CO");
+    expect(html).toContain("Not mentioned");
+  });
+
+  it("shows no such pill on an ordinary answer", () => {
+    const html = renderToStaticMarkup(<AnswersTab date={new Date("2026-10-01")} questions={[question("Recommended")]} />);
+    expect(html).not.toContain("Different business");
+    const bare = renderToStaticMarkup(<AnswersTab date={new Date("2026-10-01")} questions={[question(null)]} />);
+    expect(bare).not.toContain("Different business");
   });
 });

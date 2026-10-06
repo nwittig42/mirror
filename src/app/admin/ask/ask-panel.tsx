@@ -55,7 +55,7 @@ export function AskPanel({
           onChange={e => setQuestion(e.target.value)}
           rows={2}
           maxLength={500}
-          placeholder="Ask what a customer would ask, e.g. What's the best med spa in Santa Monica for Botox?"
+          placeholder="Ask what a customer would ask, e.g. Who is the best plumber in Portland for a water heater replacement?"
           className={`${inputClass} w-full`}
         />
         <div className="flex flex-wrap items-center gap-3">

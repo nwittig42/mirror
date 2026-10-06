@@ -10,7 +10,7 @@ const inputClass =
 
 export const metadata: Metadata = {
   title: `Log in · ${appName}`,
-  description: `Sign in to ${appName} to see what AI tells your patients.`,
+  description: `Sign in to ${appName} to see what AI tells your customers.`,
 };
 
 async function sendMagicLink(formData: FormData): Promise<void> {
@@ -54,7 +54,7 @@ export default async function LoginPage({
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
           <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{appName}</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">See what AI tells your patients.</p>
+          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">See what AI tells your customers.</p>
         </div>
 
         {changed && !error && (
@@ -81,7 +81,7 @@ export default async function LoginPage({
               type="email"
               required
               autoComplete="email"
-              placeholder="you@practice.com"
+              placeholder="you@yourbusiness.com"
               className={inputClass}
             />
             <label className="sr-only" htmlFor="password">
@@ -122,7 +122,7 @@ export default async function LoginPage({
               type="email"
               required
               autoComplete="email"
-              placeholder="you@practice.com"
+              placeholder="you@yourbusiness.com"
               className={inputClass}
             />
             <button

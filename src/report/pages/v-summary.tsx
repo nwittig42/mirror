@@ -20,7 +20,7 @@ function competitorUsuallyFirst(r: AuditReport): boolean {
   return mine > 0 && [...counts.values()].every((n) => n <= mine);
 }
 
-/** "Skin Bar LA is about twice as visible as you." */
+/** "Rose City Rooter is about twice as visible as you." */
 function compareLine(name: string, them: number, you: number): string {
   if (you <= 0) return them > 0 ? `${name} is far more visible than you.` : `Neither of you is visible yet.`;
   const ratio = them / you;

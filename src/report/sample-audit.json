@@ -1,9 +1,9 @@
 {
   "business": {
-    "name": "Glow MedSpa",
-    "website": "glowmedspa.com",
-    "location": "Santa Monica, CA",
-    "category": "Med spa"
+    "name": "Harbor Plumbing and Drain",
+    "website": "harborplumbingpdx.com",
+    "location": "Portland, OR",
+    "category": "Plumber"
   },
   "scan": {
     "date": "2026-09-24",
@@ -64,7 +64,7 @@
     ]
   },
   "topCompetitor": {
-    "name": "Skin Bar LA",
+    "name": "Rose City Rooter",
     "visibility": 61,
     "namedCount": 27
   },
@@ -97,27 +97,27 @@
   ],
   "leaderboard": [
     {
-      "name": "Skin Bar LA",
+      "name": "Rose City Rooter",
       "count": 27,
       "isClient": false
     },
     {
-      "name": "Cienega Spa",
+      "name": "Bridgetown Drain Pros",
       "count": 20,
       "isClient": false
     },
     {
-      "name": "SkinLab",
+      "name": "Willamette Pipeworks",
       "count": 13,
       "isClient": false
     },
     {
-      "name": "Glow MedSpa",
+      "name": "Harbor Plumbing and Drain",
       "count": 10,
       "isClient": true
     },
     {
-      "name": "Ava MD",
+      "name": "Cascade Flow Plumbing",
       "count": 7,
       "isClient": false
     }
@@ -125,35 +125,35 @@
   "questions": [
     {
       "id": "q1",
-      "text": "Best med spa in Santa Monica?",
+      "text": "Who are the best plumbers in Portland, OR?",
       "cells": [
         {
           "tool": "chatgpt",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "claude",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "gemini",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "grok",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "perplexity",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": 5,
           "runsAppeared": 1
         }
@@ -161,35 +161,35 @@
     },
     {
       "id": "q2",
-      "text": "Where can I get Botox in Santa Monica?",
+      "text": "Who should I call for a water heater replacement in Portland?",
       "cells": [
         {
           "tool": "chatgpt",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": 3,
           "runsAppeared": 1
         },
         {
           "tool": "claude",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": 4,
           "runsAppeared": 1
         },
         {
           "tool": "gemini",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "grok",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "perplexity",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": 2,
           "runsAppeared": 1
         }
@@ -197,35 +197,35 @@
     },
     {
       "id": "q3",
-      "text": "Affordable med spa open Saturday",
+      "text": "Is there a plumber in Portland who can come out on a Saturday?",
       "cells": [
         {
           "tool": "chatgpt",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": 2,
           "runsAppeared": 2
         },
         {
           "tool": "claude",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": 3,
           "runsAppeared": 1
         },
         {
           "tool": "gemini",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "grok",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": 3,
           "runsAppeared": 1
         },
         {
           "tool": "perplexity",
-          "firstNamed": "Glow MedSpa",
+          "firstNamed": "Harbor Plumbing and Drain",
           "clientRank": 1,
           "runsAppeared": 2
         }
@@ -233,35 +233,35 @@
     },
     {
       "id": "q4",
-      "text": "Natural-looking lip filler nearby?",
+      "text": "Who should I go to for a sewer line repair in Portland?",
       "cells": [
         {
           "tool": "chatgpt",
-          "firstNamed": "SkinLab",
+          "firstNamed": "Willamette Pipeworks",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "claude",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "gemini",
-          "firstNamed": "Ava MD",
+          "firstNamed": "Cascade Flow Plumbing",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "grok",
-          "firstNamed": "SkinLab",
+          "firstNamed": "Willamette Pipeworks",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "perplexity",
-          "firstNamed": "Cienega Spa",
+          "firstNamed": "Bridgetown Drain Pros",
           "clientRank": null,
           "runsAppeared": 0
         }
@@ -269,35 +269,35 @@
     },
     {
       "id": "q5",
-      "text": "Best place for a HydraFacial?",
+      "text": "Which Portland plumber is best for a clogged main drain?",
       "cells": [
         {
           "tool": "chatgpt",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "claude",
-          "firstNamed": "SkinLab",
+          "firstNamed": "Willamette Pipeworks",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "gemini",
-          "firstNamed": "SkinLab",
+          "firstNamed": "Willamette Pipeworks",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "grok",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         },
         {
           "tool": "perplexity",
-          "firstNamed": "Skin Bar LA",
+          "firstNamed": "Rose City Rooter",
           "clientRank": null,
           "runsAppeared": 0
         }
@@ -310,7 +310,7 @@
       "tool": "chatgpt",
       "rank": 2,
       "ahead": [
-        "Skin Bar LA"
+        "Rose City Rooter"
       ],
       "runsAppeared": 2
     },
@@ -319,7 +319,7 @@
       "tool": "perplexity",
       "rank": 2,
       "ahead": [
-        "Skin Bar LA"
+        "Rose City Rooter"
       ],
       "runsAppeared": 1
     },
@@ -328,8 +328,8 @@
       "tool": "chatgpt",
       "rank": 3,
       "ahead": [
-        "Cienega Spa",
-        "Skin Bar LA"
+        "Bridgetown Drain Pros",
+        "Rose City Rooter"
       ],
       "runsAppeared": 1
     },
@@ -338,8 +338,8 @@
       "tool": "claude",
       "rank": 3,
       "ahead": [
-        "Cienega Spa",
-        "Skin Bar LA"
+        "Bridgetown Drain Pros",
+        "Rose City Rooter"
       ],
       "runsAppeared": 1
     },
@@ -348,8 +348,8 @@
       "tool": "grok",
       "rank": 3,
       "ahead": [
-        "Cienega Spa",
-        "Skin Bar LA"
+        "Bridgetown Drain Pros",
+        "Rose City Rooter"
       ],
       "runsAppeared": 1
     }
@@ -362,12 +362,12 @@
   },
   "quotes": {
     "best": {
-      "text": "Glow MedSpa is a well-reviewed option in Santa Monica, known for natural-looking results and Saturday appointments.",
+      "text": "Harbor Plumbing and Drain is a well-reviewed option in Portland, known for same-day service and Saturday appointments.",
       "tool": "perplexity",
       "questionId": "q3"
     },
     "worst": {
-      "text": "Glow MedSpa is popular, though some reviews mention long waits.",
+      "text": "Harbor Plumbing and Drain is popular, though some reviews mention quotes that came in higher than expected.",
       "tool": "chatgpt",
       "questionId": "q2"
     }
@@ -405,7 +405,7 @@
         "type": "reviews_directories"
       },
       {
-        "domain": "medspascout.com",
+        "domain": "pdxhomeguide.com",
         "type": "articles"
       },
       {
@@ -413,15 +413,15 @@
         "type": "reddit_social"
       },
       {
-        "domain": "latimes.com",
+        "domain": "oregonlive.com",
         "type": "articles"
       },
       {
-        "domain": "realself.com",
+        "domain": "angi.com",
         "type": "reviews_directories"
       },
       {
-        "domain": "glowmedspa.com",
+        "domain": "harborplumbingpdx.com",
         "type": "own_website"
       }
     ],
@@ -431,20 +431,20 @@
         "ask": "Correct services, hours and prices. Aim for Yelp’s local “best of” lists."
       },
       {
-        "domain": "medspascout.com",
-        "ask": "Ask to be reviewed or added to their Santa Monica roundup."
+        "domain": "pdxhomeguide.com",
+        "ask": "Ask to be reviewed or added to their Portland plumber roundup."
       },
       {
         "domain": "reddit.com",
         "ask": "Watch local threads and answer questions openly as the business."
       },
       {
-        "domain": "latimes.com",
-        "ask": "Pitch a local story or a spot in their beauty roundups."
+        "domain": "oregonlive.com",
+        "ask": "Pitch a local story or a spot in their home services roundups."
       },
       {
-        "domain": "realself.com",
-        "ask": "Complete your provider profile and invite patient reviews."
+        "domain": "angi.com",
+        "ask": "Complete your business profile and invite customer reviews."
       }
     ],
     "ownSiteCitedPct": 9
@@ -452,7 +452,7 @@
   "searches": {
     "queries": [
       {
-        "query": "best med spa santa monica reviews",
+        "query": "best plumber portland oregon reviews",
         "tools": [
           "chatgpt",
           "perplexity",
@@ -460,13 +460,13 @@
         ]
       },
       {
-        "query": "botox prices santa monica 2026",
+        "query": "water heater replacement cost portland 2026",
         "tools": [
           "chatgpt"
         ]
       },
       {
-        "query": "med spa near me open saturday",
+        "query": "plumber portland open saturday",
         "tools": [
           "perplexity",
           "gemini"
@@ -475,15 +475,15 @@
     ],
     "addedWords": [
       "reviews",
-      "prices",
+      "cost",
       "2026",
-      "open saturday"
+      "open weekends"
     ],
     "pagesWanted": [
       {
-        "word": "prices",
+        "word": "cost",
         "page": "A current price list",
-        "why": "Botox per unit, fillers, facials, in plain text.",
+        "why": "Service call fee, water heater and drain cleaning prices, in plain text.",
         "status": "missing"
       },
       {
@@ -499,7 +499,7 @@
         "status": "partial"
       },
       {
-        "word": "open saturday",
+        "word": "open weekends",
         "page": "Hours, stated plainly",
         "why": "The same on your site and Google listing.",
         "status": "partial"
@@ -509,23 +509,23 @@
   "facts": [
     {
       "id": "f1",
-      "topic": "Botox price",
+      "topic": "Water heater replacement price",
       "isTrue": false,
-      "aiSaid": "Botox is $9 per unit.",
-      "truth": "$13 per unit.",
+      "aiSaid": "A standard water heater replacement starts at $900.",
+      "truth": "Starts at $1,450, installed.",
       "tool": "chatgpt",
       "severity": "major",
       "isPrice": true,
       "sources": [
-        "oldblog.example"
+        "pdxhomeblog.example"
       ],
-      "fix": "Publish $13 per unit on your site; ask the blog to update."
+      "fix": "Publish the $1,450 starting price on your site; ask the blog to update."
     },
     {
       "id": "f2",
       "topic": "Services",
       "isTrue": false,
-      "aiSaid": "Offers laser hair removal.",
+      "aiSaid": "Offers septic tank pumping.",
       "truth": "Not offered.",
       "tool": "perplexity",
       "severity": "critical",
@@ -539,55 +539,55 @@
       "id": "f3",
       "topic": "Hours",
       "isTrue": false,
-      "aiSaid": "Open Sundays.",
-      "truth": "Closed Sundays.",
+      "aiSaid": "Open Sundays for regular appointments.",
+      "truth": "Closed Sundays. Open Saturdays 8am to 2pm.",
       "tool": "claude",
       "severity": "major",
       "isPrice": false,
       "sources": [],
-      "fix": "Mark Sundays closed on Google, Yelp and your site."
+      "fix": "Mark Sundays closed on Google, Yelp and your site, and show the Saturday hours next to the weekday ones."
     },
     {
       "id": "f4",
-      "topic": "Location",
+      "topic": "Address",
       "isTrue": true,
-      "truth": "Santa Monica, CA"
+      "truth": "2140 SE Powell Blvd, Portland, OR 97202"
     },
     {
       "id": "f5",
       "topic": "Website",
       "isTrue": true,
-      "truth": "glowmedspa.com"
+      "truth": "harborplumbingpdx.com"
     },
     {
       "id": "f6",
-      "topic": "Type of business",
+      "topic": "License",
       "isTrue": true,
-      "truth": "Med spa"
+      "truth": "Oregon CCB #221467, licensed and bonded"
     },
     {
       "id": "f7",
-      "topic": "Offers Botox",
+      "topic": "Offers water heater replacement",
       "isTrue": true,
       "truth": "Yes"
     },
     {
       "id": "f8",
-      "topic": "Offers lip filler",
+      "topic": "Offers drain cleaning",
       "isTrue": true,
       "truth": "Yes"
     },
     {
       "id": "f9",
-      "topic": "Offers HydraFacial",
+      "topic": "Offers sewer line repair",
       "isTrue": true,
       "truth": "Yes"
     },
     {
       "id": "f10",
-      "topic": "Saturday hours",
+      "topic": "Same-day service",
       "isTrue": true,
-      "truth": "Open Saturdays"
+      "truth": "Yes, weekdays and Saturdays. No 24/7 emergency line."
     }
   ],
   "websiteChecks": [
@@ -607,7 +607,7 @@
       "id": "facts_page",
       "label": "You have a clear facts page",
       "why": "One page with services, prices, hours and location gives AI a single source of truth.",
-      "fix": "Add a plain “About and pricing” page. Mirror can draft it for you.",
+      "fix": "Add a plain about page and a services page, and state typical prices, fees or how you quote.",
       "status": "fail"
     },
     {
@@ -623,22 +623,36 @@
       "why": "A sitemap lists all your pages, so AI doesn’t miss any.",
       "fix": "Your sitemap needs attention. Regenerate it so it lists every page.",
       "status": "warn"
+    },
+    {
+      "id": "business_schema",
+      "label": "Your business is labeled for machines",
+      "why": "A hidden business label tells AI which name, phone and address are yours, so it doesn’t guess from other sites.",
+      "fix": "Add LocalBusiness (or Organization) schema markup to your homepage with your name, phone and address. Most site builders have a setting for this.",
+      "status": "fail"
+    },
+    {
+      "id": "contact_visible",
+      "label": "Your phone, address and hours are easy to find",
+      "why": "AI answers “who do I call” and “are they open now” from plain text on your site.",
+      "fix": "Your phone and address are on the page. Add your hours in plain text next to them.",
+      "status": "warn"
     }
   ],
   "actions": [
     {
       "id": "a1",
-      "title": "Fix pricing on your site and Yelp",
-      "why": "ChatGPT quotes $9 from an old blog. Show $13 per unit in plain text.",
-      "fixes": "wrong Botox price (p. 08)",
+      "title": "Fix your water heater price on your site and the blog",
+      "why": "ChatGPT quotes $900 from an old blog post. Show $1,450 installed in plain text.",
+      "fixes": "wrong water heater price (p. 08)",
       "effort": "low",
       "impact": "high",
       "track": "facts"
     },
     {
       "id": "a2",
-      "title": "Get featured on medspascout.com and Yelp’s “best of” lists",
-      "why": "These are the sites AI reads when Skin Bar LA wins.",
+      "title": "Get featured on pdxhomeguide.com and Yelp’s “best of” lists",
+      "why": "These are the sites AI reads when Rose City Rooter wins.",
       "fixes": "low visibility (p. 04, 06)",
       "effort": "medium",
       "impact": "high",
@@ -655,15 +669,33 @@
     },
     {
       "id": "a4",
+      "title": "Put your phone, address and hours in plain text",
+      "why": "AI answers “are they open” questions from text it can read, not from a graphic or a widget.",
+      "fixes": "hours not in plain text (p. 09)",
+      "effort": "low",
+      "impact": "high",
+      "track": "both"
+    },
+    {
+      "id": "a5",
       "title": "Correct services and hours on Yelp and Google",
-      "why": "Remove laser hair removal on Yelp. Mark Sundays closed everywhere.",
-      "fixes": "laser hair removal, Sunday hours (p. 08)",
+      "why": "Remove septic tank pumping on Yelp. Mark Sundays closed everywhere.",
+      "fixes": "septic tank pumping, Sunday hours (p. 08)",
       "effort": "low",
       "impact": "medium",
       "track": "facts"
     },
     {
-      "id": "a5",
+      "id": "a6",
+      "title": "Label your business for machines",
+      "why": "LocalBusiness markup with your name, phone and address tells AI which listing is yours.",
+      "fixes": "business label (p. 09)",
+      "effort": "low",
+      "impact": "medium",
+      "track": "both"
+    },
+    {
+      "id": "a7",
       "title": "Label prices and FAQs for machines",
       "why": "Helps AI read your prices correctly instead of guessing.",
       "fixes": "price labels (p. 09)",
@@ -672,7 +704,7 @@
       "track": "facts"
     },
     {
-      "id": "a6",
+      "id": "a8",
       "title": "Update your sitemap",
       "why": "Makes sure AI finds every page, including the new facts page.",
       "fixes": "sitemap (p. 09)",
@@ -681,7 +713,7 @@
       "track": "facts"
     },
     {
-      "id": "a7",
+      "id": "a9",
       "title": "Build the pages AI searches for: prices, reviews, hours",
       "why": "AI searched for these before naming anyone.",
       "fixes": "pages AI looks for (p. 07)",
@@ -690,7 +722,7 @@
       "track": "visibility"
     },
     {
-      "id": "a8",
+      "id": "a10",
       "title": "Turn your closest wins into first-place answers",
       "why": "You’re already 2nd or 3rd on these questions.",
       "fixes": "closest wins (p. 05)",
@@ -709,8 +741,8 @@
       "when": "Month 1",
       "title": "Fix the facts",
       "items": [
-        "Correct your Botox price on your site and Yelp",
-        "Remove laser hair removal from Yelp",
+        "Correct your water heater price on your site and the blog",
+        "Remove septic tank pumping from Yelp",
         "Mark Sundays closed on Google and Yelp",
         "Publish a plain facts page"
       ]
@@ -719,7 +751,7 @@
       "when": "Months 2 and 3",
       "title": "Win more questions",
       "items": [
-        "Get you onto medspascout.com and Yelp “best of” lists",
+        "Get you onto pdxhomeguide.com and Yelp “best of” lists",
         "Build the pages AI searches for: prices, reviews, hours",
         "Turn your 5 closest wins into first-place answers",
         "Get Gemini naming you for the first time"
@@ -734,12 +766,12 @@
   },
   "prospect": false,
   "missedQuote": {
-    "question": "Where should I get Botox in Santa Monica?",
-    "text": "Top picks are Skin Bar LA, known for natural results and fair pricing, and Nuvo Aesthetics for its experienced injectors.",
+    "question": "Who should I call for a water heater replacement in Portland?",
+    "text": "Top picks are Rose City Rooter, known for fast scheduling and fair pricing, and Bridgetown Drain Pros for its licensed and bonded crews.",
     "tool": "chatgpt",
     "named": [
-      "Skin Bar LA",
-      "Nuvo Aesthetics"
+      "Rose City Rooter",
+      "Bridgetown Drain Pros"
     ]
   }
 }

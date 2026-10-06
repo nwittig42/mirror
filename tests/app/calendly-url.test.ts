@@ -18,7 +18,7 @@ describe("buildCalendlyUrl", () => {
     expect(url.searchParams.has("email")).toBe(false);
   });
 
-  it("carries the practice and website so the booking alert identifies the lead", () => {
+  it("carries the business and website so the booking alert identifies the lead", () => {
     const url = new URL(
       buildCalendlyUrl(BASE, { practiceName: "Offerloop", websiteUrl: "https://offerloop.ai" }),
     );
@@ -26,7 +26,7 @@ describe("buildCalendlyUrl", () => {
     expect(url.searchParams.get("utm_content")).toBe("Offerloop - https://offerloop.ai");
   });
 
-  it("still attributes when only one of practice or website is present", () => {
+  it("still attributes when only one of business or website is present", () => {
     const url = new URL(buildCalendlyUrl(BASE, { practiceName: "Offerloop" }));
     expect(url.searchParams.get("utm_content")).toBe("Offerloop");
   });

@@ -139,7 +139,7 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
       <section>
         <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Head to head</h2>
         <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          For each question, who each engine named and in what order. Your practice is highlighted.
+          For each question, who each engine named and in what order. Your business is highlighted.
         </p>
         <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-sm">
