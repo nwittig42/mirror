@@ -45,6 +45,14 @@ const OUTREACH_ASK: Record<SourceType, string> = {
 
 type Check = Awaited<ReturnType<typeof getChecksForScan>>[number];
 
+// The scan runner marks a namesake veto (the answer named a different
+// business with the client's name) with this prefix on the tone reason.
+const isNamesake = (c: Check) => c.toneReason?.startsWith("Different business:") ?? false;
+
+/** Every other business the scan found in a check, for the matcher's longer-name guard. */
+const othersOf = (c: Pick<Check, "competitorsMentioned" | "namedOrder">) =>
+  Array.from(new Set([...c.competitorsMentioned, ...c.namedOrder]));
+
 /** Percentages that add up to exactly 100 (largest remainder). */
 function toPercents(counts: number[]): number[] {
   const total = counts.reduce((a, b) => a + b, 0);
@@ -132,7 +140,7 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
   // Website check: from the scan, or run once now and saved for next time.
   let site = scan.websiteCheck ?? null;
   if (!site && practice.website) {
-    site = await runWebsiteCheck(practice.website).catch(() => null);
+    site = await runWebsiteCheck(practice.website, undefined, { names }).catch(() => null);
     if (site) await db.update(scans).set({ websiteCheck: site }).where(eq(scans.id, scan.id));
   }
 
@@ -200,14 +208,18 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
   const count = (t: string) => toned.filter(c => c.tone === t).length;
   const quoteFrom = (c: Check | undefined): Quote | undefined => {
     if (!c) return undefined;
-    const snippet = extractSnippet(c.answerText, names) ?? c.toneReason;
+    // The row's competitors are the names the scan knew when it counted the
+    // mention; without them "Glow MedSpa and Skin Bar LA are both good" reads
+    // as one longer name and the sentence that earned the row is skipped.
+    const snippet = extractSnippet(c.answerText, names, othersOf(c)) ?? c.toneReason;
     return snippet ? { text: snippet.slice(0, 260), tool: TOOL_OF[c.engine], questionId: c.promptId } : undefined;
   };
 
   // The quote an owner reads first: a buyer question where AI recommended
   // others and not them. ChatGPT first, since that's the one they've heard of.
+  // Never a vetoed namesake: its text carries the client's own name.
   const missed = [...earned]
-    .filter(c => c.promptKind === "category" && !c.mentioned && c.namedOrder.length > 0)
+    .filter(c => c.promptKind === "category" && !c.mentioned && c.namedOrder.length > 0 && !isNamesake(c))
     .sort((a, b) => Number(b.engine === "openai") - Number(a.engine === "openai") || a.run - b.run)[0];
   const missedQuote = missed ? {
     question: missed.promptText,
@@ -279,6 +291,8 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
     readable_text: { title: "Make your text load without special code", effort: "medium", impact: "high", track: "both" },
     machine_labels: { title: "Label your prices and FAQs for machines", effort: "low", impact: "medium", track: "facts" },
     sitemap: { title: "Publish a sitemap", effort: "low", impact: "low", track: "both" },
+    business_schema: { title: "Label your business for machines", effort: "low", impact: "medium", track: "both" },
+    contact_visible: { title: "Put your phone, address and hours in plain text", effort: "low", impact: "high", track: "both" },
   };
   for (const c of failing) {
     const meta = CHECK_ACTION[c.id];

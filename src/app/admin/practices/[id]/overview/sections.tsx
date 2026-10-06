@@ -92,7 +92,7 @@ export function AccountTab(p: {
         </div>
         <div>
           <H2>Logins</H2>
-          {p.logins.length === 0 ? <Empty>No logins yet. Issue one on the practice page.</Empty> : (
+          {p.logins.length === 0 ? <Empty>No logins yet. Issue one on the business page.</Empty> : (
             <div className="text-sm">
               {p.logins.map(u => (
                 <div key={u.email} className="border-b border-[#f0f0f0] py-2.5">
@@ -106,7 +106,7 @@ export function AccountTab(p: {
               ))}
             </div>
           )}
-          <p className="mt-3 text-xs text-zinc-500">Password resets stay on the practice page. Nothing here emails the customer.</p>
+          <p className="mt-3 text-xs text-zinc-500">Password resets stay on the business page. Nothing here emails the customer.</p>
         </div>
       </div>
     </div>
@@ -118,7 +118,7 @@ export function AccountTab(p: {
 export function ScoresTab({ scans }: {
   scans: { id: string; status: string; startedAt: Date; coverage: Coverage | null; shown: { overall: number | null; visibility: number | null; facts: number | null; estimated: boolean } }[];
 }) {
-  if (scans.length === 0) return <Empty>No scans yet. Run one from the practice page.</Empty>;
+  if (scans.length === 0) return <Empty>No scans yet. Run one from the business page.</Empty>;
   const grid = "grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_60px_70px_50px] gap-3 items-center";
   return (
     <div>
@@ -145,9 +145,9 @@ export function ScoresTab({ scans }: {
                   <div className="flex items-center gap-2">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: st.dot }} />{st.label}
                   </div>
-                  <div className="font-semibold text-black">{s.shown.overall ?? "—"}</div>
-                  <div>{s.shown.visibility ?? "—"}</div>
-                  <div>{s.status === "complete" ? `${s.shown.facts ?? "N/A"}${s.shown.estimated && s.shown.facts !== null ? "*" : ""}` : "—"}</div>
+                  <div className="font-semibold text-black">{s.shown.overall ?? "N/A"}</div>
+                  <div>{s.shown.visibility ?? "N/A"}</div>
+                  <div>{s.status === "complete" ? `${s.shown.facts ?? "N/A"}${s.shown.estimated && s.shown.facts !== null ? "*" : ""}` : "N/A"}</div>
                 </div>
                 {reason && <div className="mt-2 rounded-md bg-[#f4f4f5] px-3 py-2 text-[13px] text-zinc-700">Why: {reason}</div>}
               </div>
@@ -210,9 +210,22 @@ const POSITION: Record<string, { label: string; tone: Tone }> = {
   absent: { label: "Not mentioned", tone: "red" },
 };
 
+// The scan runner stores a vetoed namesake's tone reason as this prefix plus
+// the fragment of the answer that placed the business elsewhere.
+const DIFFERENT_BUSINESS = "Different business:";
+
+/** The evidence behind a namesake veto, or null when the check was not vetoed. */
+function namesakeEvidence(toneReason: string | null | undefined): string | null {
+  return toneReason?.startsWith(DIFFERENT_BUSINESS) ? toneReason.slice(DIFFERENT_BUSINESS.length).trim() : null;
+}
+
 export function AnswersTab({ date, questions }: {
   date: Date | null;
-  questions: { prompt: string; kind: string; answers: { engine: Engine; answerText: string; position: string; citations: string[] }[]; missing: Engine[] }[];
+  questions: {
+    prompt: string; kind: string;
+    answers: { engine: Engine; answerText: string; position: string; citations: string[]; toneReason?: string | null }[];
+    missing: Engine[];
+  }[];
 }) {
   if (!date || questions.length === 0) return <Empty>No answers yet. They appear after the first scan.</Empty>;
   return (
@@ -228,12 +241,21 @@ export function AnswersTab({ date, questions }: {
             {q.answers.map(a => {
               const pos = POSITION[a.position] ?? POSITION.absent;
               const sources = [...new Set(a.citations.map(domainOf).filter((d): d is string => !!d))];
+              const namesake = namesakeEvidence(a.toneReason);
               return (
                 <div key={a.engine} className="rounded-[10px] border border-[#e4e4e7] p-4">
-                  <div className="mb-2 flex items-center justify-between gap-2">
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                     <div className="font-semibold text-black">{ENGINE_NAMES[a.engine] ?? a.engine}</div>
-                    <Pill tone={pos.tone}>{pos.label}</Pill>
+                    <div className="flex flex-wrap items-center justify-end gap-1.5">
+                      {namesake !== null && <Pill tone="amber">Different business</Pill>}
+                      <Pill tone={pos.tone}>{pos.label}</Pill>
+                    </div>
                   </div>
+                  {namesake !== null && (
+                    <p className="mb-2 text-xs text-zinc-600">
+                      The answer describes another business with this name: &ldquo;{namesake}&rdquo;. Not counted as a mention.
+                    </p>
+                  )}
                   <p className="line-clamp-6 whitespace-pre-wrap text-sm text-zinc-700">{a.answerText}</p>
                   <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
                     <span className="text-zinc-500">Sources cited:</span>
@@ -303,7 +325,7 @@ export function WrongFactsTab({ base, filter, findings, practiceId }: {
         </div>
       )}
       <p className="mt-4 text-xs text-zinc-500">
-        Triage (fix / dismiss) stays on the <Link href={`/admin/practices/${practiceId}#findings`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>practice page</Link> for now.
+        Triage (fix / dismiss) stays on the <Link href={`/admin/practices/${practiceId}#findings`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>business page</Link> for now.
       </p>
     </div>
   );
@@ -340,7 +362,7 @@ export function SetupTab({ practiceId, facts, questions, competitors }: {
         </div>
       </div>
       <p className="mt-5 text-xs text-zinc-500">
-        Read-only here. <Link href={`/admin/practices/${practiceId}`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>Edit on the practice page ↗</Link>
+        Read-only here. <Link href={`/admin/practices/${practiceId}`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>Edit on the business page ↗</Link>
       </p>
     </div>
   );
@@ -355,7 +377,7 @@ export function EmailsTab() {
       <p className="mt-1 text-zinc-600">Weekly Pulse, alerts and support receipts go out, but nothing saves them, so this tab can&apos;t show them.</p>
       <div className="mt-4 text-[13px] font-semibold text-black">Smallest way to start</div>
       <ol className="mt-1 list-decimal space-y-1 pl-5 text-zinc-600">
-        <li>Add one table: <span className="rounded bg-[#f4f4f5] px-1 font-mono text-xs">sent_emails</span> (practice, kind, to, subject, sent at, provider id).</li>
+        <li>Add one table: <span className="rounded bg-[#f4f4f5] px-1 font-mono text-xs">sent_emails</span> (business, kind, to, subject, sent at, email service id).</li>
         <li>Write one row inside the shared send function, so every email type is covered at once.</li>
         <li>This tab lists those rows. Older emails won&apos;t appear.</li>
       </ol>

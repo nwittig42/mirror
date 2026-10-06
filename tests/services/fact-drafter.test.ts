@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { makeTestDb, seedPractice } from "../helpers/db";
-import { fetchSitePages, saveDraftFacts } from "@/services/fact-drafter";
+import { draftFactsFromPages, fetchSitePages, saveDraftFacts } from "@/services/fact-drafter";
 
 const site: Record<string, string> = {
   "https://glow.example": `<title>Glow</title><a href="/pricing">Prices</a><a href="/careers">Jobs</a><p>Glow MedSpa, Santa Monica</p>`,
@@ -30,6 +30,53 @@ describe("fetchSitePages", () => {
 
   it("fails clearly when the homepage will not load", async () => {
     await expect(fetchSitePages("https://down.example", fakeFetch)).rejects.toThrow(/Could not load/);
+  });
+});
+
+describe("draftFactsFromPages", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "postgres://x";
+    process.env.OPENAI_API_KEY = "k";
+    process.env.ANTHROPIC_API_KEY = "k";
+    process.env.GEMINI_API_KEY = "k";
+    process.env.PERPLEXITY_API_KEY = "k";
+    process.env.RESEND_API_KEY = "k";
+    process.env.CRON_SECRET = "s";
+    process.env.AUTH_SECRET = "s";
+    process.env.APP_URL = "http://localhost:3000";
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("describes people as whoever delivers the service or runs the business, in any trade, and parses as before", async () => {
+    const drafted = [
+      { category: "providers", label: "Owner", value: "Sam Lee, licensed master plumber", sourceUrl: "https://harbor.example/about" },
+      { category: "pricing", label: "Drain cleaning", value: "From $149", sourceUrl: "https://harbor.example/made-up" },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      content: [{ type: "text", text: JSON.stringify(drafted) }],
+    }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const out = await draftFactsFromPages({
+      businessName: "Harbor Plumbing",
+      pages: [{ url: "https://harbor.example/about", title: "About", text: "Owner Sam Lee, licensed master plumber" }],
+    });
+    expect(out).toEqual([
+      { category: "providers", label: "Owner", value: "Sam Lee, licensed master plumber", sourceUrl: "https://harbor.example/about" },
+      // A page we never fetched is not cited.
+      { category: "pricing", label: "Drain cleaning", value: "From $149", sourceUrl: null },
+    ]);
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const system: string = body.system;
+    expect(system).toContain("- providers: named people who deliver the service or run the business (owner, lead technician, chef, attorney, stylist, injector), with titles and credentials as written");
+    // Examples span trades, and the enum values the parser accepts are unchanged.
+    for (const example of ["drain cleaning", "sourdough", "estate planning", "Water heater install price", "Head chef", "Contractor license"]) {
+      expect(system).toContain(example);
+    }
+    for (const category of ["identity", "providers", "services", "not_offered", "pricing", "logistics", "compliance"]) {
+      expect(system).toContain(`- ${category}:`);
+    }
+    expect(body.messages[0].content).toContain("BUSINESS: Harbor Plumbing");
+    expect(body.messages[0].content).toContain("PAGE: https://harbor.example/about");
   });
 });
 

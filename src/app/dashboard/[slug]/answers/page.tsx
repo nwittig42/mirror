@@ -44,6 +44,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
               searchQueries={check.searchQueries}
               tone={check.tone}
               toneReason={check.toneReason}
+              others={check.competitorsMentioned}
             />
           ))}
         </div>

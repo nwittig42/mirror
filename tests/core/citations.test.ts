@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildSourcesReport, classifyDomain, domainOf } from "@/core/citations";
+import { SOURCE_KIND_LABELS, buildSourcesReport, classifyDomain, domainOf } from "@/core/citations";
 
 const check = (over: Partial<Parameters<typeof buildSourcesReport>[0][number]>) => ({
   promptKind: "category", mentioned: false, competitorsMentioned: [], citations: [], ...over,
@@ -26,6 +26,32 @@ describe("classifyDomain", () => {
   });
   it("does not match a lookalike suffix", () => {
     expect(classifyDomain("notyelp.com", null)).toBe("other");
+  });
+
+  it("knows the review and directory sites of every trade", () => {
+    const reviews = [
+      "angi.com", "homeadvisor.com", "thumbtack.com", "houzz.com", "porch.com", "bark.com", "avvo.com", "findlaw.com",
+      "justia.com", "superlawyers.com", "martindale.com", "opentable.com", "resy.com", "doordash.com", "ubereats.com",
+      "grubhub.com", "booking.com", "expedia.com", "zillow.com", "realtor.com", "redfin.com", "apartments.com", "cars.com",
+      "dealerrater.com", "edmunds.com", "carfax.com", "psychologytoday.com", "care.com", "rover.com", "theknot.com",
+      "weddingwire.com", "classpass.com", "mindbodyonline.com", "yp.com", "superpages.com", "manta.com", "mapquest.com",
+      "foursquare.com", "expertise.com", "threebestrated.com", "alignable.com", "birdeye.com", "chamberofcommerce.com",
+      "niche.com", "greatschools.org",
+    ];
+    for (const domain of reviews) expect(classifyDomain(domain, null), domain).toBe("reviews");
+    expect(classifyDomain("pro.homeadvisor.com", null)).toBe("reviews");
+  });
+
+  it("knows the newer social networks and the encyclopaedia", () => {
+    for (const domain of ["threads.net", "bsky.app", "snapchat.com", "tumblr.com", "discord.com"]) {
+      expect(classifyDomain(domain, null), domain).toBe("social");
+    }
+    expect(classifyDomain("britannica.com", null)).toBe("reference");
+    expect(classifyDomain("google.com", null)).toBe("google");
+  });
+
+  it("keeps the six source kinds", () => {
+    expect(Object.keys(SOURCE_KIND_LABELS)).toEqual(["own_site", "reviews", "social", "reference", "google", "other"]);
   });
 });
 

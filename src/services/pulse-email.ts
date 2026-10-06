@@ -46,7 +46,7 @@ const row = (content: string): string =>
  * it's cheaply unit-testable. `sendPulse` below does the I/O.
  */
 export function composePulse(args: PulseArgs): { subject: string; html: string } {
-  const subject = `What AI told patients about ${args.practiceName} this week`;
+  const subject = `What AI told customers about ${args.practiceName} this week`;
 
   const rows: string[] = [];
 
@@ -170,7 +170,13 @@ export async function sendPulse(
   // under a "named in 0 of N answers" line reads as a contradiction, since
   // that quote only exists because the question supplied the name.
   const firstMentioned = visibilityChecks.find(c => c.mentioned) ?? checks.find(c => c.mentioned);
-  const snippet = firstMentioned ? extractSnippet(firstMentioned.answerText, practiceNames) : null;
+  // The names the scan counted alongside the business, so a list answer
+  // ("Harbor Plumbing and Rose City Plumbing are both good") is quoted
+  // rather than read as one longer name and dropped.
+  const snippet = firstMentioned
+    ? extractSnippet(firstMentioned.answerText, practiceNames,
+        [...firstMentioned.competitorsMentioned, ...firstMentioned.namedOrder])
+    : null;
   const bestQuote = firstMentioned && snippet ? { engine: firstMentioned.engine, snippet } : null;
 
   const recipients = memberRows.map(m => m.email);

@@ -83,10 +83,10 @@ export default async function CustomerOverviewPage({
   // Latest answers: the first run of each question, every tool, plus the
   // tools that didn't answer it.
   const expectedEngines = (latest?.coverage?.engines ?? []).map(e => e.engine);
-  const byPrompt = new Map<string, { prompt: string; kind: string; answers: { engine: Engine; answerText: string; position: string; citations: string[] }[] }>();
+  const byPrompt = new Map<string, { prompt: string; kind: string; answers: { engine: Engine; answerText: string; position: string; citations: string[]; toneReason: string | null }[] }>();
   for (const c of checks.filter(c => c.run === 1)) {
     const q = byPrompt.get(c.promptId) ?? { prompt: c.promptText, kind: c.promptKind, answers: [] };
-    q.answers.push({ engine: c.engine, answerText: c.answerText, position: c.position, citations: c.citations });
+    q.answers.push({ engine: c.engine, answerText: c.answerText, position: c.position, citations: c.citations, toneReason: c.toneReason });
     byPrompt.set(c.promptId, q);
   }
   const questions = [...byPrompt.values()].map(q => ({

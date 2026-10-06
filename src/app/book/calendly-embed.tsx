@@ -39,9 +39,9 @@ export interface CalendlyPrefill {
  * scheduling link. Pure and exported so the query-string contract is unit
  * tested without a browser.
  *
- * `utm_content` carries the practice name and website because those are the two
+ * `utm_content` carries the business name and website because those are the two
  * fields that make the Calendly notification actionable on its own: the booking
- * alert says which practice booked, not just which person. Blank fields are
+ * alert says which business booked, not just which person. Blank fields are
  * omitted rather than sent empty, so Calendly leaves its own inputs editable.
  */
 export function buildCalendlyUrl(base: string, prefill: CalendlyPrefill = {}): string {

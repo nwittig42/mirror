@@ -4,12 +4,13 @@ import { parseCompetitorOutput } from "@/core/competitors";
 // Named businesses only. The extractor is what makes the competitor report
 // "real": the operator's typed list is a seed, and anything an engine
 // recommends that the operator did not know about has to surface here.
-// Directories, review sites, and product brands are excluded because they are
-// not competing for the same customer; the practice's own names are excluded
-// because the model otherwise returns them about one answer in ten.
+// Franchise and chain locations stay in because they compete for the same
+// customer. Directories, review sites, marketplaces and product brands are
+// excluded because they do not; the business's own names are excluded because
+// the model otherwise returns them about one answer in ten.
 const EXTRACTOR_SYSTEM = `You extract the names of businesses recommended in an AI-generated answer.
-Return the name of every specific business, practice, clinic, company, or provider the ANSWER recommends or names as an option, in the order they first appear.
-Do NOT include: the business listed under EXCLUDE (in any spelling); directories, review sites, or marketplaces (Yelp, Google Maps, RealSelf, Groupon, etc.); product or treatment brand names (Botox, Dysport, etc.); generic categories ("a local dermatologist"); people who are not businesses.
+Return the name of every specific business, company, firm, shop, studio, restaurant, contractor, practice, clinic or provider the ANSWER recommends or names as an option, in the order they first appear. Keep franchise and chain locations (Roto-Rooter, Mr. Rooter, Jiffy Lube, Molly Maid) when the ANSWER recommends them: they compete for the same customer.
+Do NOT include: the business listed under EXCLUDE (in any spelling); directories, review sites, marketplaces or apps (Yelp, Google Maps, Angi, Thumbtack, Houzz, Nextdoor, TripAdvisor, OpenTable, DoorDash, Zillow, Avvo, RealSelf, Groupon, Amazon); a product or parent brand named only to describe something else ("a Toyota dealer" names Toyota as a product, "Botox" is a product); generic categories ("a local plumber"); people who are not businesses.
 Use the business's name exactly as written in the ANSWER, minus any trailing location or descriptor.
 If a business is already on the KNOWN COMPETITORS list under any spelling, output the KNOWN spelling exactly as listed.
 Output ONLY a JSON array of strings (no prose). If no businesses are named output [].`;

@@ -21,10 +21,50 @@ vi.mock("next/cache", () => ({
 
 import {
   addFact, updateFindingStatus, logWork, deleteWorkLogEntry, approveFact, approveAllDrafts, updateFactValue,
+  createPractice,
 } from "@/app/admin/actions";
 import { runScan } from "@/services/scan-runner";
 
 describe("admin actions", () => {
+  describe("createPractice", () => {
+    it("records the kind of business and the location the operator typed", async () => {
+      const db = await makeTestDb();
+      setDbForTests(db);
+
+      await createPractice({
+        name: "Harbor Plumbing", slug: "harbor-plumbing", website: "https://harborplumbing.example",
+        category: " Plumber ", location: " Portland, OR ",
+      });
+
+      const [row] = await db.select().from(schema.practices).where(eq(schema.practices.slug, "harbor-plumbing"));
+      expect(row).toMatchObject({
+        name: "Harbor Plumbing", website: "https://harborplumbing.example", category: "Plumber", location: "Portland, OR",
+      });
+    });
+
+    it("leaves both null when they are omitted or blank", async () => {
+      const db = await makeTestDb();
+      setDbForTests(db);
+
+      await createPractice({ name: "Nameless", slug: "nameless" });
+      await createPractice({ name: "Blank", slug: "blank", category: "   ", location: "" });
+
+      const rows = await db.select().from(schema.practices);
+      expect(rows.map(r => [r.category, r.location, r.website])).toEqual([[null, null, null], [null, null, null]]);
+    });
+
+    it("caps them at the same 60 and 80 characters as the report details form", async () => {
+      const db = await makeTestDb();
+      setDbForTests(db);
+
+      await createPractice({ name: "Long", slug: "long", category: "c".repeat(100), location: "l".repeat(100) });
+
+      const [row] = await db.select().from(schema.practices).where(eq(schema.practices.slug, "long"));
+      expect(row.category).toHaveLength(60);
+      expect(row.location).toHaveLength(80);
+    });
+  });
+
   describe("addFact", () => {
     it("inserts an active fact row scoped to the practice", async () => {
       const db = await makeTestDb();

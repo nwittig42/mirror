@@ -7,7 +7,9 @@ describe("slugs", () => {
     expect(slugify("Café Élan")).toBe("cafe-elan");
   });
   it("never returns an empty slug", () => {
-    expect(slugify("!!!")).toBe("practice");
+    // The fallback can surface in a URL, so it follows the section 8 vocabulary
+    // of the 2026-10-05 spec ("business", never "practice").
+    expect(slugify("!!!")).toBe("business");
   });
   it("adds -2, -3… when the address is taken", () => {
     expect(uniqueSlug("Glow MedSpa", new Set(["glow-medspa"]))).toBe("glow-medspa-2");

@@ -8,6 +8,7 @@ export async function saveLead(db: Db, req: AuditRequest): Promise<{ id: string 
   const [row] = await db.insert(leads).values({
     practiceName: req.practiceName, websiteUrl: req.websiteUrl, contactName: req.contactName,
     email: req.email, phone: req.phone || null, bestTimes: req.bestTimes || null,
+    category: req.category || null, location: req.location || null,
   }).returning({ id: leads.id });
   return row;
 }

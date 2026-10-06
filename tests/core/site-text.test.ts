@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { factPageLinks, htmlTitle, htmlToText } from "@/core/site-text";
+import { factPageLinks, htmlTitle, htmlToText, telLinks } from "@/core/site-text";
 
 describe("htmlToText", () => {
   it("drops scripts, styles and tags, decodes entities, keeps line breaks", () => {
@@ -36,7 +36,25 @@ describe("factPageLinks", () => {
     ]);
   });
 
+  it("keeps fee, estimate, quote, story and what-we-do pages, but not feedback", () => {
+    const links = ["/fees", "/free-estimate", "/get-a-quote", "/fee-schedule", "/our-story", "/who-we-are", "/what-we-do", "/feedback", "/newsfeed", "/coffee"]
+      .map(l => `<a href="${l}">x</a>`).join("");
+    expect(factPageLinks(links, "https://glow.example/", 20)).toEqual([
+      "https://glow.example/fees", "https://glow.example/free-estimate", "https://glow.example/get-a-quote", "https://glow.example/fee-schedule",
+      "https://glow.example/our-story", "https://glow.example/who-we-are", "https://glow.example/what-we-do",
+    ]);
+  });
+
   it("respects the limit", () => {
     expect(factPageLinks(html, "https://glow.example/", 1)).toEqual(["https://glow.example/about-us"]);
+  });
+});
+
+describe("telLinks", () => {
+  it("returns tel: hrefs as written, decoded, and nothing else", () => {
+    const html = `<a href="tel:+15035550100">Call</a> <a class="x" href='tel:(503)%20555-0100'>Call</a>
+      <a href="mailto:hi@glow.example">Email</a> <a href="/contact">Contact</a> <a href="TEL:5035550100">Call</a>`;
+    expect(telLinks(html)).toEqual(["tel:+15035550100", "tel:(503) 555-0100", "TEL:5035550100"]);
+    expect(telLinks("<p>no links</p>")).toEqual([]);
   });
 });

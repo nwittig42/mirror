@@ -10,6 +10,8 @@ import {
 const VALID = {
   practiceName: "Glow MedSpa",
   websiteUrl: "https://glowmedspa.com",
+  category: "",
+  location: "",
   contactName: "Dr. Kim",
   email: "kim@glowmedspa.com",
   phone: "",
@@ -34,6 +36,38 @@ describe("auditRequestSchema", () => {
     expect(parsed.success).toBe(false);
     if (!parsed.success) {
       expect(parsed.error.issues.some((i) => i.path[0] === field)).toBe(true);
+    }
+  });
+
+  it("asks for the business name in the words the form uses", () => {
+    const parsed = auditRequestSchema.safeParse({ ...VALID, practiceName: "" });
+    expect(parsed.success).toBe(false);
+    if (!parsed.success) {
+      expect(parsed.error.issues.find((i) => i.path[0] === "practiceName")?.message).toBe("Tell us the business name.");
+    }
+  });
+
+  it("accepts the kind of business and the city as optional, trimmed fields", () => {
+    const blank = auditRequestSchema.safeParse(VALID);
+    expect(blank.success).toBe(true);
+    if (blank.success) expect(blank.data).toMatchObject({ category: "", location: "" });
+
+    const given = auditRequestSchema.safeParse({ ...VALID, category: "  Plumber ", location: " Portland, OR " });
+    expect(given.success).toBe(true);
+    if (given.success) expect(given.data).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+  });
+
+  it.each([
+    ["category", 60],
+    ["location", 80],
+  ])("caps %s at %i characters", (field, cap) => {
+    const atCap = auditRequestSchema.safeParse({ ...VALID, [field]: "x".repeat(cap) });
+    expect(atCap.success).toBe(true);
+
+    const over = auditRequestSchema.safeParse({ ...VALID, [field]: "x".repeat(cap + 1) });
+    expect(over.success).toBe(false);
+    if (!over.success) {
+      expect(over.error.issues.some((i) => i.path[0] === field)).toBe(true);
     }
   });
 
@@ -68,8 +102,14 @@ describe("auditRequestSchema", () => {
 describe("composeAuditRequest", () => {
   const base: AuditRequest = { ...VALID };
 
-  it("names the practice in the subject so the inbox is scannable", () => {
+  it("names the business in the subject so the inbox is scannable", () => {
     expect(composeAuditRequest(base).subject).toBe("Audit request: Glow MedSpa");
+  });
+
+  it("labels the name row as the business", () => {
+    const html = composeAuditRequest(base).html;
+    expect(html).toContain(">Business<");
+    expect(html).not.toContain(">Practice<");
   });
 
   it("escapes HTML in every visitor-supplied field", () => {
@@ -93,12 +133,28 @@ describe("composeAuditRequest", () => {
     const html = composeAuditRequest(base).html;
     expect(html).not.toContain("Phone");
     expect(html).not.toContain("Best times");
+    expect(html).not.toContain("Kind of business");
+    expect(html).not.toContain("City or area");
   });
 
   it("includes optional rows when supplied", () => {
     const html = composeAuditRequest({ ...base, phone: "310-555-0134", bestTimes: "weekday AM" }).html;
     expect(html).toContain("310-555-0134");
     expect(html).toContain("weekday AM");
+  });
+
+  it("shows the kind of business and the city when given, escaped", () => {
+    const html = composeAuditRequest({ ...base, category: "Plumber & drain", location: "Portland, OR" }).html;
+    expect(html).toContain("Kind of business");
+    expect(html).toContain("Plumber &amp; drain");
+    expect(html).toContain("City or area");
+    expect(html).toContain("Portland, OR");
+  });
+
+  it("shows only the one of the two that was given", () => {
+    const html = composeAuditRequest({ ...base, location: "Portland, OR" }).html;
+    expect(html).not.toContain("Kind of business");
+    expect(html).toContain("City or area");
   });
 });
 
@@ -149,7 +205,7 @@ describe("sendAuditRequest", () => {
     expect(calls[0].to).toEqual(["ops@mirror.example"]);
   });
 
-  it("sets reply-to to the practice so the operator can answer inline", async () => {
+  it("sets reply-to to the business so the operator can answer inline", async () => {
     process.env.OPERATOR_EMAIL = "ops@mirror.example";
     const { calls, transport } = capture();
 
@@ -186,11 +242,11 @@ describe("audit confirmation", () => {
   });
 
   const req = {
-    practiceName: "Glow <b>MedSpa</b>", websiteUrl: "https://glow.example", contactName: "Dr. Kim",
-    email: "kim@glow.example", phone: "", bestTimes: "",
+    practiceName: "Glow <b>MedSpa</b>", websiteUrl: "https://glow.example", category: "", location: "",
+    contactName: "Dr. Kim", email: "kim@glow.example", phone: "", bestTimes: "",
   };
 
-  it("escapes the visitor's input and names the practice", async () => {
+  it("escapes the visitor's input and names the business", async () => {
     const { composeAuditConfirmation } = await import("@/services/audit-request");
     const { subject, html } = composeAuditConfirmation(req, "Mirror");
     expect(subject).toContain("Glow <b>MedSpa</b>");

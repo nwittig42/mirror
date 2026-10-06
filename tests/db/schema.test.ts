@@ -24,6 +24,18 @@ describe("schema", () => {
     expect(rows[0].citations).toEqual(["https://yelp.com/biz/glow"]);
   });
 
+  it("stores what kind of business a lead is and where, both optional", async () => {
+    const db = await makeTestDb();
+    const base = { websiteUrl: "harborplumbing.example", contactName: "Sam", email: "sam@harborplumbing.example" };
+    const [told] = await db.insert(schema.leads)
+      .values({ ...base, practiceName: "Harbor Plumbing", category: "Plumber", location: "Portland, OR" }).returning();
+    const [silent] = await db.insert(schema.leads)
+      .values({ ...base, practiceName: "Nameless" }).returning();
+
+    expect(told).toMatchObject({ category: "Plumber", location: "Portland, OR" });
+    expect(silent).toMatchObject({ category: null, location: null });
+  });
+
   it("defaults a new activity to internal visibility", async () => {
     const db = await makeTestDb();
     const [practice] = await db.insert(schema.practices)

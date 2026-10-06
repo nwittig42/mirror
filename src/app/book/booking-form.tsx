@@ -108,7 +108,7 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
           We&rsquo;re running your scan now.
         </h2>
         <p className="mk-body" style={{ marginTop: 14 }}>
-          We&rsquo;re asking ChatGPT, Claude, Gemini, Grok and Perplexity about your practice now. Your summary report
+          We&rsquo;re asking ChatGPT, Claude, Gemini, Grok and Perplexity about your business now. Your summary report
           lands in your inbox in about 10 minutes. You&rsquo;ll hear from us within one business day to lock a 30-minute slot,
           and the full report will be ready for that call.
         </p>
@@ -123,7 +123,7 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
     <form action={formAction} className="mk-form-card" noValidate>
       <span className="mk-eyebrow">Book your audit</span>
       <h2 className="mk-display mk-h3" style={{ marginTop: 14, marginBottom: 26 }}>
-        Thirty minutes, your real practice.
+        Thirty minutes, your real business.
       </h2>
 
       {state.message && (
@@ -141,16 +141,23 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
         </p>
       )}
 
-      <Field name="practiceName" label="Practice name" required state={state} placeholder="Aesthetics by Dr. Kim" />
+      <Field name="practiceName" label="Business name" required state={state} placeholder="Harbor Plumbing and Drain" />
       <Field
         name="websiteUrl"
-        label="Practice website"
+        label="Business website"
         required
         state={state}
         type="text"
-        placeholder="glowmedspa.com"
+        placeholder="harborplumbing.com"
         hint="We scan this before the call, so we arrive with your real answers."
       />
+      <Field
+        name="category"
+        label="What kind of business is it?"
+        state={state}
+        placeholder="Plumber, bakery, law firm, dentist"
+      />
+      <Field name="location" label="City or area" state={state} placeholder="Portland, OR" autoComplete="address-level2" />
       <Field name="contactName" label="Your name" required state={state} autoComplete="name" />
       <Field name="email" label="Email" required state={state} type="email" autoComplete="email" />
       <Field name="phone" label="Phone" state={state} type="tel" autoComplete="tel" />
@@ -159,7 +166,7 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
         label="Best times to reach you"
         state={state}
         textarea
-        placeholder="Weekday mornings before clinic"
+        placeholder="Weekday mornings before we open"
       />
 
       {/* Honeypot: off-screen and hidden from assistive tech, so only a bot
@@ -171,7 +178,7 @@ export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
       </div>
 
       <button type="submit" className="mk-btn mk-btn-block" disabled={isPending}>
-        {isPending ? "Sending…" : "See my practice’s answers"}
+        {isPending ? "Sending…" : "See what AI says about my business"}
       </button>
       <p className="mk-field-hint" style={{ marginTop: 14 }}>
         No engagement required to see it. We don&rsquo;t share your details with anyone.

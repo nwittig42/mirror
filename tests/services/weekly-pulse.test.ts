@@ -16,10 +16,10 @@ describe("runWeeklyPulses", () => {
     process.env.APP_URL = "http://localhost:3000";
   });
 
-  it("sends one pulse per active practice", async () => {
+  it("sends one pulse per active business", async () => {
     const db = await makeTestDb();
-    const { practiceId: a } = await seedPractice(db, { name: "Glow MedSpa" });
-    const { practiceId: b } = await seedPractice(db, { name: "Skin Bar LA" });
+    const { practiceId: a } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
+    const { practiceId: b } = await seedPractice(db, { name: "Rose City Rooter" });
 
     const send = vi.fn().mockResolvedValue(undefined);
     const results = await runWeeklyPulses(db, send);
@@ -28,9 +28,9 @@ describe("runWeeklyPulses", () => {
     expect(send.mock.calls.map(c => c[1]).sort()).toEqual([a, b].sort());
   });
 
-  it("skips inactive practices", async () => {
+  it("skips inactive businesses", async () => {
     const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Churned Spa" });
+    const { practiceId } = await seedPractice(db, { name: "Churned Bakery" });
     await db.update(schema.practices).set({ active: false });
 
     const send = vi.fn().mockResolvedValue(undefined);
@@ -43,8 +43,8 @@ describe("runWeeklyPulses", () => {
 
   it("one failing send doesn't stop the rest", async () => {
     const db = await makeTestDb();
-    const { practiceId: ok } = await seedPractice(db, { name: "Glow MedSpa" });
-    await seedPractice(db, { name: "Skin Bar LA" });
+    const { practiceId: ok } = await seedPractice(db, { name: "Harbor Plumbing and Drain" });
+    await seedPractice(db, { name: "Rose City Rooter" });
 
     const send = vi.fn().mockImplementation(async (_db, practiceId: string) => {
       if (practiceId !== ok) throw new Error("send boom");
@@ -92,7 +92,7 @@ describe("GET /api/cron/weekly-pulse", () => {
     setDbForTests(db);
     // No complete scan and no members, so sendPulse no-ops per practice; this
     // asserts the route is wired and authorized, not the email itself.
-    await seedPractice(db, { name: "Glow MedSpa" });
+    await seedPractice(db, { name: "Harbor Plumbing and Drain" });
 
     const { GET } = await import("@/app/api/cron/weekly-pulse/route");
     const res = await GET(new Request("http://localhost/api/cron/weekly-pulse", {

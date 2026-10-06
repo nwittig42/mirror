@@ -60,7 +60,7 @@ const findingBlock = (finding: NewFinding): string => {
 
   const truthRow = finding.factValue
     ? `<div style="font-size:15px;color:#111;margin-top:6px;"><strong>Truth:</strong> ${escapeHtml(finding.factValue)}</div>`
-    : `<div style="font-size:14px;color:#666;margin-top:6px;font-style:italic;">No matching fact on the Fact Sheet &mdash; verify before correcting.</div>`;
+    : `<div style="font-size:14px;color:#666;margin-top:6px;font-style:italic;">No matching fact on the Fact Sheet. Verify before correcting.</div>`;
 
   return (
     `<div style="padding:16px 0;border-bottom:1px solid #e5e5e5;font-family:sans-serif;">` +
@@ -92,7 +92,7 @@ export function composeAlert(args: AlertArgs): { subject: string; html: string }
     .map(c => `${c.n} ${c.severity}`)
     .join(", ");
 
-  const subject = `Mirror alert: ${args.practiceName} — ${counts}`;
+  const subject = `Mirror alert for ${args.practiceName}: ${counts}`;
 
   const accuracyUrl = `${args.appUrl}/dashboard/${encodeURIComponent(args.slug)}/accuracy`;
 
