@@ -65,6 +65,11 @@ function pageUrl(url: string): string {
   return url.replace(/#:~:text=.*$/, "");
 }
 
+/** Google's own panel for a map listing or a search, which it lists among the sources. Not a page anyone can earn a place on. */
+function isGoogleViewer(url: string): boolean {
+  return /^https?:\/\/(?:www\.)?google\.[a-z.]+\/(?:searchviewer|search)\b/i.test(url);
+}
+
 export const googleAdapter: EngineAdapter = {
   name: "google",
   async run(prompt) {
@@ -91,7 +96,7 @@ export const googleAdapter: EngineAdapter = {
     if (!overview || !answer) throw new EngineError("google", 502, "no AI Mode answer");
 
     const citations = [...new Set(
-      referencesOf(overview).map(r => r.url).filter((url): url is string => !!url).map(pageUrl),
+      referencesOf(overview).map(r => r.url).filter((url): url is string => !!url && !isGoogleViewer(url)).map(pageUrl),
     )];
     return { answer, citations };
   },

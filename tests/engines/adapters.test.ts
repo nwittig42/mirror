@@ -278,7 +278,10 @@ describe("google adapter", () => {
     type: "ai_overview",
     markdown: "For a water heater, **Harbor Plumbing** is well reviewed.[[1]](https://yelp.com/biz/harbor)[[2]](https://harbor.example/about)\n\n"
       + "![Harbor van](https://api.dataforseo.com/cdn/i/1) See [Rose City Plumbing](https://rosecity.example) too.",
-    references: [{ url: "https://yelp.com/biz/harbor#:~:text=well%20reviewed" }, { url: null }],
+    references: [
+      { url: "https://yelp.com/biz/harbor#:~:text=well%20reviewed" }, { url: null },
+      { url: "https://www.google.com/searchviewer/10?svid=abc" },
+    ],
     items: [
       { type: "ai_overview_element", references: [{ url: "https://harbor.example/about" }, { url: "https://yelp.com/biz/harbor" }] },
       { type: "ai_overview_element", references: null },
