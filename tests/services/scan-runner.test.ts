@@ -964,6 +964,59 @@ describe("runScan pre-filter and record phase disagreeing in the named direction
   });
 });
 
+describe("runScan and Google AI Overviews", () => {
+  const summary = { asked: 2, shown: 1, namedIn: 0, failed: 0, results: [] };
+
+  it("reads the overview for each buyer question, with the business's names and known competitors, and stores it", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing",
+      prompts: [
+        { text: "Best plumber in Portland", kind: "category" },
+        { text: "How much does a plumber cost in Portland?", kind: "informational" },
+        { text: "Is Harbor Plumbing any good?", kind: "branded" },
+      ],
+      competitors: ["Rose City Plumbing"],
+    });
+    const asked: unknown[] = [];
+    const { score } = await runScan(db, practiceId, [fakeAdapter("openai", "Harbor Plumbing is good.")], clean, async () => [], {
+      checkAiOverviews: async args => { asked.push(args); return summary; },
+    });
+    expect(asked).toEqual([{
+      questions: ["Best plumber in Portland", "How much does a plumber cost in Portland?"],
+      practiceNames: ["Harbor Plumbing"], competitorNames: ["Rose City Plumbing"],
+    }]);
+    const scan = await db.query.scans.findFirst();
+    expect(scan?.aiOverviews).toEqual(summary);
+
+    // It is a finding of its own: the same scan without it scores the same.
+    const db2 = await makeTestDb();
+    const { practiceId: p2 } = await seedPractice(db2, {
+      name: "Harbor Plumbing",
+      prompts: [
+        { text: "Best plumber in Portland", kind: "category" },
+        { text: "How much does a plumber cost in Portland?", kind: "informational" },
+        { text: "Is Harbor Plumbing any good?", kind: "branded" },
+      ],
+      competitors: ["Rose City Plumbing"],
+    });
+    const plain = await runScan(db2, p2, [fakeAdapter("openai", "Harbor Plumbing is good.")], clean, async () => []);
+    expect(plain.score).toBe(score);
+    expect((await db2.query.scans.findFirst())?.aiOverviews).toBeNull();
+  });
+
+  it("finishes the scan with nothing stored when the overview check fails", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", prompts: [{ text: "Best plumber in Portland", kind: "category" }] });
+    const result = await runScan(db, practiceId, [fakeAdapter("openai", "Harbor Plumbing is good.")], clean, async () => [], {
+      checkAiOverviews: async () => { throw new Error("dataforseo down"); },
+    });
+    expect(result.blocked).toBe(false);
+    const scan = await db.query.scans.findFirst();
+    expect(scan).toMatchObject({ status: "complete", aiOverviews: null });
+  });
+});
+
 describe("runScan pacing", () => {
   it("starts the next engine request without waiting for the last answer to be read", async () => {
     const db = await makeTestDb();

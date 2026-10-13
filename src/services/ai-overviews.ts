@@ -1,5 +1,6 @@
 import { readOverview, summarizeOverviews, type OverviewResult, type OverviewSummary } from "@/core/ai-overview";
 import { fetchAiOverview } from "@/engines/google-overview";
+import { hasDataForSeo } from "@/engines/dataforseo";
 
 /**
  * Searches Google once for each buyer question and reads the AI Overview it
@@ -26,4 +27,9 @@ export async function checkAiOverviews(args: {
   }));
   const results = read.filter((r): r is OverviewResult => r !== null);
   return summarizeOverviews(results, read.length - results.length);
+}
+
+/** The check a real scan runs: this one when DataForSEO is set up, none otherwise. */
+export function aiOverviewCheck(): typeof checkAiOverviews | undefined {
+  return hasDataForSeo() ? checkAiOverviews : undefined;
 }

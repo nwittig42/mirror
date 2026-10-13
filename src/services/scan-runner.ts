@@ -18,6 +18,7 @@ import { canonicalName, reconcileCompetitors } from "@/core/competitors";
 import { logActivity } from "@/services/activity";
 import type { rateTone } from "@/services/tone-rater";
 import type { runWebsiteCheck } from "@/services/website-check";
+import type { checkAiOverviews } from "@/services/ai-overviews";
 
 type Judge = typeof judgeAnswer;
 type Extractor = typeof extractCompetitors;
@@ -74,6 +75,12 @@ export interface ScanOptions {
   rateTone?: typeof rateTone;
   /** Runs the website check alongside the engine calls; stored on the scan. */
   checkWebsite?: typeof runWebsiteCheck;
+  /**
+   * Reads Google's AI Overview for each buyer question alongside the engine
+   * calls; stored on the scan. It is a finding of its own and never touches
+   * the score or coverage.
+   */
+  checkAiOverviews?: typeof checkAiOverviews;
   /**
    * Pause before the one extra try every retriable failure gets once the rest
    * of the scan has finished. A rate limit often clears in that time.
@@ -265,6 +272,14 @@ export async function runScan(
     // only loses the check, never the scan.
     const websiteCheck = options.checkWebsite && practice.website
       ? options.checkWebsite(practice.website, undefined, { names: practiceNames }).catch(() => null)
+      : Promise.resolve(null);
+
+    // Also independent of the engines. Buyer questions only: a question that
+    // names the business is not how anyone finds it. Uses the competitors
+    // known when the scan starts.
+    const buyerQuestions = promptRows.filter(p => p.kind !== "branded").map(p => p.text);
+    const aiOverviews = options.checkAiOverviews && buyerQuestions.length > 0
+      ? options.checkAiOverviews({ questions: buyerQuestions, practiceNames, competitorNames: knownAtStart }).catch(() => null)
       : Promise.resolve(null);
 
     // --- Network phase -------------------------------------------------
@@ -572,6 +587,7 @@ export async function runScan(
       scoreLow: band.low,
       scoreHigh: band.high,
       websiteCheck: await websiteCheck,
+      aiOverviews: await aiOverviews,
       coverage,
       finishedAt: new Date(),
     }).where(eq(scans.id, scan.id));

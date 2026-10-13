@@ -21,6 +21,7 @@ import { fetchSitePages, draftFactsFromPages, saveDraftFacts } from "@/services/
 import { setSupportStatus } from "@/services/support";
 import { rateTone } from "@/services/tone-rater";
 import { runWebsiteCheck } from "@/services/website-check";
+import { aiOverviewCheck } from "@/services/ai-overviews";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
 type PromptKind = (typeof promptKindEnum.enumValues)[number];
@@ -239,16 +240,30 @@ export async function issueClientPassword(
 }
 
 /**
- * Operators only: unlocks or pauses a business. A prospect's business starts
- * paused: its owner sees only the summary and is asked to book the call.
- * Unlocking opens the whole dashboard to them and puts the business on the
- * weekly scan and the weekly email; pausing takes both away again.
+ * Operators only: starts or stops the weekly scan and the weekly email for a
+ * business. A prospect's business starts paused. An active business always
+ * has its whole dashboard open; what a paused one's owner sees is decided by
+ * `setDashboardUnlocked`.
  */
 export async function setPracticeActive(practiceId: string, active: boolean): Promise<void> {
   await requireOperator();
   const db = getDb();
   await db.update(practices).set({ active }).where(eq(practices.id, practiceId));
-  await logActivity(db, practiceId, active ? "Unlocked the full dashboard and started weekly scans" : "Paused: dashboard locked to the summary, weekly scans stopped");
+  await logActivity(db, practiceId, active ? "Started weekly scans" : "Paused: weekly scans stopped");
+  await revalidateForPractice(db, practiceId);
+}
+
+/**
+ * Operators only: opens the whole dashboard to a paused business's owner, or
+ * locks it back to the summary. For a prospect after their call, once their
+ * facts are confirmed: they see everything without being put on the weekly
+ * scan, which stays a separate decision (`setPracticeActive`).
+ */
+export async function setDashboardUnlocked(practiceId: string, unlocked: boolean): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  await db.update(practices).set({ dashboardUnlocked: unlocked }).where(eq(practices.id, practiceId));
+  await logActivity(db, practiceId, unlocked ? "Unlocked the full dashboard" : "Locked the dashboard back to the summary");
   await revalidateForPractice(db, practiceId);
 }
 
@@ -333,7 +348,7 @@ export async function triggerScan(practiceId: string): Promise<void> {
   // Scan runs post-response via after(); on plain Node servers it runs in-process.
   after(() =>
     runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors, {
-      runs: loadEnv().SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, deadline: Date.now() + SCAN_DEADLINE_MS,
+      runs: loadEnv().SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, checkAiOverviews: aiOverviewCheck(), deadline: Date.now() + SCAN_DEADLINE_MS,
     }).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       void logActivity(db, practiceId, `scan failed: ${message}`);

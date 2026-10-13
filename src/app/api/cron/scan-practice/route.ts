@@ -11,6 +11,7 @@ import { SCAN_DEADLINE_MS } from "@/services/scan-runner";
 import { scanStartedWithin } from "@/lib/queries";
 import { rateTone } from "@/services/tone-rater";
 import { runWebsiteCheck } from "@/services/website-check";
+import { aiOverviewCheck } from "@/services/ai-overviews";
 
 // One practice's weekly scan, started by /api/cron/weekly-scan. It answers at
 // once and runs the scan in after(), inside this function's own time budget
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
     await scanPracticeWeekly(db, practice, {
       adapters: getAdapters(), judge: judgeAnswer, extractor: extractCompetitors,
       scanOptions: {
-        runs: env.SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck,
+        runs: env.SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, checkAiOverviews: aiOverviewCheck(),
         deadline: invokedAt + SCAN_DEADLINE_MS,
       },
     }).catch(err => console.error(`weekly scan failed for ${practice.slug}:`, err));

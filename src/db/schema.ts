@@ -73,6 +73,10 @@ export const practices = pgTable("practices", {
   slug: text("slug").notNull().unique(),
   website: text("website"),
   active: boolean("active").notNull().default(true),
+  // Opens the whole dashboard to the business's own login while it is still
+  // paused: a prospect after their call, before weekly scans start. An active
+  // business is always open, so this only matters while `active` is false.
+  dashboardUnlocked: boolean("dashboard_unlocked").notNull().default(false),
   // Operator-edited "what's planned next month" note, shown on the client's
   // printable monthly report. Nullable, since most practices won't have one set.
   reportNotes: text("report_notes"),
@@ -156,6 +160,9 @@ export const scans = pgTable("scans", {
   scoreHigh: integer("score_high"),
   // AI-readiness check of the practice's website, run alongside the scan.
   websiteCheck: jsonb("website_check").$type<import("@/core/website-check").WebsiteCheckResult>(),
+  // What Google's AI Overview said for each buyer question. Null when the
+  // scan ran without it (no DataForSEO login) or the check failed outright.
+  aiOverviews: jsonb("ai_overviews").$type<import("@/core/ai-overview").OverviewSummary>(),
   // How many of the answers the scan asked for came back, per engine. Null on
   // scans from before this was recorded.
   coverage: jsonb("coverage").$type<import("@/core/coverage").Coverage>(),

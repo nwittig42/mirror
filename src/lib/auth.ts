@@ -247,13 +247,19 @@ export async function requirePracticeAccess(slug: string) {
 
 /**
  * `requirePracticeAccess`, plus whether this viewer gets the locked preview:
- * a customer whose business is still paused (a prospect before their call)
- * sees the summary and nothing else. An operator is never locked. Pages must
+ * a customer whose business is still paused and has not been unlocked (a
+ * prospect before their call) sees the summary and nothing else. An operator
+ * is never locked. Pages must
  * not load a locked section's data at all, since anything sent to the
  * browser can be read there however it is styled.
  */
 export async function requirePracticeView(slug: string) {
   const practice = await requirePracticeAccess(slug);
   const session = await auth();
-  return { practice, locked: !practice.active && session?.user?.role !== "operator" };
+  return { practice, locked: isPreviewOnly(practice) && session?.user?.role !== "operator" };
+}
+
+/** A business whose owner still sees only the summary: paused, and not yet unlocked by the operator. */
+export function isPreviewOnly(practice: { active: boolean; dashboardUnlocked: boolean }): boolean {
+  return !practice.active && !practice.dashboardUnlocked;
 }
