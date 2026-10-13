@@ -1,4 +1,5 @@
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
+import { LockedSection } from "@/components/locked";
 import { getDb } from "@/db";
 import { getFindingsForPractice, getLatestScan, priceFirst } from "@/lib/queries";
 import { DashboardHeader } from "@/components/dashboard-header";
@@ -12,7 +13,15 @@ const GROUP_LABELS: Record<FindingCardStatus, string> = {
 
 export default async function AccuracyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
+  if (locked) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <DashboardHeader slug={slug} practiceName={practice.name} active="accuracy" />
+        <LockedSection title="Accuracy" what="What AI gets right and wrong about your prices, services and hours, and how to fix each one." />
+      </div>
+    );
+  }
   const db = getDb();
   const [allFindings, latestScan] = await Promise.all([
     getFindingsForPractice(db, practice.id),

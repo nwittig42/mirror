@@ -1,4 +1,5 @@
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
+import { LockedSection } from "@/components/locked";
 import { getDb } from "@/db";
 import { getLatestScan, getChecksForScan } from "@/lib/queries";
 import { buildSourcesReport, SOURCE_KIND_LABELS, type SourceRow } from "@/core/citations";
@@ -45,7 +46,15 @@ function SourceTable({ rows, total, emphasis }: { rows: SourceRow[]; total: numb
 
 export default async function SourcesPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
+  if (locked) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <DashboardHeader slug={slug} practiceName={practice.name} active="sources" />
+        <LockedSection title="Sources" what="The websites AI reads before it answers, and which ones send customers to your competitors." />
+      </div>
+    );
+  }
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
 

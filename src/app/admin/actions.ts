@@ -5,11 +5,11 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { getDb } from "@/db";
 import {
-  practices, practiceMembers, nameVariations, competitors, facts, prompts, findings, users,
+  practices, nameVariations, competitors, facts, prompts, findings,
   activities, factCategoryEnum, promptKindEnum, findingStatusEnum,
 } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
-import { generateTempPassword, hashPassword } from "@/lib/password";
+import { grantClientLogin } from "@/services/client-access";
 import { runScan, SCAN_DEADLINE_MS, SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
 import { scanStartedWithin } from "@/lib/queries";
 import { getAdapters } from "@/engines";
@@ -226,33 +226,9 @@ export async function issueClientPassword(
   email: string,
 ): Promise<{ email: string; password: string }> {
   await requireOperator();
-  const normalized = email.trim().toLowerCase();
-  if (!normalized) throw new Error("An email address is required.");
-
   const db = getDb();
-  const [existing] = await db.select().from(users).where(eq(users.email, normalized));
-
-  // The operator's own password is bootstrapped from OPERATOR_PASSWORD and
-  // changed at /change-password. Letting this screen overwrite it would both
-  // strand the operator behind a must-change prompt and quietly hand their
-  // credential to whoever is on the call.
-  if (existing?.role === "operator") {
-    throw new Error("That address is the operator account. Issue a client password to a client address.");
-  }
-
-  const password = generateTempPassword();
-  const passwordHash = await hashPassword(password);
-
-  const user = existing
-    ? (await db.update(users)
-        .set({ passwordHash, mustChangePassword: true })
-        .where(eq(users.id, existing.id))
-        .returning())[0]
-    : (await db.insert(users)
-        .values({ email: normalized, role: "client", passwordHash, mustChangePassword: true })
-        .returning())[0];
-
-  await db.insert(practiceMembers).values({ userId: user.id, practiceId }).onConflictDoNothing();
+  const { email: normalized, password } = await grantClientLogin(db, practiceId, email);
+  if (password === null) throw new Error("No password was issued.");
 
   // Deliberately records the address and not the password: the plaintext is
   // shown once on screen and never written anywhere it could be read back.
@@ -260,6 +236,20 @@ export async function issueClientPassword(
 
   revalidatePath(`/admin/practices/${practiceId}`);
   return { email: normalized, password };
+}
+
+/**
+ * Operators only: unlocks or pauses a business. A prospect's business starts
+ * paused: its owner sees only the summary and is asked to book the call.
+ * Unlocking opens the whole dashboard to them and puts the business on the
+ * weekly scan and the weekly email; pausing takes both away again.
+ */
+export async function setPracticeActive(practiceId: string, active: boolean): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  await db.update(practices).set({ active }).where(eq(practices.id, practiceId));
+  await logActivity(db, practiceId, active ? "Unlocked the full dashboard and started weekly scans" : "Paused: dashboard locked to the summary, weekly scans stopped");
+  await revalidateForPractice(db, practiceId);
 }
 
 const MAX_WORK_LOG_LENGTH = 300;

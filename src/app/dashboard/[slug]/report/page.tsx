@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
+import { LockedSection } from "@/components/locked";
 import { getDb } from "@/db";
 import { getOpenFindings } from "@/lib/queries";
 import { buildReportData, formatMonthLabel, resolveMonthParam } from "@/lib/report";
@@ -24,7 +25,15 @@ export default async function ReportPage({
 }) {
   const { slug } = await params;
   const { month: monthParam, print } = await searchParams;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
+  if (locked) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <DashboardHeader slug={slug} practiceName={practice.name} active="report" />
+        <LockedSection title="Monthly report" what="Your score trend, what changed and the work done for you each month." />
+      </div>
+    );
+  }
   const db = getDb();
 
   const month = resolveMonthParam(monthParam);

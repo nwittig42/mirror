@@ -7,6 +7,7 @@ import { toolMeta } from "@/report/tokens";
 import type { AuditReport } from "@/report/types";
 import { joinNames } from "@/report/pages/one-page-summary";
 import { renderReportPdf } from "@/services/report-pdf";
+import { grantClientLogin, type ClientLogin } from "@/services/client-access";
 
 /**
  * The email a prospect gets when their first scan finishes: a plain summary
@@ -14,7 +15,14 @@ import { renderReportPdf } from "@/services/report-pdf";
  * words, the one-page summary attached as a PDF, and a request to book the
  * call where their fact sheet is set up. No fact claims: those facts were
  * read off their website by AI and nobody has reviewed them yet.
+ *
+ * It also carries their login. The dashboard it opens shows the summary and
+ * names what the call unlocks, so the email and the dashboard ask for the
+ * same next step.
  */
+
+/** Where the prospect signs in, and with what. `password` is null when they already have their own. */
+export interface ProspectLogin extends ClientLogin { url: string }
 
 /** "Dr. Kim Lee" → "Dr. Kim"; "Kim Lee" → "Kim". */
 function firstName(full: string): string {
@@ -40,7 +48,9 @@ export function summaryParagraph(r: AuditReport): string {
   return parts.join(" ");
 }
 
-export function composeProspectReportEmail(r: AuditReport, opts: { contactName: string; appName: string }): { subject: string; html: string } {
+export function composeProspectReportEmail(
+  r: AuditReport, opts: { contactName: string; appName: string; login?: ProspectLogin | null },
+): { subject: string; html: string } {
   const e = escapeHtml;
   const category = r.business.category.toLowerCase();
   const city = r.business.location.split(",")[0];
@@ -53,6 +63,19 @@ export function composeProspectReportEmail(r: AuditReport, opts: { contactName: 
   const q = r.missedQuote;
   const p = (html: string, style = "") =>
     `<p style="margin:0 0 16px;font-size:16px;line-height:1.55;color:#1d1d1f;${style}">${html}</p>`;
+  const login = opts.login;
+  const loginBlock = login
+    ? `<div style="background:#f5f5f7;border-radius:14px;padding:16px 18px;margin:0 0 20px;">` +
+      `<div style="font-size:16px;font-weight:600;color:#1d1d1f;margin-bottom:6px;">Your dashboard is ready</div>` +
+      `<div style="font-size:15px;line-height:1.5;color:#1d1d1f;margin-bottom:10px;">It shows your ranking and this summary today. The fact check, every AI answer and your fix plan open after your call.</div>` +
+      `<div style="font-size:15px;line-height:1.6;color:#1d1d1f;">Email: <strong>${e(login.email)}</strong><br>` +
+      (login.password
+        ? `Temporary password: <strong style="font-family:Menlo,Consolas,monospace;">${e(login.password)}</strong><br>` +
+          `<span style="color:#6e6e73;">You'll choose your own the first time you sign in.</span>`
+        : `<span style="color:#6e6e73;">Sign in with the password you already use.</span>`) +
+      `</div>` +
+      `<div style="margin-top:12px;"><a href="${e(login.url)}" style="font-size:15px;font-weight:600;color:#0071e3;text-decoration:none;">Open your dashboard →</a></div></div>`
+    : "";
 
   const html =
     `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;">` +
@@ -76,6 +99,7 @@ export function composeProspectReportEmail(r: AuditReport, opts: { contactName: 
     (r.contact.bookingUrl
       ? `<div style="margin:8px 0 20px;"><a href="${e(r.contact.bookingUrl)}" style="display:inline-block;background:#0071e3;color:#fff;border-radius:999px;padding:12px 22px;font-size:16px;font-weight:600;text-decoration:none;">Book a call to set up your fact sheet</a></div>`
       : "") +
+    loginBlock +
     p(`${e(r.contact.name)}${r.contact.email ? `<br><span style="color:#6e6e73;">${e(r.contact.email)}</span>` : ""}`, "margin:0;") +
     `</div><div style="max-width:580px;margin:12px auto 0;font-size:12px;color:#86868b;text-align:center;">${e(opts.appName)} · AI search audit for ${e(r.business.name)}</div>` +
     `</body></html>`;
@@ -104,11 +128,14 @@ export async function sendProspectReport(args: {
   contactName: string;
   transport?: ReportEmailTransport;
   pdf?: (r: AuditReport) => Promise<Buffer>;
+  login?: ProspectLogin | null;
 }): Promise<void> {
   const env = loadEnv();
   const report = await args.report();
   if (!report) throw new Error("no finished scan to send");
-  const { subject, html } = composeProspectReportEmail(report, { contactName: args.contactName, appName: env.NEXT_PUBLIC_APP_NAME });
+  const { subject, html } = composeProspectReportEmail(report, {
+    contactName: args.contactName, appName: env.NEXT_PUBLIC_APP_NAME, login: args.login,
+  });
   const makePdf = args.pdf ?? (r => renderReportPdf(r, "summary"));
   const pdf = await makePdf(report).catch(err => { console.error("summary PDF failed:", err); return null; });
   const slug = report.business.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -118,7 +145,22 @@ export async function sendProspectReport(args: {
   });
 }
 
-/** The real thing: the prospect's report from the database, emailed with its PDF. */
-export function sendProspectReportFor(db: Db, practiceId: string, lead: { email: string; contactName: string }): Promise<void> {
-  return sendProspectReport({ report: () => buildAuditReportData(db, practiceId), to: lead.email, contactName: lead.contactName });
+/**
+ * The real thing: the prospect's report from the database, emailed with its
+ * PDF and a login of their own. Someone who already has a password keeps it.
+ * If the login can't be made (the address is the operator's, say), the
+ * report still goes, without one.
+ */
+export async function sendProspectReportFor(
+  db: Db, practiceId: string, lead: { email: string; contactName: string },
+  transport?: ReportEmailTransport, pdf?: (r: AuditReport) => Promise<Buffer>,
+): Promise<void> {
+  const access = await grantClientLogin(db, practiceId, lead.email, { keepExisting: true }).catch(err => {
+    console.error(`no login made for ${practiceId}:`, err);
+    return null;
+  });
+  const login = access ? { ...access, url: `${loadEnv().APP_URL}/login` } : null;
+  await sendProspectReport({
+    report: () => buildAuditReportData(db, practiceId), to: lead.email, contactName: lead.contactName, login, transport, pdf,
+  });
 }

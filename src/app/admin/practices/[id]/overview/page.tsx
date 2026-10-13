@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { competitors, facts, practices, prompts } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
+import { setPracticeActive } from "@/app/admin/actions";
 import { getChecksForScan, getFindingsForPractice, getLatestScan } from "@/lib/queries";
 import { getPracticeLogins, getScanHistory, getSupportForPractice, getWorkLog } from "@/lib/admin-queries";
 import type { Engine } from "@/core/types";
@@ -120,6 +121,13 @@ export default async function CustomerOverviewPage({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {/* A paused business is a prospect: its owner sees the summary only.
+                Unlocking opens their whole dashboard and starts the weekly scan. */}
+            <form action={setPracticeActive.bind(null, id, !practice.active)}>
+              <button type="submit" className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-50">
+                {practice.active ? "Pause and lock dashboard" : "Unlock full dashboard"}
+              </button>
+            </form>
             <PrimaryLink href={`/dashboard/${practice.slug}`}>View as customer</PrimaryLink>
             <SecondaryLink href={`/admin/practices/${id}`}>Edit setup ↗</SecondaryLink>
           </div>

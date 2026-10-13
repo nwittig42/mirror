@@ -14,7 +14,9 @@ let db: Db;
 // Access is requirePracticeAccess's job and is tested with it; here it just
 // hands back the business the page was asked for.
 vi.mock("@/lib/auth", () => ({
-  requirePracticeAccess: vi.fn(async (slug: string) => (await db.select().from(practices).where(eq(practices.slug, slug)))[0]),
+  requirePracticeView: vi.fn(async (slug: string) => ({
+    practice: (await db.select().from(practices).where(eq(practices.slug, slug)))[0], locked: false,
+  })),
 }));
 const printed: string[] = [];
 vi.mock("@/services/report-pdf", () => ({

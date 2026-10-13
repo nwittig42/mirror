@@ -1,4 +1,4 @@
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import {
   getLatestScan, getScoreHistory, getOpenFindings, getActivities, getCompetitorPressure, getChecksForScan,
@@ -8,6 +8,8 @@ import { ScoreRings } from "@/components/score-rings";
 import { BigValue, Card, HistoryBars, METRIC_COLOR, TrendRow } from "@/components/fitness";
 import { displayScores, explainOverall, scoreTrend } from "@/core/scoring";
 import { ENGINE_NAMES, coverageLabel } from "@/core/coverage";
+import { BookCallButton } from "@/components/locked";
+import { PreviewSummary } from "./preview-summary";
 
 function WorkLog({ activities }: { activities: { id: string; description: string; createdAt: Date }[] }) {
   if (activities.length === 0) {
@@ -30,7 +32,7 @@ function WorkLog({ activities }: { activities: { id: string; description: string
 /** The customer's Summary, after Apple Fitness: rings first, then what moved and why. */
 export default async function DashboardPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
 
@@ -48,6 +50,28 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           </Card>
           <Card title="What we're working on"><WorkLog activities={activities} /></Card>
         </div>
+      </div>
+    );
+  }
+
+  // A prospect before their call: the ranking and nothing that depends on
+  // facts nobody has confirmed yet. None of the rest is loaded.
+  if (locked) {
+    const [competitorPressure, checks] = await Promise.all([
+      getCompetitorPressure(db, latestScan.id),
+      getChecksForScan(db, latestScan.id),
+    ]);
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <DashboardHeader slug={slug} practiceName={practice.name} active="overview" />
+        <PreviewSummary
+          slug={slug}
+          ranking={displayScores(latestScan).visibility}
+          scanDate={latestScan.startedAt}
+          checks={checks}
+          topCompetitor={competitorPressure[0] ?? null}
+          cta={<BookCallButton />}
+        />
       </div>
     );
   }

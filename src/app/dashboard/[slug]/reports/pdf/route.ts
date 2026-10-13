@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { buildAuditReportData } from "@/report/build-report";
 import { isVariant, pdfFileName } from "@/report/scoring";
@@ -12,13 +12,15 @@ export const maxDuration = 60;
 /**
  * One of the four reports as a finished PDF, made on request from the latest
  * scan. Same access rule as the dashboard: the customer's own business, or
- * an operator. 404 for an unknown report or before the first scan.
+ * an operator. 404 for an unknown report, before the first scan, or for
+ * any report but the summary while the business is still a prospect.
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
   const variant = req.nextUrl.searchParams.get("variant");
   if (!isVariant(variant)) return new NextResponse("Unknown report", { status: 404 });
+  if (locked && variant !== "summary") return new NextResponse("This report unlocks after your call.", { status: 404 });
 
   const report = await buildAuditReportData(getDb(), practice.id);
   if (!report) return new NextResponse("The report is ready once the first scan finishes.", { status: 404 });

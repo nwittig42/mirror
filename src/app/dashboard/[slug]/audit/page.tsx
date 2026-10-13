@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { buildAuditReportData } from "@/report/build-report";
 import { ReportSheets } from "@/report/report-view";
@@ -14,6 +14,7 @@ export const maxDuration = 60;
  * The report viewer: the four reports built from the same scan (summary,
  * ranking snapshot, fact check, full audit), each page a US Letter sheet.
  * "Download PDF" asks the server for the finished file; Print still works.
+ * A prospect before their call can open the summary only.
  */
 export default async function AuditPage({
   params, searchParams,
@@ -23,8 +24,8 @@ export default async function AuditPage({
 }) {
   const { slug } = await params;
   const { variant: raw, print } = await searchParams;
-  const variant = isVariant(raw) ? raw : "master";
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
+  const variant = locked ? "summary" : isVariant(raw) ? raw : "master";
   const report = await buildAuditReportData(getDb(), practice.id);
 
   return (
@@ -45,7 +46,7 @@ export default async function AuditPage({
         </span>
       </div>
       <div className="report-toolbar" style={{ justifyContent: "flex-start", gap: 8 }}>
-        {VARIANT_INFO.map(v => (
+        {VARIANT_INFO.filter(v => !locked || v.key === "summary").map(v => (
           <Link key={v.key} href={`/dashboard/${slug}/audit?variant=${v.key}`}
             style={{
               padding: "8px 14px", borderRadius: 10, textDecoration: "none", lineHeight: 1.3,

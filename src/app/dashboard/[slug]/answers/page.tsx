@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
-import { requirePracticeAccess } from "@/lib/auth";
+import { requirePracticeView } from "@/lib/auth";
+import { LockedSection } from "@/components/locked";
 import { getDb } from "@/db";
 import { nameVariations } from "@/db/schema";
 import { getLatestScan, getChecksForScan } from "@/lib/queries";
@@ -8,7 +9,15 @@ import { AnswerCard } from "@/components/answer-card";
 
 export default async function AnswersPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const practice = await requirePracticeAccess(slug);
+  const { practice, locked } = await requirePracticeView(slug);
+  if (locked) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
+        <DashboardHeader slug={slug} practiceName={practice.name} active="answers" />
+        <LockedSection title="AI answers" what="Every answer each AI tool gave, word for word, with where you were named and where you were left out." />
+      </div>
+    );
+  }
   const db = getDb();
 
   const latestScan = await getLatestScan(db, practice.id);

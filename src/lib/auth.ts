@@ -244,3 +244,16 @@ export async function requirePracticeAccess(slug: string) {
 
   return practice;
 }
+
+/**
+ * `requirePracticeAccess`, plus whether this viewer gets the locked preview:
+ * a customer whose business is still paused (a prospect before their call)
+ * sees the summary and nothing else. An operator is never locked. Pages must
+ * not load a locked section's data at all, since anything sent to the
+ * browser can be read there however it is styled.
+ */
+export async function requirePracticeView(slug: string) {
+  const practice = await requirePracticeAccess(slug);
+  const session = await auth();
+  return { practice, locked: !practice.active && session?.user?.role !== "operator" };
+}
