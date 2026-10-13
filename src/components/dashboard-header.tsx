@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-type Tab = "overview" | "answers" | "competitors" | "sources" | "accuracy" | "audit" | "report" | "help";
+type Tab = "overview" | "answers" | "competitors" | "sources" | "accuracy" | "reports" | "report" | "help";
 
 const TABS: { key: Tab; label: string; suffix: string }[] = [
   { key: "overview", label: "Summary", suffix: "" },
@@ -8,7 +8,7 @@ const TABS: { key: Tab; label: string; suffix: string }[] = [
   { key: "competitors", label: "Competitors", suffix: "/competitors" },
   { key: "sources", label: "Sources", suffix: "/sources" },
   { key: "accuracy", label: "Accuracy", suffix: "/accuracy" },
-  { key: "audit", label: "Full report", suffix: "/audit" },
+  { key: "reports", label: "Reports", suffix: "/reports" },
   { key: "report", label: "Monthly report", suffix: "/report" },
   { key: "help", label: "Help", suffix: "/help" },
 ];

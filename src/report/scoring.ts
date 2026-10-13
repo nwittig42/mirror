@@ -267,6 +267,34 @@ export const variantPages: Record<Variant, string[]> = {
   summary: ['one_page'],
 };
 
+/**
+ * The four reports as a customer is offered them, shortest first: on the
+ * Reports tab, in the report viewer's switcher and as the PDF's file name.
+ */
+export const VARIANT_INFO: { key: Variant; label: string; title: string; blurb: string }[] = [
+  { key: 'summary', label: 'Summary', title: 'One-page summary', blurb: 'Your three scores, the top problems and the top fixes.' },
+  { key: 'visibility', label: 'Ranking snapshot', title: 'Where you rank', blurb: 'How often and how high AI names you, tool by tool.' },
+  { key: 'factcheck', label: 'Fact check', title: 'What AI gets wrong', blurb: 'Every fact checked, true or false, and how to fix it.' },
+  { key: 'master', label: 'Full audit', title: 'Full AI audit', blurb: 'Everything: scores, every AI tool, competitors, sources, wrong facts and the 90-day plan.' },
+];
+
+/** "1 page", "12 pages". */
+export function pageCountLabel(variant: Variant): string {
+  const n = variantPages[variant].length;
+  return `${n} page${n === 1 ? '' : 's'}`;
+}
+
+/** Whether a string from a URL is one of the four reports. */
+export function isVariant(value: string | null | undefined): value is Variant {
+  return VARIANT_INFO.some(v => v.key === value);
+}
+
+/** The downloaded PDF's name: "harbor-plumbing-full-audit-2026-10-12.pdf". */
+export function pdfFileName(slug: string, variant: Variant, scanDate: string): string {
+  const label = VARIANT_INFO.find(v => v.key === variant)!.label.toLowerCase().replace(/\s+/g, '-');
+  return `${slug}-${label}-${scanDate}.pdf`;
+}
+
 /** Which actions each variant shows. */
 export function actionsFor(variant: Variant, r: AuditReport) {
   // Master shows the first 6 actions (one page). Snapshots filter by track.
