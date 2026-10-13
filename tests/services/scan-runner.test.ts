@@ -893,15 +893,15 @@ describe("runScan pre-filter and record phase disagreeing in the named direction
   ];
   const answers: Record<string, string> = {
     "Who is a good plumber in Portland?": "Rose City Plumbing is great.",
-    "Who are the best plumbers in Portland?": "Harbor Plumbing and Rose City Plumbing are both good. Harbor charges $49.",
+    "Who are the best plumbers in Portland?": "Top picks: Harbor Plumbing & Rose City Plumbing. Harbor charges $49.",
   };
   const adapter: EngineAdapter = { name: "openai", run: async p => ({ answer: answers[p], citations: [] }) };
   // The extractor finds Rose City Plumbing in the first answer and fails on
-  // the second, so the second answer's pre-filter never learns that "and
-  // Rose City Plumbing" starts a business and reads the client's name as
-  // the first words of a longer one.
+  // the second (both tries), so the second answer's pre-filter never learns
+  // that "& Rose City Plumbing" starts a business and reads the client's
+  // name as the first words of a longer one.
   const extractor = async ({ answer }: { answer: string }) => {
-    if (answer.startsWith("Harbor")) throw new Error("extractor blew up");
+    if (answer.startsWith("Top picks")) throw new Error("extractor blew up");
     return ["Rose City Plumbing"];
   };
 
@@ -920,7 +920,7 @@ describe("runScan pre-filter and record phase disagreeing in the named direction
     expect(judgeCalls).toBe(0);
     expect(rated).toEqual([]);
     const rows = await db.query.checks.findMany();
-    const named = rows.find(r => r.answerText.startsWith("Harbor"))!;
+    const named = rows.find(r => r.answerText.startsWith("Top picks"))!;
     expect(named).toMatchObject({
       mentioned: true, position: "first", namedOrder: ["Harbor Plumbing", "Rose City Plumbing"], tone: null, factsConfirmed: [],
     });
@@ -938,7 +938,7 @@ describe("runScan pre-filter and record phase disagreeing in the named direction
     const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", location: "Portland, OR", prompts });
     await runScan(db, practiceId, [adapter], clean, extractor, { concurrency: 1 });
     const rows = await db.query.checks.findMany();
-    expect(rows.find(r => r.answerText.startsWith("Harbor"))).toMatchObject({ mentioned: true, position: "first" });
+    expect(rows.find(r => r.answerText.startsWith("Top picks"))).toMatchObject({ mentioned: true, position: "first" });
     expect((await db.query.activities.findMany()).some(a => a.description.includes("named the business"))).toBe(false);
 
     // A fact sheet but no rater: only the fact check is reported missing.
@@ -961,6 +961,71 @@ describe("runScan pre-filter and record phase disagreeing in the named direction
       { rateTone: async () => ({ tone: "positive" as const, reason: "x" }) });
     expect(judgeCalls).toBe(1);
     expect((await db.query.activities.findMany()).some(a => a.description.includes("named the business"))).toBe(false);
+  });
+});
+
+describe("runScan pacing", () => {
+  it("starts the next engine request without waiting for the last answer to be read", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [
+        { text: "Best med spa in Santa Monica", kind: "category" },
+        { text: "Best med spa in Venice", kind: "category" },
+      ],
+    });
+    const events: string[] = [];
+    const adapter: EngineAdapter = {
+      name: "openai",
+      run: async prompt => { events.push(`ask ${prompt}`); return { answer: "Glow MedSpa is best.", citations: [] }; },
+    };
+    // The first answer's extractor stays open until the second engine request
+    // has gone out. With one engine lane, that only happens when reading an
+    // answer does not hold the lane.
+    let release = () => {};
+    const secondAsked = new Promise<void>(resolve => { release = resolve; });
+    const run = adapter.run;
+    adapter.run = async prompt => { if (events.length === 1) release(); return run(prompt); };
+    const extractor = async () => { await secondAsked; events.push("read"); return []; };
+
+    await runScan(db, practiceId, [adapter], clean, extractor, { concurrency: 1 });
+
+    expect(events.slice(0, 2).every(e => e.startsWith("ask "))).toBe(true);
+    expect(await db.query.checks.findMany()).toHaveLength(2);
+  });
+
+  it("gives the competitor extractor a second try before giving up on an answer", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing",
+      prompts: [{ text: "Best plumber in Portland", kind: "category" }],
+    });
+    const adapter = fakeAdapter("openai", "Top picks: Harbor Plumbing & Rose City Plumbing.");
+    let calls = 0;
+    const extractor = async () => { if (++calls === 1) throw new Error("extractor 529"); return ["Rose City Plumbing"]; };
+
+    await runScan(db, practiceId, [adapter], clean, extractor);
+
+    expect(calls).toBe(2);
+    const [check] = await db.query.checks.findMany();
+    expect(check.mentioned).toBe(true);
+    expect(check.competitorsMentioned).toEqual(["Rose City Plumbing"]);
+    expect((await db.query.activities.findMany()).some(a => a.description.includes("extraction failed"))).toBe(false);
+  });
+
+  it("counts the business in 'A and B are both good' even when the extractor never answers", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Harbor Plumbing",
+      prompts: [{ text: "Best plumber in Portland", kind: "category" }],
+    });
+    const adapter = fakeAdapter("openai", "Harbor Plumbing and Rose City Plumbing are both well reviewed.");
+
+    await runScan(db, practiceId, [adapter], clean, async () => { throw new Error("extractor down"); });
+
+    const [check] = await db.query.checks.findMany();
+    expect(check.mentioned).toBe(true);
+    expect(check.position).toBe("first");
   });
 });
 

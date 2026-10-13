@@ -6,7 +6,7 @@ import { AnswerCard } from "@/components/answer-card";
  * The answer card highlights the business's name with the same matcher the
  * scan used to classify the check, so the highlight agrees with the position
  * chip. A review found the card ignoring the other businesses the check
- * found: without them, "Harbor Plumbing and Rose City Plumbing" reads as one
+ * found: without them, "Harbor Plumbing & Rose City Plumbing" reads as one
  * longer name and nothing is marked.
  */
 const render = (props: Partial<Parameters<typeof AnswerCard>[0]>) =>
@@ -15,7 +15,7 @@ const render = (props: Partial<Parameters<typeof AnswerCard>[0]>) =>
       promptText="Who is the best plumber in Portland?"
       engine="openai"
       position="first"
-      answerText="Harbor Plumbing and Rose City Plumbing are both good."
+      answerText="Top picks: Harbor Plumbing & Rose City Plumbing."
       citations={[]}
       practiceNames={["Harbor Plumbing"]}
       {...props}

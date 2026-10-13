@@ -23,7 +23,7 @@ describe("classifyPosition", () => {
     expect(r.position).toBe("top3");
   });
   it("still rejects a name the conjunction joins to a capitalised word nobody knows", () => {
-    const r = classifyPosition("Skin Bar LA and Someplace Else are good; Glow MedSpa too.", practiceNames, comps);
+    const r = classifyPosition("Skin Bar LA and Someplace Else is good; Glow MedSpa too.", practiceNames, comps);
     expect(r.competitorsMentioned).toEqual([]);
     expect(r.position).toBe("first");
   });

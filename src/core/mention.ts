@@ -206,15 +206,24 @@ function compileAll(names: string[]): Compiled[] {
 // never sit inside a name.
 const LONGER_NAME = /[^\p{L}\p{N}\p{M},;.!?\n\r—–]{0,4}(?:[&+]|[aA][nN][dD])\s+\p{Lu}/uy;
 
-// Words that follow a conjunction without continuing a business name: "I"
-// and the review sites and directories an answer names next to a business
+// Words that follow a conjunction without continuing a business name: "I",
+// the pronouns and titles that open a new clause or a person's name ("Glow
+// MedSpa and Dr. Kim there is excellent"), and the review sites and directories an answer names next to a business
 // ("Harbor Plumbing and Yelp both list the hours"). Kept here rather than
 // taken from competitors.ts, which imports this module.
 const AFTER_CONJUNCTION_WORDS = compileAll([
-  "I", "Yelp", "Google", "Google Maps", "Google Business Profile", "Facebook", "Instagram", "Angi",
+  "I", "They", "Their", "We", "You", "It", "Dr", "Mr", "Mrs", "Ms", "Yelp", "Google", "Google Maps", "Google Business Profile", "Facebook", "Instagram", "Angi",
   "Thumbtack", "Houzz", "Nextdoor", "TripAdvisor", "BBB", "HomeAdvisor", "Amazon", "Reddit", "YouTube",
   "TikTok", "LinkedIn", "Bing", "Apple Maps", "Yellow Pages",
 ]);
+
+// A run of capitalised words and then a plural verb: "Harbor Plumbing and
+// Rose City Plumbing are both well reviewed" is two businesses, where "Harbor
+// Plumbing & Heating is top rated" is one. Lets a list be read as a list
+// even when the second business is not a known name yet, which is every
+// time the competitor extractor fails or leaves it out.
+const LIST_OF_TWO =
+  /(?:[\p{Lu}\p{N}][\p{L}\p{N}\p{M}'’.&-]*\s+){1,6}(?:are|were|both|each|have)(?![\p{L}\p{N}\p{M}])/uy;
 
 /**
  * Whether the occurrence of `all[self]` at [start, end) is really a longer
@@ -226,7 +235,8 @@ const AFTER_CONJUNCTION_WORDS = compileAll([
  * is matched by either. `others` holds the names that may follow a
  * conjunction without turning the match into a longer name: the practice's
  * variations when matching competitors, and the competitors when matching
- * the practice. "I" and the platform names are always allowed.
+ * the practice. "I", pronouns, titles and the platform names are always
+ * allowed, and so is a second name followed by a plural verb.
  */
 function rejectedAsLongerName(
   answer: string, all: (Compiled | null)[], self: number, start: number, end: number, others: Compiled[],
@@ -240,6 +250,8 @@ function rejectedAsLongerName(
     known.at.lastIndex = nextStart;
     if (known.at.test(answer)) return false;
   }
+  LIST_OF_TWO.lastIndex = nextStart;
+  if (LIST_OF_TWO.test(answer)) return false;
   for (let j = 0; j < all.length; j++) {
     const other = all[j];
     if (j === self || !other) continue;
@@ -342,12 +354,21 @@ export function splitSentences(answer: string): Range[] {
   return sentences;
 }
 
+// How a clause that is still about the business opens: a pronoun for it, a
+// plain noun for it, or the people who talk about it.
+const ABOUT_THE_BUSINESS = new RegExp(
+  "^(?:they|their|theirs|it|its|the\\s+(?:business|company|shop|firm|team|practice|clinic|restaurant|store|studio)"
+  + "|this\\s+(?:business|company|shop|firm)|reviews|reviewers|customers|locals)(?![\\p{L}\\p{N}\\p{M}])",
+  "iu",
+);
+
 /**
  * Whether the first contrast word after the name (but / however / that said
- * / although / though) says the engine does know the business. It does
- * unless the clause it introduces starts with another known name: "..., but
- * they are well reviewed" rescues, "..., but Roto-Rooter is a solid option"
- * is about the competitor and does not.
+ * / although / though) says the engine does know the business. It does only
+ * when the clause it introduces is about the business: "..., but they are
+ * well reviewed" rescues. "..., but Roto-Rooter is a solid option" is about
+ * a competitor and "..., but most plumbers charge $100 to $200" is about
+ * the trade, so neither does.
  */
 function contrastRescues(answer: string, after: string, afterStart: number, known: Compiled[]): boolean {
   const contrast = CONTRAST.exec(after);
@@ -359,7 +380,7 @@ function contrastRescues(answer: string, after: string, afterStart: number, know
     name.at.lastIndex = at;
     if (name.at.test(answer)) return false;
   }
-  return true;
+  return ABOUT_THE_BUSINESS.test(answer.slice(at));
 }
 
 /**

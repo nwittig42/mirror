@@ -191,8 +191,12 @@ describe("longer-name guard", () => {
   it("keeps a match when the conjunction joins it to another known name (a list, not a longer name)", () => {
     expect(detectMention("Harbor Plumbing and Rose City Plumbing are both good.", ["Harbor Plumbing"], ["Rose City Plumbing"])).toBe(true);
     expect(detectMention("Harbor Plumbing & Rose City Plumbing are both good.", ["Harbor Plumbing"], ["Rose City Plumbing"])).toBe(true);
-    // The same sentence with the second business unknown is still a longer name.
-    expect(detectMention("Harbor Plumbing and Rose City Plumbing are both good.", ["Harbor Plumbing"])).toBe(false);
+    // With the second business unknown, the plural verb still marks a list of two.
+    expect(detectMention("Harbor Plumbing and Rose City Plumbing are both good.", ["Harbor Plumbing"])).toBe(true);
+    expect(detectMention("Both Harbor Plumbing and Rose City Plumbing have good reviews.", ["Harbor Plumbing"])).toBe(true);
+    // Without one it may be a single longer name, and stays rejected.
+    expect(detectMention("Harbor Plumbing and Rose City Plumbing is top rated.", ["Harbor Plumbing"])).toBe(false);
+    expect(detectMention("Top picks: Harbor Plumbing & Rose City Plumbing.", ["Harbor Plumbing"])).toBe(false);
     // Another variation of the same business counts as a known name too.
     expect(detectMention("Glow and Glow MedSpa are the same place.", ["Glow", "Glow MedSpa"])).toBe(true);
   });
@@ -235,7 +239,8 @@ describe("longer-name guard", () => {
   it("keeps the spec's list examples", () => {
     expect(detectMention("Lumière, and Glow MedSpa", ["Lumière"])).toBe(true);
     expect(detectMention("Skin Bar LA and Glow MedSpa are both good", ["Skin Bar LA"], ["Glow MedSpa"])).toBe(true);
-    expect(detectMention("Skin Bar LA and Glow MedSpa are both good", ["Skin Bar LA"])).toBe(false);
+    expect(detectMention("Skin Bar LA and Glow MedSpa are both good", ["Skin Bar LA"])).toBe(true);
+    expect(detectMention("Skin Bar LA and Glow MedSpa is a good choice", ["Skin Bar LA"])).toBe(false);
   });
 
   it("never reads a conjunction after a sentence end, a line break or a dash as a longer name", () => {
@@ -261,8 +266,15 @@ describe("longer-name guard", () => {
     expect(detectMention("Harbor Plumbing & TripAdvisor both list it.", ["Harbor Plumbing"])).toBe(true);
     expect(findMatches("Roto-Rooter and Yelp both list it.", ["Roto-Rooter"])).toEqual([{ name: "Roto-Rooter", start: 0, end: 11 }]);
     // "I" is the word, not the start of another capitalised word.
-    expect(detectMention("Harbor Plumbing and Instaplumb are both good.", ["Harbor Plumbing"])).toBe(false);
-    expect(detectMention("Harbor Plumbing and Portland Water Bureau are both good.", ["Harbor Plumbing"])).toBe(false);
+    expect(detectMention("Harbor Plumbing and Instaplumb is a good choice.", ["Harbor Plumbing"])).toBe(false);
+    expect(detectMention("Harbor Plumbing and Portland Water Bureau is a good choice.", ["Harbor Plumbing"])).toBe(false);
+  });
+
+  it("lets a pronoun or a title follow the conjunction", () => {
+    expect(detectMention("I'd go with Glow MedSpa and Dr. Kim there is excellent.", ["Glow MedSpa"])).toBe(true);
+    expect(detectMention("Call Harbor Plumbing and They will quote you for free.", ["Harbor Plumbing"])).toBe(true);
+    // The word, not the start of another capitalised word.
+    expect(detectMention("Harbor Plumbing and Theydon Heating is top rated.", ["Harbor Plumbing"])).toBe(false);
   });
 });
 
@@ -361,8 +373,11 @@ describe("echo detection", () => {
     expect(mentionKind("I couldn't find much about Harbor Plumbing, but they are cheaper than Roto-Rooter.", names, others)).toBe("named");
     expect(mentionKind("Not much information on Harbor Plumbing, but they beat Roto-Rooter on price.", names, others)).toBe("named");
     expect(mentionKind("I couldn't find much about Harbor Plumbing, but they are well reviewed.", names, others)).toBe("named");
-    // The competitor is unknown to the matcher: the clause cannot be told apart from one about the business.
-    expect(mentionKind("I couldn't find any information about Harbor Plumbing, but Roto-Rooter is a solid option.", names)).toBe("named");
+    // Only a clause that is about the business rescues: one about a competitor the matcher does not know, or about
+    // the trade in general, leaves the echo an echo.
+    expect(mentionKind("I couldn't find any information about Harbor Plumbing, but Roto-Rooter is a solid option.", names)).toBe("echo");
+    expect(mentionKind("I couldn't find any information about Harbor Plumbing, but most plumbers charge $100 to $200.", names)).toBe("echo");
+    expect(mentionKind("I couldn't find much about Harbor Plumbing, but reviews are positive.", names)).toBe("named");
   });
 
   it("links the phrase to the name only through a directly following link word", () => {
@@ -461,8 +476,8 @@ describe("detectNames", () => {
       .toEqual(["B Clinic", "A Spa"]));
 
   it("takes the names that may follow a conjunction", () => {
-    expect(detectNames("Glow MedSpa and Derm House are both good.", ["Glow MedSpa"])).toEqual([]);
-    expect(detectNames("Glow MedSpa and Derm House are both good.", ["Glow MedSpa"], ["Derm House"])).toEqual(["Glow MedSpa"]);
+    expect(detectNames("Glow MedSpa and Derm House is a good choice.", ["Glow MedSpa"])).toEqual([]);
+    expect(detectNames("Glow MedSpa and Derm House is a good choice.", ["Glow MedSpa"], ["Derm House"])).toEqual(["Glow MedSpa"]);
   });
 });
 
@@ -507,9 +522,9 @@ describe("extractSnippet", () => {
   });
 
   it("takes the names that may follow a conjunction", () => {
-    const answer = "Harbor Plumbing and Rose City Plumbing are both good. Harbor Plumbing is cheaper.";
+    const answer = "Harbor Plumbing & Rose City Plumbing top most lists. Harbor Plumbing is cheaper.";
     expect(extractSnippet(answer, ["Harbor Plumbing"])).toBe("Harbor Plumbing is cheaper.");
-    expect(extractSnippet(answer, ["Harbor Plumbing"], ["Rose City Plumbing"])).toBe("Harbor Plumbing and Rose City Plumbing are both good");
+    expect(extractSnippet(answer, ["Harbor Plumbing"], ["Rose City Plumbing"])).toBe("Harbor Plumbing & Rose City Plumbing top most lists");
   });
 });
 

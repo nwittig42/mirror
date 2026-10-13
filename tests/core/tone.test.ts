@@ -90,10 +90,10 @@ describe("namesakeVeto", () => {
   // business name until Rose City Plumbing is passed as `others`; then it is
   // a list of two, the occurrence is found and the veto can fire.
   it("fires on '<namesake> and <known competitor>' once the competitor is passed as others", () => {
-    const listed = "Harbor Plumbing and Rose City Plumbing both serve Denver, CO. Harbor charges $49 per call.";
-    const rating = { ...denver, evidence: "both serve Denver, CO" };
+    const listed = "Harbor Plumbing & Rose City Plumbing serve Denver, CO. Harbor charges $49 per call.";
+    const rating = { ...denver, evidence: "serve Denver, CO" };
     expect(namesakeVeto({ answer: listed, practiceNames: names, location: portland, rating, others: ["Rose City Plumbing"] }))
-      .toBe("both serve Denver, CO");
+      .toBe("serve Denver, CO");
     // Without the competitor list there is no occurrence to judge, so the
     // rater's opinion is ignored: this is why the scan runner passes it.
     expect(namesakeVeto({ answer: listed, practiceNames: names, location: portland, rating })).toBeNull();

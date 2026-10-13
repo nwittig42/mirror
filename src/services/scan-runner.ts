@@ -56,7 +56,10 @@ export interface ScanOptions {
    * enough to see whether a mention is real. Default 1 (tests, one-offs).
    */
   runs?: number;
-  /** Engine requests in flight at once. Default 4. */
+  /**
+   * Engine requests in flight at once. Default 4. Reading an answer once it
+   * is back (extractor, judge, tone rater) does not count against this.
+   */
   concurrency?: number;
   /** Backoff before each retry of a rate-limited or flaky engine call. */
   retryDelaysMs?: number[];
@@ -136,6 +139,32 @@ async function mapPool<T, R>(items: T[], limit: number, worker: (item: T) => Pro
   return results;
 }
 
+/** Returns a function that runs what it is given with at most `limit` in flight; the rest wait their turn. */
+function limiter(limit: number) {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async <T>(fn: () => Promise<T>): Promise<T> => {
+    // A finished call hands its slot straight to the next in line, so a
+    // newcomer can never slip in between and push the count over the limit.
+    if (active >= limit) await new Promise<void>(resolve => waiting.push(resolve));
+    else active++;
+    try {
+      return await fn();
+    } finally {
+      const next = waiting.shift();
+      if (next) next();
+      else active--;
+    }
+  };
+}
+
+/**
+ * Answers being read (extractor, judge, tone rater) at once. These calls go
+ * to the judge model, not to the engines being measured, so they have their
+ * own limit and never hold up the next engine request.
+ */
+const REVIEW_CONCURRENCY = 6;
+
 type PromptRow = typeof prompts.$inferSelect;
 type JudgeResult = Awaited<ReturnType<Judge>>;
 
@@ -155,10 +184,12 @@ type Gathered =
  * every adapter `runs` times, records checks, fact-checks every answer that
  * names the practice via the judge, computes the scores, and closes out the scan.
  *
- * Two phases. The network phase fires every engine call (plus the extractor,
- * judge and tone rater for each answer) through a small pool, since a scan is
- * a few hundred slow requests and running them one prompt at a time took
- * minutes. The record phase then walks the results in a fixed order and does
+ * Two phases. The network phase fires every engine call through a small
+ * pool, since a scan is a few hundred slow requests and running them one
+ * prompt at a time took minutes. Each answer is read (extractor, judge, tone
+ * rater) as soon as it is back, outside that pool, so the next engine request
+ * starts without waiting for the reading of the last one. The record phase
+ * then walks the results in a fixed order and does
  * every database write and competitor reconciliation sequentially, so the
  * outcome doesn't depend on which request happened to finish first.
  *
@@ -236,22 +267,23 @@ export async function runScan(
     );
 
     const pastDeadline = () => options.deadline !== undefined && Date.now() > options.deadline;
-    const gather = async ({ prompt, run, adapter }: (typeof tasks)[number]): Promise<Gathered> => {
-      if (pastDeadline()) return { prompt, run, adapter, ok: false, retriable: false };
-      let result;
-      try {
-        result = await withRetry(() => adapter.run(prompt.text), retryDelays);
-      } catch (err) {
-        return { prompt, run, adapter, ok: false, retriable: isRetriable(err) };
-      }
+    type Task = (typeof tasks)[number];
+    type Answer = Awaited<ReturnType<EngineAdapter["run"]>>;
+    const review = limiter(REVIEW_CONCURRENCY);
+
+    // Reads one answer. Never throws: each call that can fail settles to
+    // "no result", which the record phase logs.
+    const read = async ({ prompt, run, adapter }: Task, result: Answer): Promise<Gathered> => {
       const { answer, citations } = result;
       const searchQueries = result.searchQueries ?? [];
       const rater = options.rateTone;
       // The extractor goes first so the pre-filter below knows every business
       // the answer names: "Harbor Plumbing and Rose City Plumbing are both
       // good" is two businesses only once Rose City Plumbing is a known name.
-      const discovered = await extractor({ answer, businessNames: practiceNames, knownCompetitors: knownAtStart })
-        .catch(() => null);
+      // It gets a second try, because without its list a business named next
+      // to ours can be read as one longer name and the mention lost.
+      const extract = () => extractor({ answer, businessNames: practiceNames, knownCompetitors: knownAtStart });
+      const discovered = await extract().catch(extract).catch(() => null);
       // The cheap pre-filter. The record phase repeats the analysis against
       // the reconciled competitor list and may still find the business absent.
       const mention = mentionKind(answer, practiceNames, [...knownAtStart, ...(discovered ?? []).map(canonicalName)]);
@@ -266,7 +298,22 @@ export async function runScan(
       ]);
       return { prompt, run, adapter, ok: true, answer, citations, searchQueries, tone, discovered, judged };
     };
-    const gathered = await mapPool(tasks, concurrency, gather);
+
+    // Asks the engine, inside the pool, and hands back the reading of its
+    // answer still in progress so the pool's lane is free for the next ask.
+    const ask = async (task: Task): Promise<{ read: Promise<Gathered> }> => {
+      const failed = (retriable: boolean) => ({ read: Promise.resolve<Gathered>({ ...task, ok: false, retriable }) });
+      if (pastDeadline()) return failed(false);
+      try {
+        const result = await withRetry(() => task.adapter.run(task.prompt.text), retryDelays);
+        return { read: review(() => read(task, result)) };
+      } catch (err) {
+        return failed(isRetriable(err));
+      }
+    };
+    const gatherAll = async (list: Task[]): Promise<Gathered[]> =>
+      Promise.all((await mapPool(list, concurrency, ask)).map(asked => asked.read));
+    const gathered = await gatherAll(tasks);
 
     // One more try for anything that failed on a rate limit or a flaky
     // connection, now that the burst of the scan is over. A bad key or a bad
@@ -276,7 +323,7 @@ export async function runScan(
       // Longer than a rate-limit window, with jitter so practices scanning at
       // the same time don't all come back at the same second.
       await sleep(options.finalRetryDelayMs ?? 30_000 + Math.random() * 30_000);
-      const retried = await mapPool(failed.map(i => tasks[i]), concurrency, gather);
+      const retried = await gatherAll(failed.map(i => tasks[i]));
       failed.forEach((i, k) => { gathered[i] = retried[k]; });
     }
 
