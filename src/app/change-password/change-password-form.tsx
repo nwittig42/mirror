@@ -7,7 +7,7 @@ import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { changePassword, type ChangePasswordState } from "./actions";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+  "w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-muted focus:border-gold";
 
 export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean }) {
   const [state, formAction, pending] = useActionState<ChangePasswordState, FormData>(changePassword, {});
@@ -15,7 +15,7 @@ export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean
   return (
     <form action={formAction} className="flex flex-col gap-3">
       {state.error && (
-        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <p className="rounded-xl bg-flag-soft px-4 py-3 text-[14px] font-medium text-flag">
           {state.error}
         </p>
       )}
@@ -62,7 +62,7 @@ export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean
       <button
         type="submit"
         disabled={pending}
-        className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+        className="w-full rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-ivory hover:bg-ink-raised disabled:opacity-50"
       >
         {pending ? "Saving..." : "Set password"}
       </button>

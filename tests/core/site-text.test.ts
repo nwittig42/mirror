@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { factPageLinks, htmlTitle, htmlToText, telLinks } from "@/core/site-text";
+import { factPageLinks, htmlTitle, htmlToText, sitePageLinks, telLinks } from "@/core/site-text";
 
 describe("htmlToText", () => {
   it("drops scripts, styles and tags, decodes entities, keeps line breaks", () => {
@@ -56,5 +56,34 @@ describe("telLinks", () => {
       <a href="mailto:hi@glow.example">Email</a> <a href="/contact">Contact</a> <a href="TEL:5035550100">Call</a>`;
     expect(telLinks(html)).toEqual(["tel:+15035550100", "tel:(503) 555-0100", "TEL:5035550100"]);
     expect(telLinks("<p>no links</p>")).toEqual([]);
+  });
+});
+
+describe("sitePageLinks", () => {
+  const html = `
+    <a href="/the-bakery">The bakery</a>
+    <a href="/blog/why-sourdough">Blog</a>
+    <a href="/custom-cakes">Custom cakes</a>
+    <a href="/pricing">Pricing</a>
+    <a href="/privacy-policy">Privacy</a>
+    <a href="/account/login">Log in</a>
+    <a href="https://other.example/areas">Elsewhere</a>
+    <a href="/areas-we-serve">Areas we serve</a>
+    <a href="/menu.pdf">Menu PDF</a>`;
+
+  it("reads fact-looking pages first, then the rest of the site, skipping posts, legal and account pages", () => {
+    expect(sitePageLinks(html, "https://crumb.example/", 10)).toEqual([
+      "https://crumb.example/pricing",
+      "https://crumb.example/the-bakery",
+      "https://crumb.example/custom-cakes",
+      "https://crumb.example/areas-we-serve",
+    ]);
+  });
+
+  it("stops at the limit, keeping the fact-looking pages", () => {
+    expect(sitePageLinks(html, "https://crumb.example/", 2)).toEqual([
+      "https://crumb.example/pricing",
+      "https://crumb.example/the-bakery",
+    ]);
   });
 });

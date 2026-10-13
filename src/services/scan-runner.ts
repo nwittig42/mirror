@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
 import {
   scans, checks, findings, prompts, nameVariations, competitors, facts, practices,
@@ -7,6 +7,7 @@ import { findMatches, mentionKind, type MentionKind } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
 import { computeVisibility, computeVisibilityParts, computeOverall, computeFactScore, scoreBand } from "@/core/scoring";
 import { findingKey, normalizeClaim, worseSeverity } from "@/core/finding-key";
+import { confirmedByScan } from "@/core/fix-list";
 import { blockedReason, summarizeCoverage, type Coverage } from "@/core/coverage";
 import { namesakeVeto, type ToneRating } from "@/core/tone";
 import type { CheckResult } from "@/core/types";
@@ -551,6 +552,19 @@ export async function runScan(
         factValue: seen.factValue ?? undefined, severity: seen.severity, status: "open", lastSeenScanId: scan.id,
       });
       newFindings.push({ claim: seen.claim, factValue: seen.factValue, severity: seen.severity, engine: seen.engine, prompt: seen.prompt });
+    }
+
+    // A fix the operator marked "fixed" is confirmed by the first scan that
+    // does not see the mistake again (see confirmedByScan for the guards).
+    // The resolved date stays the day it was fixed.
+    const confirmed = confirmedByScan(priorFindings, [...seenThisScan.values()], judgedCheckCount);
+    if (confirmed.length > 0) {
+      await db.update(findings).set({ status: "verified" }).where(inArray(findings.id, confirmed));
+      await logActivity(
+        db, practiceId,
+        `Confirmed ${confirmed.length} fix${confirmed.length === 1 ? "" : "es"}: AI no longer repeats ${confirmed.length === 1 ? "it" : "them"}`,
+        "client",
+      );
     }
 
     // Only wrong facts seen in this scan cost points or cap the overall.

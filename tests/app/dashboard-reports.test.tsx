@@ -31,15 +31,23 @@ const adapter: EngineAdapter = { name: "openai", run: async () => ({ answer: "Ha
 const scan = (practiceId: string) => runScan(db, practiceId, [adapter], async () => ({ wrong: [], right: [] }), async () => []);
 const pdf = (variant: string) => GET(new NextRequest(`http://localhost/dashboard/harbor/reports/pdf?variant=${variant}`), { params });
 
-describe("the four reports", () => {
+// The list of reports is src/report's to decide. These hold for whatever it
+// lists: the last one is the fullest, and each has a page count and a file name.
+const full = VARIANT_INFO[VARIANT_INFO.length - 1];
+const fullFileLabel = full.label.toLowerCase().replace(/\s+/g, "-");
+
+describe("the reports on offer", () => {
   it("names each one once, with its page count and a file name for its PDF", () => {
-    expect(VARIANT_INFO.map(v => v.key)).toEqual(["summary", "visibility", "factcheck", "master"]);
+    const keys = VARIANT_INFO.map(v => v.key);
+    expect(keys[0]).toBe("summary");
+    expect(keys).toContain("master");
+    expect(new Set(keys).size).toBe(keys.length);
     expect(pageCountLabel("summary")).toBe("1 page");
-    expect(pageCountLabel("master")).toBe("12 pages");
-    expect(isVariant("factcheck")).toBe(true);
+    expect(pageCountLabel(full.key)).toMatch(/^\d+ pages$/);
+    for (const key of keys) expect(isVariant(key)).toBe(true);
     expect(isVariant("everything")).toBe(false);
     expect(isVariant(null)).toBe(false);
-    expect(pdfFileName("harbor", "master", "2026-10-12")).toBe("harbor-full-audit-2026-10-12.pdf");
+    expect(pdfFileName("harbor", full.key, "2026-10-12")).toBe(`harbor-${fullFileLabel}-2026-10-12.pdf`);
   });
 });
 
@@ -72,12 +80,13 @@ describe("customer Reports tab", () => {
 
   it("sends the chosen report as a PDF file", async () => {
     await scan(practiceId);
-    const res = await pdf("factcheck");
+    const res = await pdf(full.key);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("application/pdf");
-    expect(res.headers.get("content-disposition")).toMatch(/^attachment; filename="harbor-fact-check-\d{4}-\d{2}-\d{2}\.pdf"$/);
+    expect(res.headers.get("content-disposition"))
+      .toMatch(new RegExp(`^attachment; filename="harbor-${fullFileLabel}-\\d{4}-\\d{2}-\\d{2}\\.pdf"$`));
     expect(Buffer.from(await res.arrayBuffer()).toString()).toBe("%PDF-fake");
-    expect(printed).toEqual(["factcheck"]);
+    expect(printed).toEqual([full.key]);
   });
 
   it("has no PDF for an unknown report or before the first scan", async () => {

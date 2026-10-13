@@ -37,6 +37,9 @@ const STOPWORDS = new Set([
   "best", "top", "with", "my", "me", "i", "can", "do", "does", "should", "vs", "by", "from", "your", "you",
 ]);
 
+// ChatGPT reports its built-in calculator the same way it reports a web search ("calculator: 1+1").
+const NOT_A_SEARCH = /^calculator:/;
+
 const normalize = (q: string) => q.trim().toLowerCase().replace(/\s+/g, " ");
 const words = (s: string) => normalize(s).split(/[^a-z0-9]+/).filter(w => w.length > 1 && !STOPWORDS.has(w));
 
@@ -53,7 +56,7 @@ export function buildSearchReport(checks: (QueryCheck & { promptText: string })[
 
   for (const check of checks) {
     if (check.promptKind === "branded") continue;
-    const queries = [...new Set(check.searchQueries.map(normalize).filter(Boolean))];
+    const queries = [...new Set(check.searchQueries.map(normalize).filter(q => q && !NOT_A_SEARCH.test(q)))];
     if (queries.length === 0) continue;
     answersWithSearches++;
     totalSearches += queries.length;

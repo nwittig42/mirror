@@ -5,7 +5,8 @@ import { useEffect, useRef, useState } from "react";
 
 interface PracticeLink { id: string; name: string; slug: string }
 
-const AMBER = { bg: "oklch(0.9 0.1 85)", border: "oklch(0.78 0.1 80)" };
+const FOCUS = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const BUTTON = `rounded-full px-4 py-1.5 text-[13px] font-semibold ${FOCUS}`;
 
 /**
  * The strip an operator sees on top of every customer dashboard page. Only
@@ -31,35 +32,34 @@ export function AdminViewBanner({ current, practices }: { current: PracticeLink;
   const matches = practices.filter(p => !q || p.name.toLowerCase().includes(q) || p.slug.includes(q));
 
   return (
-    <div className="sticky top-0 z-50 print:hidden" style={{ background: AMBER.bg, borderBottom: `1px solid ${AMBER.border}`, color: "#1c1917" }}>
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-2.5 text-sm">
+    <div className="sticky top-0 z-50 border-b border-gold bg-gold-soft text-ink print:hidden">
+      <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 text-[14px] sm:px-6">
         <p>
           <strong>Viewing {current.name} as admin.</strong>{" "}
           The customer can&apos;t see this banner. Read-only.
         </p>
         <div ref={box} className="relative flex flex-wrap gap-2">
           <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}
-            className="rounded-md bg-white px-3 py-1.5 text-[13px] font-medium" style={{ border: `1px solid ${AMBER.border}` }}>
+            className={`${BUTTON} border border-gold bg-paper text-ink hover:bg-ivory`}>
             Switch customer ▾
           </button>
           <Link href={`/admin/practices/${current.id}/overview`}
-            className="rounded-md px-3 py-1.5 text-[13px] font-medium text-white" style={{ background: "#1c1917" }}>
+            className={`${BUTTON} bg-ink text-ivory hover:bg-ink-raised`}>
             ← Back to admin page
           </Link>
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-[260px] rounded-[10px] bg-white p-2 text-black"
-              style={{ boxShadow: "0 10px 30px rgba(0,0,0,.12)" }}>
+            <div className="absolute right-0 top-full mt-2 w-[260px] rounded-2xl border border-line bg-paper p-2 text-ink shadow-lg">
               <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="Find a customer"
-                className="mb-1 w-full rounded-md border border-zinc-300 px-2.5 py-1.5 text-[13px] outline-none focus:border-zinc-500" />
+                className="mb-1 w-full rounded-lg border border-line bg-paper px-2.5 py-1.5 text-[13px] text-ink outline-none placeholder:text-muted focus:border-gold" />
               <div className="max-h-72 overflow-y-auto">
                 {matches.map(p => (
                   <Link key={p.id} href={`/dashboard/${p.slug}`} onClick={() => setOpen(false)}
-                    className="flex items-baseline justify-between gap-2 rounded-md px-2.5 py-2 text-[13px] hover:bg-zinc-100">
+                    className="flex items-baseline justify-between gap-2 rounded-lg px-2.5 py-2 text-[13px] hover:bg-bone">
                     <span className={p.id === current.id ? "font-semibold" : ""}>{p.name}</span>
-                    <span className="text-xs text-zinc-500">{p.slug}</span>
+                    <span className="text-[12px] text-muted">{p.slug}</span>
                   </Link>
                 ))}
-                {matches.length === 0 && <p className="px-2.5 py-2 text-[13px] text-zinc-500">No match.</p>}
+                {matches.length === 0 && <p className="px-2.5 py-2 text-[13px] text-muted">No match.</p>}
               </div>
             </div>
           )}

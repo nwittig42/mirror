@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import type { Engine } from "@/core/types";
+import { Card, Note, Tag } from "@/components/ui";
+import { Button, Select, TextArea, linkClass } from "@/app/admin/ui";
 import { askEngine, type LiveAnswer } from "./actions";
 
-const inputClass =
-  "rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+const LABEL = "text-[12px] font-semibold uppercase tracking-[0.12em] text-muted";
 
 const POSITION_LABEL: Record<string, string> = {
   first: "Named first", top3: "Named in top 3", mentioned: "Mentioned", absent: "Not named",
@@ -50,25 +51,25 @@ export function AskPanel({
   return (
     <div>
       <form onSubmit={ask} className="mb-6 space-y-3">
-        <textarea
+        <TextArea
           value={question}
           onChange={e => setQuestion(e.target.value)}
           rows={2}
           maxLength={500}
+          aria-label="Question"
           placeholder="Ask what a customer would ask, e.g. What's the best med spa in Santa Monica for Botox?"
-          className={`${inputClass} w-full`}
+          className="w-full"
         />
         <div className="flex flex-wrap items-center gap-3">
-          <select value={practiceId} onChange={e => setPracticeId(e.target.value)} className={inputClass}>
-            <option value="">Don&apos;t check for a client</option>
+          <Select value={practiceId} onChange={e => setPracticeId(e.target.value)} aria-label="Business to check for">
+            <option value="">Don&apos;t check for a business</option>
             {practices.map(p => <option key={p.id} value={p.id}>Check for: {p.name}</option>)}
-          </select>
-          <button type="submit" disabled={busy || !question.trim()}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800 disabled:opacity-50 dark:bg-white dark:text-black">
+          </Select>
+          <Button disabled={busy || !question.trim()}>
             {busy ? `Asking... ${elapsed}s` : `Ask all ${engines.length} AI tools`}
-          </button>
+          </Button>
           {Object.keys(slots).length > 0 && (
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">{doneCount} of {engines.length} answered</span>
+            <span className="text-[13px] text-muted">{doneCount} of {engines.length} answered</span>
           )}
         </div>
       </form>
@@ -79,70 +80,59 @@ export function AskPanel({
           if (!slot) return null;
           if (slot.status === "waiting") {
             return (
-              <article key={en.key} className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-                <p className="text-sm font-medium text-black dark:text-zinc-50">{en.label}</p>
-                <p className="mt-2 animate-pulse text-sm text-zinc-500 dark:text-zinc-400">Searching the web and writing an answer...</p>
-              </article>
+              <Card key={en.key} title={en.label}>
+                <Note className="animate-pulse">Searching the web and writing an answer...</Note>
+              </Card>
             );
           }
           const r = slot.result;
           return (
-            <article key={en.key} className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-black dark:text-zinc-50">{en.label}</p>
-                <div className="flex items-center gap-2 text-xs">
-                  {r.ok && r.mentioned !== undefined && (
-                    <span className={`rounded-full px-2.5 py-0.5 font-medium ${r.mentioned
-                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                      : "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300"}`}>
-                      {POSITION_LABEL[r.position ?? "absent"]}
-                    </span>
-                  )}
-                  <span className="text-zinc-500 dark:text-zinc-400">{(r.ms / 1000).toFixed(1)}s</span>
-                </div>
+            <Card key={en.key} title={en.label} aside={
+              <div className="flex items-center gap-2">
+                {r.ok && r.mentioned !== undefined && (
+                  <Tag tone={r.mentioned ? "ok" : "flag"}>{POSITION_LABEL[r.position ?? "absent"]}</Tag>
+                )}
+                <span className="text-[13px] text-muted">{(r.ms / 1000).toFixed(1)}s</span>
               </div>
-
+            }>
               {!r.ok ? (
-                <p className="text-sm text-red-600 dark:text-red-400">Failed: {r.error}</p>
+                <p className="text-[15px] text-flag">Failed: {r.error}</p>
               ) : (
                 <>
                   {r.searchQueries && r.searchQueries.length > 0 && (
                     <div className="mb-3">
-                      <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">What it searched</p>
-                      <ul className="mt-1 space-y-0.5 text-xs text-zinc-700 dark:text-zinc-300">
+                      <p className={LABEL}>What it searched</p>
+                      <ul className="mt-1 space-y-0.5 text-[13px] text-ink-soft">
                         {r.searchQueries.map(q => <li key={q}>&ldquo;{q}&rdquo;</li>)}
                       </ul>
                     </div>
                   )}
                   {r.namedOrder && r.namedOrder.length > 0 && (
-                    <p className="mb-3 text-xs text-zinc-600 dark:text-zinc-400">
-                      <span className="font-medium uppercase tracking-wide text-zinc-500">Named, in order:</span>{" "}
-                      {r.namedOrder.join(" → ")}
-                    </p>
+                    <div className="mb-3">
+                      <p className={LABEL}>Named, in order</p>
+                      <p className="mt-1 text-[13px] text-ink-soft">{r.namedOrder.join(" → ")}</p>
+                    </div>
                   )}
                   <details open className="mb-3">
-                    <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Answer</summary>
-                    <p className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
+                    <summary className={`cursor-pointer ${LABEL}`}>Answer</summary>
+                    <p className="mt-1 max-h-80 overflow-y-auto whitespace-pre-wrap text-[15px] leading-relaxed text-ink-soft">
                       {r.answer || "(empty answer)"}
                     </p>
                   </details>
-                  <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                    Sites it cited ({r.citations?.length ?? 0})
-                  </p>
-                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+                  <p className={LABEL}>Sites it cited ({r.citations?.length ?? 0})</p>
+                  <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
                     {(r.citations ?? []).map((url, i) => (
                       <li key={url + i}>
                         {safe(url) ? (
-                          <a href={url} target="_blank" rel="noopener noreferrer"
-                            className="text-indigo-700 underline-offset-2 hover:underline dark:text-indigo-400">{hostOf(url)}</a>
-                        ) : <span className="text-zinc-500">{url}</span>}
+                          <a href={url} target="_blank" rel="noopener noreferrer" className={linkClass}>{hostOf(url)}</a>
+                        ) : <span className="text-muted">{url}</span>}
                       </li>
                     ))}
-                    {(r.citations?.length ?? 0) === 0 && <li className="text-zinc-500">None</li>}
+                    {(r.citations?.length ?? 0) === 0 && <li className="text-muted">None</li>}
                   </ul>
                 </>
               )}
-            </article>
+            </Card>
           );
         })}
       </div>

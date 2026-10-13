@@ -47,7 +47,7 @@ describe("draftFactsFromPages", () => {
   });
   afterEach(() => vi.unstubAllGlobals());
 
-  it("describes people as whoever delivers the service or runs the business, in any trade, and parses as before", async () => {
+  it("asks for headings chosen for this business, in any trade, and parses the old shape as before", async () => {
     const drafted = [
       { category: "providers", label: "Owner", value: "Sam Lee, licensed master plumber", sourceUrl: "https://harbor.example/about" },
       { category: "pricing", label: "Drain cleaning", value: "From $149", sourceUrl: "https://harbor.example/made-up" },
@@ -67,14 +67,19 @@ describe("draftFactsFromPages", () => {
     ]);
     const body = JSON.parse(fetchMock.mock.calls[0][1].body);
     const system: string = body.system;
-    expect(system).toContain("- providers: named people who deliver the service or run the business (owner, lead technician, chef, attorney, stylist, injector), with titles and credentials as written");
-    // Examples span trades, and the enum values the parser accepts are unchanged.
-    for (const example of ["drain cleaning", "sourdough", "estate planning", "Water heater install price", "Head chef", "Contractor license"]) {
+    // The drafter chooses the headings for this one business; no standard list.
+    expect(system).toContain("Decide the sections THIS business's fact sheet needs");
+    expect(system).toContain("do not use a standard list");
+    // Examples span trades, so no single trade shapes the sheet.
+    for (const example of ["bakery", "law firm", "plumber", "Water heater install price", "Head baker", "Contractor license"]) {
       expect(system).toContain(example);
     }
+    expect(system).toContain("- providers: a named person who delivers the service or runs the business");
+    // The internal types the parser accepts are unchanged, and the heading is asked for separately.
     for (const category of ["identity", "providers", "services", "not_offered", "pricing", "logistics", "compliance"]) {
       expect(system).toContain(`- ${category}:`);
     }
+    expect(system).toContain('"section": "<the heading you chose>"');
     expect(body.messages[0].content).toContain("BUSINESS: Harbor Plumbing");
     expect(body.messages[0].content).toContain("PAGE: https://harbor.example/about");
   });
@@ -95,5 +100,20 @@ describe("saveDraftFacts", () => {
     const rows = await db.query.facts.findMany();
     const draft = rows.find(r => r.label === "Address")!;
     expect(draft).toMatchObject({ status: "draft", source: "website", sourceUrl: "https://glow.example" });
+  });
+
+  it("saves each draft's heading and keeps the order the drafter wrote them in", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Crumb Bakery" });
+    await saveDraftFacts(db, practiceId, [
+      { section: "Menu", category: "services", label: "Sourdough loaf", value: "Baked daily", sourceUrl: null },
+      { section: "Menu", category: "pricing", label: "Loaf price", value: "$9", sourceUrl: null },
+      { section: "Allergens", category: "services", label: "Nut-free kitchen", value: "No", sourceUrl: null },
+      { category: "logistics", label: "Address", value: "5 Main St", sourceUrl: null },
+    ]);
+    const rows = await db.query.facts.findMany({ orderBy: (f, { asc }) => [asc(f.createdAt)] });
+    expect(rows.map(r => [r.section, r.label])).toEqual([
+      ["Menu", "Sourdough loaf"], ["Menu", "Loaf price"], ["Allergens", "Nut-free kitchen"], [null, "Address"],
+    ]);
   });
 });

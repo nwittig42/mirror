@@ -70,8 +70,13 @@ function Field({
  * to the original "we'll email you" confirmation, which keeps /book working on
  * any deployment that has no scheduling account yet.
  */
-export function BookingForm({ calendlyUrl }: { calendlyUrl?: string }) {
-  const [state, formAction, isPending] = useActionState(requestAudit, INITIAL);
+export function BookingForm({ calendlyUrl, initialWebsite }: { calendlyUrl?: string; initialWebsite?: string }) {
+  // The home page's "See what AI says" box sends the visitor here with the
+  // website they typed, so the form opens with it already filled in.
+  const [state, formAction, isPending] = useActionState(
+    requestAudit,
+    initialWebsite ? { ...INITIAL, values: { websiteUrl: initialWebsite } } : INITIAL,
+  );
 
   if (state.status === "success") {
     if (calendlyUrl) {

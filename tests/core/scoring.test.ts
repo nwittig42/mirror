@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores, shareOfVoice } from "@/core/scoring";
+import { computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores, shareOfVoice, engineScores } from "@/core/scoring";
 import type { ScoreInput } from "@/core/scoring";
 
 const check = (engine: string, kind: string, mentioned: boolean, position: string) =>
@@ -161,5 +161,28 @@ describe("shareOfVoice", () => {
     expect(shareOfVoice([check(true, [])])).toEqual({ share: 100, yours: 1, total: 1 });
     expect(shareOfVoice([check(false, [])])).toEqual({ share: null, yours: 0, total: 0 });
     expect(shareOfVoice([])).toEqual({ share: null, yours: 0, total: 0 });
+  });
+});
+
+describe("engineScores", () => {
+  const c = (engine: "openai" | "anthropic" | "gemini", promptKind: "category" | "branded" | "informational", mentioned: boolean, position: "first" | "top3" | "mentioned" | "absent" = mentioned ? "mentioned" : "absent") =>
+    ({ engine, promptKind, mentioned, position });
+
+  it("scores each AI tool on its own answers, best first", () => {
+    const scores = engineScores([
+      c("openai", "category", false), c("openai", "category", false),
+      c("anthropic", "category", true, "first"), c("anthropic", "category", false),
+    ]);
+    expect(scores.map(s => s.engine)).toEqual(["anthropic", "openai"]);
+    // Named in 1 of 2, first once (rank 0.5), reach 1 of 1: (0.25 + 0.1 + 0.15) / 0.85 = 59.
+    expect(scores[0]).toEqual({ engine: "anthropic", score: 59, named: 1, asked: 2 });
+    expect(scores[1]).toEqual({ engine: "openai", score: 0, named: 0, asked: 2 });
+  });
+  it("leaves branded questions out of the counts and drops a tool that only answered those", () => {
+    const scores = engineScores([
+      c("openai", "branded", true), c("openai", "informational", true),
+      c("gemini", "branded", true),
+    ]);
+    expect(scores).toEqual([{ engine: "openai", score: 76, named: 1, asked: 1 }]);
   });
 });

@@ -6,11 +6,11 @@ import { signIn } from "@/lib/auth";
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
 const inputClass =
-  "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-black outline-none focus:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50";
+  "w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-muted focus:border-gold";
 
 export const metadata: Metadata = {
   title: `Log in · ${appName}`,
-  description: `Sign in to ${appName} to see what AI tells your patients.`,
+  description: `Sign in to ${appName} to see what AI tells your customers.`,
 };
 
 async function sendMagicLink(formData: FormData): Promise<void> {
@@ -50,27 +50,27 @@ export default async function LoginPage({
   const { error, changed } = await searchParams;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-16 dark:bg-black">
+    <div className="app flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm space-y-8">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-black dark:text-zinc-50">{appName}</h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">See what AI tells your patients.</p>
+          <h1 className="display text-[40px] leading-none text-ink">{appName}</h1>
+          <p className="mt-3 text-[15px] leading-relaxed text-muted">Get recommended by AI. Fix what it gets wrong.</p>
         </div>
 
         {changed && !error && (
-          <p className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+          <p className="rounded-xl bg-ok-soft px-4 py-3 text-[14px] font-medium text-ok">
             Password saved. Sign in with your new one.
           </p>
         )}
 
         {error && (
-          <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <p className="rounded-xl bg-flag-soft px-4 py-3 text-[14px] font-medium text-flag">
             Sign-in failed. Check your credentials and try again.
           </p>
         )}
 
-        <section className="space-y-3 rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-          <h2 className="text-sm font-medium text-black dark:text-zinc-50">Sign in</h2>
+        <section className="space-y-4 rounded-[20px] border border-line bg-paper p-6">
+          <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-muted">Sign in</h2>
           <form action={signInWithPassword} className="flex flex-col gap-3">
             <label className="sr-only" htmlFor="email">
               Email
@@ -81,7 +81,7 @@ export default async function LoginPage({
               type="email"
               required
               autoComplete="email"
-              placeholder="you@practice.com"
+              placeholder="you@yourbusiness.com"
               className={inputClass}
             />
             <label className="sr-only" htmlFor="password">
@@ -98,18 +98,18 @@ export default async function LoginPage({
             />
             <button
               type="submit"
-              className="w-full rounded-md bg-black px-3 py-2 text-sm font-medium text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-zinc-200"
+              className="w-full rounded-full bg-ink px-5 py-3 text-[15px] font-semibold text-ivory hover:bg-ink-raised"
             >
               Sign in
             </button>
           </form>
         </section>
 
-        <details className="group rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-          <summary className="cursor-pointer text-sm font-medium text-black dark:text-zinc-50">
+        <details className="group rounded-[20px] border border-line bg-paper p-6">
+          <summary className="cursor-pointer text-[15px] font-semibold text-ink">
             Forgot your password?
           </summary>
-          <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 text-[14px] leading-relaxed text-muted">
             We&apos;ll email you a link that signs you in. You can set a new password once you&apos;re in.
           </p>
           <form action={sendMagicLink} className="mt-3 flex flex-col gap-3">
@@ -122,12 +122,12 @@ export default async function LoginPage({
               type="email"
               required
               autoComplete="email"
-              placeholder="you@practice.com"
+              placeholder="you@yourbusiness.com"
               className={inputClass}
             />
             <button
               type="submit"
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium text-black hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-50 dark:hover:bg-zinc-900"
+              className="w-full rounded-full border border-ink px-5 py-3 text-[15px] font-semibold text-ink hover:bg-bone"
             >
               Email me a link
             </button>

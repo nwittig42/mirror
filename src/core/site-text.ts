@@ -67,6 +67,45 @@ export function factPageLinks(html: string, pageUrl: string, limit: number): str
   return out;
 }
 
+// Paths that are never worth a page slot when filling up with "the rest of
+// the site": posts, legal pages, accounts and shop plumbing.
+const SKIP_PAGE_PATTERN =
+  /(blog|news|press|article|post|tag|category|author|feed|privacy|terms|legal|cookie|login|log-in|signin|sign-in|signup|sign-up|register|account|cart|checkout|basket|search|careers|jobs|wp-|cdn-cgi)/i;
+
+/**
+ * The pages to read when building a fact sheet: the fact-looking pages first
+ * (as factPageLinks picks them), then the rest of what the page links to on
+ * the same site, so a business whose site names its pages in its own way
+ * ("/the-bakery", "/custom-cakes", "/areas-we-serve") is still read. Posts,
+ * legal pages and account pages are left out.
+ */
+export function sitePageLinks(html: string, pageUrl: string, limit: number): string[] {
+  const first = factPageLinks(html, pageUrl, limit);
+  if (first.length >= limit) return first;
+  const base = new URL(pageUrl);
+  const baseHost = base.hostname.replace(/^www\./, "");
+  const seen = new Set<string>([normalize(base), ...first]);
+  const out = [...first];
+  for (const m of html.matchAll(/<a\b[^>]*\bhref\s*=\s*["']([^"'#][^"']*)["']/gi)) {
+    let url: URL;
+    try {
+      url = new URL(m[1], base);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+    if (url.hostname.replace(/^www\./, "") !== baseHost) continue;
+    if (/\.(pdf|jpe?g|png|gif|webp|svg|zip|mp4)$/i.test(url.pathname)) continue;
+    if (SKIP_PAGE_PATTERN.test(url.pathname)) continue;
+    const key = normalize(url);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(key);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 function normalize(url: URL): string {
   const path = url.pathname.replace(/\/+$/, "") || "/";
   return `${url.protocol}//${url.host}${path}`;

@@ -374,4 +374,16 @@ describe("getAdapters", () => {
     expect(getAdapters().map(a => a.name)).toContain("grok");
     delete process.env.XAI_API_KEY;
   });
+
+  it("leaves out the engines named in SCAN_SKIP_ENGINES, whatever the spacing or case", async () => {
+    const { getAdapters } = await import("@/engines");
+    delete process.env.SCAN_SKIP_ENGINES;
+    expect(getAdapters().map(a => a.name)).toEqual(expect.arrayContaining(["openai", "anthropic", "gemini", "perplexity"]));
+    process.env.SCAN_SKIP_ENGINES = " Gemini, perplexity ";
+    const names = getAdapters().map(a => a.name);
+    expect(names).not.toContain("gemini");
+    expect(names).not.toContain("perplexity");
+    expect(names).toEqual(expect.arrayContaining(["openai", "anthropic"]));
+    delete process.env.SCAN_SKIP_ENGINES;
+  });
 });

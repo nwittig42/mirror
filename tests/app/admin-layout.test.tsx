@@ -23,8 +23,12 @@ describe("admin layout", () => {
     await expect(AdminLayout({ children: <p>secret</p> })).rejects.toThrow(/NEXT_HTTP_ERROR_FALLBACK;404|NEXT_NOT_FOUND/);
   });
 
-  it("renders the top bar and the page for an operator", async () => {
+  it("renders the header and the page for an operator, on the ivory app page", async () => {
     session.user.role = "operator";
-    expect(await AdminLayout({ children: <p>page</p> })).toBeTruthy();
+    const child = <p>page</p>;
+    const out = await AdminLayout({ children: child });
+    const props = out.props as { className: string; children: unknown[] };
+    expect(props.className).toMatch(/\bapp\b/);
+    expect(props.children).toContain(child);
   });
 });

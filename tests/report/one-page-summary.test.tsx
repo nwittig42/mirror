@@ -39,5 +39,6 @@ describe("one-page summary report", () => {
     const h = html({ ...base, prospect: false });
     expect(h).not.toContain("After our call");
     expect(h.replace(/<[^>]+>/g, "")).toContain(`${base.scores.factAccuracy}/100`);
+    for (const name of ["Overall", "Recommended by AI", "Accuracy"]) expect(h).toContain(name);
   });
 });

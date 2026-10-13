@@ -22,6 +22,16 @@ describe("buildSearchReport", () => {
     expect(r.queries.some(q => q.query.includes("glow"))).toBe(false);
   });
 
+  it("leaves out ChatGPT's calculator calls, which are not web searches", () => {
+    const r = buildSearchReport([
+      check({ searchQueries: ["calculator: 1+1", "med spa santa monica 2026"] }),
+      check({ searchQueries: ["Calculator: 1+1"] }),
+    ]);
+    expect(r.queries.map(q => q.query)).toEqual(["med spa santa monica 2026"]);
+    expect(r.answersWithSearches).toBe(1);
+    expect(r.addedWords.some(w => w.word === "calculator")).toBe(false);
+  });
+
   it("finds the words engines add beyond the question", () => {
     const r = buildSearchReport([
       check({ searchQueries: ["med spa santa monica reviews 2026"] }),

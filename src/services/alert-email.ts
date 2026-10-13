@@ -3,7 +3,8 @@ import { escapeHtml } from "@/lib/html";
 import { logActivity } from "@/services/activity";
 import type { Db } from "@/db";
 import type { NewFinding } from "@/services/scan-runner";
-import { blockedReason, type Coverage } from "@/core/coverage";
+import { blockedReason, ENGINE_NAMES, type Coverage } from "@/core/coverage";
+import { emailButton, emailLabel, emailNote, emailRule, emailShell, emailText } from "@/services/email-shell";
 
 /**
  * The internal accuracy alert: when a scan turns up a *new* critical or major
@@ -26,19 +27,15 @@ const ALERT_SEVERITIES = ["critical", "major"] as const;
 
 type AlertSeverity = (typeof ALERT_SEVERITIES)[number];
 
-const ENGINE_DISPLAY_NAMES: Record<string, string> = {
-  openai: "ChatGPT",
-  anthropic: "Claude",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-  grok: "Grok",
-  google: "Google AI Mode",
+// Critical takes the one red; major takes the gold accent.
+const SEVERITY_TONES: Record<AlertSeverity, "bad" | "gold"> = {
+  critical: "bad",
+  major: "gold",
 };
 
-const SEVERITY_COLORS: Record<AlertSeverity, string> = {
-  critical: "#b91c1c",
-  major: "#c2410c",
-};
+// Every operator notice in this file opens with the same line, so nobody
+// forwards one to a client thinking it was meant for them.
+const INTERNAL = "Internal alert &middot; not sent to the client";
 
 export interface AlertArgs {
   practiceName: string;
@@ -57,20 +54,19 @@ export function alertableFindings(findings: NewFinding[]): NewFinding[] {
 }
 
 const findingBlock = (finding: NewFinding): string => {
-  const engine = ENGINE_DISPLAY_NAMES[finding.engine] ?? finding.engine;
-  const color = SEVERITY_COLORS[finding.severity as AlertSeverity] ?? "#c2410c";
+  const engine = (ENGINE_NAMES as Record<string, string>)[finding.engine] ?? finding.engine;
+  const tone = SEVERITY_TONES[finding.severity as AlertSeverity] ?? "gold";
 
   const truthRow = finding.factValue
-    ? `<div style="font-size:15px;color:#111;margin-top:6px;"><strong>Truth:</strong> ${escapeHtml(finding.factValue)}</div>`
-    : `<div style="font-size:14px;color:#666;margin-top:6px;font-style:italic;">No matching fact on the Fact Sheet. Verify before correcting.</div>`;
+    ? emailText(`<strong>Truth:</strong> ${escapeHtml(finding.factValue)}`)
+    : emailText("<em>No matching fact on the fact sheet. Check it before you correct it.</em>", "secondary", 14);
 
   return (
-    `<div style="padding:16px 0;border-bottom:1px solid #e5e5e5;font-family:sans-serif;">` +
-    `<div style="font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:${color};">${escapeHtml(finding.severity)}</div>` +
-    `<div style="font-size:15px;color:#111;margin-top:6px;"><strong>${escapeHtml(engine)} said:</strong> ${escapeHtml(finding.claim)}</div>` +
+    emailRule() +
+    `<div style="padding-top:18px;">${emailLabel(escapeHtml(finding.severity), tone)}</div>` +
+    `<div style="padding:4px 0 10px;">${emailNote(`<strong>${escapeHtml(engine)} said:</strong> ${escapeHtml(finding.claim)}`, "bad")}</div>` +
     truthRow +
-    `<div style="font-size:13px;color:#666;margin-top:8px;">Prompt: &ldquo;${escapeHtml(finding.prompt)}&rdquo;</div>` +
-    `</div>`
+    `<div style="padding-top:8px;">${emailText(`Question asked: &ldquo;${escapeHtml(finding.prompt)}&rdquo;`, "caption", 13)}</div>`
   );
 };
 
@@ -98,21 +94,15 @@ export function composeAlert(args: AlertArgs): { subject: string; html: string }
 
   const accuracyUrl = `${args.appUrl}/dashboard/${encodeURIComponent(args.slug)}/accuracy`;
 
-  const html =
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">` +
-    `Internal alert &middot; not sent to the client` +
-    `</div>` +
-    `<div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;">` +
-    `<div style="font-family:sans-serif;font-size:17px;font-weight:700;color:#111;">${escapeHtml(args.practiceName)}</div>` +
-    `<div style="font-family:sans-serif;font-size:14px;color:#666;margin-top:4px;">` +
-    `New this scan. Their Pulse goes out tomorrow morning.` +
-    `</div>` +
-    alertable.map(findingBlock).join("") +
-    `<div style="padding-top:16px;font-family:sans-serif;font-size:15px;">` +
-    `<a href="${escapeHtml(accuracyUrl)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Triage in the dashboard</a>` +
-    `</div>` +
-    `</div></body></html>`;
+  const html = emailShell({
+    eyebrowHtml: INTERNAL,
+    titleHtml: escapeHtml(args.practiceName),
+    introHtml: "New in this scan. Their Pulse goes out tomorrow morning.",
+    blocks: [
+      ...alertable.map(findingBlock),
+      emailButton(accuracyUrl, "Review in the dashboard"),
+    ],
+  });
 
   return { subject, html };
 }
@@ -186,21 +176,15 @@ export function composeBlockedAlert(args: {
   practiceName: string; slug: string; reason: string; appUrl: string;
 }): { subject: string; html: string } {
   const subject = `Mirror: scan blocked for ${args.practiceName}`;
-  const html =
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">` +
-    `Internal alert &middot; not sent to the client` +
-    `</div>` +
-    `<div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;font-family:sans-serif;">` +
-    `<div style="font-size:17px;font-weight:700;color:#111;">${escapeHtml(args.practiceName)}: scan blocked</div>` +
-    `<div style="font-size:15px;color:#111;margin-top:10px;">${escapeHtml(args.reason)}</div>` +
-    `<div style="font-size:14px;color:#666;margin-top:10px;">` +
-    `Last week's score stays up, and tomorrow's Pulse is skipped. Check the engine keys and billing, then run the scan again from admin.` +
-    `</div>` +
-    `<div style="padding-top:16px;font-size:15px;">` +
-    `<a href="${escapeHtml(`${args.appUrl}/admin`)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open admin</a>` +
-    `</div>` +
-    `</div></body></html>`;
+  const html = emailShell({
+    eyebrowHtml: INTERNAL,
+    titleHtml: `${escapeHtml(args.practiceName)}: scan blocked`,
+    blocks: [
+      emailText(escapeHtml(args.reason)),
+      emailText("Last week's score stays up, and tomorrow's Pulse is skipped. Check the engine keys and billing, then run the scan again from admin.", "secondary", 14),
+      emailButton(`${args.appUrl}/admin`, "Open admin"),
+    ],
+  });
   return { subject, html };
 }
 
@@ -233,13 +217,12 @@ export function composeDispatchAlert(
   const failed = results.filter(r => !r.dispatched);
   if (failed.length === 0) return null;
   const subject = `Mirror: ${failed.length} weekly scan${failed.length === 1 ? "" : "s"} didn't start`;
-  const html =
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;font-family:sans-serif;">` +
-    `<div style="font-size:17px;font-weight:700;color:#111;">${escapeHtml(subject)}</div>` +
-    `<div style="font-size:14px;color:#666;margin-top:6px;">No scan ran for these this week, so their Pulse is skipped. Run them from admin.</div>` +
-    failed.map(f => `<div style="font-size:14px;color:#111;margin-top:10px;"><strong>${escapeHtml(f.practice)}</strong>: ${escapeHtml(f.error ?? "unknown error")}</div>`).join("") +
-    `</div></body></html>`;
+  const html = emailShell({
+    eyebrowHtml: INTERNAL,
+    titleHtml: escapeHtml(subject),
+    introHtml: "No scan ran for these this week, so their Pulse is skipped. Run them from admin.",
+    blocks: failed.map(f => emailText(`<strong>${escapeHtml(f.practice)}</strong>: ${escapeHtml(f.error ?? "unknown error")}`, "ink", 14)),
+  });
   return { subject, html };
 }
 
@@ -270,18 +253,17 @@ export function composeProspectAlert(a: ProspectAlertArgs): { subject: string; h
     ? `Report ready: ${a.practiceName}. Review it before the call`
     : `Needs a look: ${a.practiceName}'s report`;
   const link = a.practiceId ? `${a.appUrl}/admin/practices/${a.practiceId}/overview` : `${a.appUrl}/admin`;
-  const html =
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;font-family:sans-serif;">` +
-    `<div style="font-size:17px;font-weight:700;color:#111;">${escapeHtml(a.practiceName)}</div>` +
-    `<div style="font-size:15px;color:#111;margin-top:8px;">` +
-    (ready
-      ? "They booked through the website. Their account, fact sheet, questions and first scan are done, and they've been emailed their one-page summary report as a PDF (no fact check yet; it asks them to book a fact-sheet call). Check the fact sheet and full report before the call: the facts were read off their website."
-      : "They booked through the website, but setting up their report hit a problem.") +
-    `</div>` +
-    (a.note ? `<div style="font-size:14px;color:#666;margin-top:10px;">${escapeHtml(a.note)}</div>` : "") +
-    `<div style="padding-top:16px;font-size:15px;"><a href="${escapeHtml(link)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open ${escapeHtml(a.practiceName)} in admin</a></div>` +
-    `</div></body></html>`;
+  const html = emailShell({
+    eyebrowHtml: INTERNAL,
+    titleHtml: escapeHtml(a.practiceName),
+    blocks: [
+      emailText(ready
+        ? "They booked through the website. Their account, fact sheet, questions and first scan are done, and they've been emailed their one-page summary report as a PDF (no fact check yet; it asks them to book a fact-sheet call). Check the fact sheet and full report before the call: the facts were read off their website."
+        : "They booked through the website, but setting up their report hit a problem."),
+      a.note ? emailText(escapeHtml(a.note), "secondary", 14) : "",
+      emailButton(link, `Open ${a.practiceName} in admin`),
+    ],
+  });
   return { subject, html };
 }
 

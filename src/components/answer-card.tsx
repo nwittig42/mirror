@@ -4,23 +4,20 @@ import { highlightRanges } from "@/core/mention";
 import { ENGINE_LABELS } from "@/core/types";
 import type { Engine, Position } from "@/core/types";
 import { isSafeHttpUrl } from "@/lib/url";
+import { Tag, type Tone as TagTone } from "@/components/ui";
 
 export { ENGINE_LABELS };
 
-const POSITION_STYLES: Record<Position, { label: string; className: string }> = {
-  first: { label: "First mention", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300" },
-  top3: { label: "Top 3", className: "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300" },
-  mentioned: { label: "Mentioned", className: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300" },
-  absent: { label: "Not mentioned", className: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400" },
+const POSITION_TAGS: Record<Position, { label: string; tone: TagTone }> = {
+  first: { label: "Named first", tone: "ok" },
+  top3: { label: "In the top 3", tone: "ok" },
+  mentioned: { label: "Named", tone: "gold" },
+  absent: { label: "Not named", tone: "neutral" },
 };
 
 export function PositionChip({ position }: { position: Position }) {
-  const style = POSITION_STYLES[position];
-  return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${style.className}`}>
-      {style.label}
-    </span>
-  );
+  const tag = POSITION_TAGS[position];
+  return <Tag tone={tag.tone}>{tag.label}</Tag>;
 }
 
 /**
@@ -38,7 +35,7 @@ function HighlightedText({ text, names, others }: { text: string; names: string[
   ranges.forEach((r, i) => {
     if (r.start > cursor) segments.push(<span key={`t${i}`}>{text.slice(cursor, r.start)}</span>);
     segments.push(
-      <mark key={`m${i}`} className="rounded bg-indigo-100 px-0.5 text-inherit dark:bg-indigo-900/60">
+      <mark key={`m${i}`} className="rounded bg-gold-soft px-0.5 font-semibold text-ink">
         {text.slice(r.start, r.end)}
       </mark>,
     );
@@ -65,65 +62,77 @@ export interface AnswerCardProps {
    * of a longer name, once Rose City Plumbing is known.
    */
   others?: string[];
+  /**
+   * False when the card sits in a list under its question: it then draws as
+   * one row of that list, with no box and no question of its own.
+   */
+  showQuestion?: boolean;
+  /** Whether the answer starts unfolded. A card on its own does; a row in a list does not. */
+  open?: boolean;
 }
 
-const TONE_STYLES: Record<string, string> = {
-  positive: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300",
-  neutral: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
-  mixed: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  negative: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
+const TONE_TAGS: Record<string, TagTone> = {
+  positive: "ok",
+  neutral: "neutral",
+  mixed: "gold",
+  negative: "flag",
 };
 
-/** One card per check: the prompt asked, which engine answered, and the verbatim answer with mentions highlighted. */
+/**
+ * One AI answer: which AI tool gave it, where it named the business, and the
+ * answer word for word with the business's name marked. The answer folds away
+ * under its first line so a long list stays easy to scan.
+ */
 export function AnswerCard({
   promptText, engine, position, answerText, citations, practiceNames, searchQueries = [], tone, toneReason, others = [],
+  showQuestion = true, open = showQuestion,
 }: AnswerCardProps) {
-  return (
-    <article className="rounded-lg border border-zinc-200 p-5 dark:border-zinc-800">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-black dark:text-zinc-50">{promptText}</p>
-        <div className="flex items-center gap-2">
-          <span className="rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-            {ENGINE_LABELS[engine]}
-          </span>
+  const answer = (
+    <details className="py-3" open={open}>
+      <summary className="cursor-pointer text-muted marker:text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+        <span className="ml-1 inline-flex flex-wrap items-center gap-2 align-middle">
+          <span className="text-[15px] font-semibold text-ink">{ENGINE_LABELS[engine]}</span>
           <PositionChip position={position} />
           {tone && TONE_LABELS[tone as Tone] && (
-            <span title={toneReason ?? undefined}
-              className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_STYLES[tone] ?? TONE_STYLES.neutral}`}>
-              {TONE_LABELS[tone as Tone]}
+            <span title={toneReason ?? undefined}>
+              <Tag tone={TONE_TAGS[tone] ?? "neutral"}>{TONE_LABELS[tone as Tone]}</Tag>
             </span>
           )}
-        </div>
-      </div>
-      {searchQueries.length > 0 && (
-        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="font-medium">Searched for:</span> {searchQueries.map(q => `"${q}"`).join(" · ")}
+        </span>
+      </summary>
+      <div className="mt-3">
+        {searchQueries.length > 0 && (
+          <p className="mb-3 text-[13px] text-muted">
+            <span className="font-semibold">Searched for:</span> {searchQueries.map(q => `"${q}"`).join(" · ")}
+          </p>
+        )}
+        <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink-soft">
+          <HighlightedText text={answerText} names={practiceNames} others={others} />
         </p>
-      )}
-      <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-        <HighlightedText text={answerText} names={practiceNames} others={others} />
-      </p>
-      {citations.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-3 border-t border-zinc-100 pt-3 dark:border-zinc-900">
-          {citations.map((url, i) =>
-            isSafeHttpUrl(url) ? (
-              <a
-                key={url + i}
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-              >
-                {url}
-              </a>
-            ) : (
-              <span key={url + i} className="text-xs text-zinc-500 dark:text-zinc-400">
-                {url}
-              </span>
-            ),
-          )}
-        </div>
-      )}
+        {citations.length > 0 && (
+          <div className="mt-4 border-t border-line pt-3">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">Pages it read</p>
+            <ul className="mt-1 space-y-1">
+              {citations.map((url, i) => (
+                <li key={url + i} className="break-all text-[13px] text-muted">
+                  {isSafeHttpUrl(url) ? (
+                    <a href={url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:text-gold hover:underline">
+                      {url}
+                    </a>
+                  ) : url}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </details>
+  );
+  if (!showQuestion) return answer;
+  return (
+    <article className="rounded-[20px] border border-line bg-paper px-5 pb-2 pt-5">
+      <p className="text-[17px] font-semibold text-ink">{promptText}</p>
+      {answer}
     </article>
   );
 }

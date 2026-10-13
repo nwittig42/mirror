@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { renderToStaticMarkup } from "react-dom/server";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests } from "@/db";
 import { runScan } from "@/services/scan-runner";
@@ -47,7 +48,15 @@ describe("customer overview page", () => {
     session.user.role = "operator";
     for (const tab of TABS) {
       const page = await CustomerOverviewPage({ params: Promise.resolve({ id: practiceId }), searchParams: Promise.resolve({ tab }) });
-      expect(page).toBeTruthy();
+      expect(renderToStaticMarkup(page)).toContain("Glow MedSpa");
     }
+  });
+
+  it("shows the three scores by their customer-facing names", async () => {
+    session.user.role = "operator";
+    const html = renderToStaticMarkup(
+      await CustomerOverviewPage({ params: Promise.resolve({ id: practiceId }), searchParams: Promise.resolve({}) }));
+    for (const name of ["Overall", "Recommended by AI", "Accuracy"]) expect(html).toContain(name);
+    expect(html).toContain(`/admin/practices/${practiceId}?tab=access`);
   });
 });

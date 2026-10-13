@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { BigValue, Card, METRIC_COLOR } from "@/components/fitness";
-import { ScoreRings } from "@/components/score-rings";
+import { Card, Note, ScoreDial, Stat, Tag, buttonClass } from "@/components/ui";
 import { ENGINE_NAMES } from "@/core/coverage";
 
 interface PreviewCheck {
@@ -19,8 +18,6 @@ const LOCKED = [
   { title: "Competitors and sources", what: "Who AI recommends instead of you, and the websites it reads to decide." },
   { title: "Your fix plan", what: "The changes that would help most, in order, for the next 90 days." },
 ];
-
-const BUTTON = "inline-block rounded-full px-4 py-2 text-center text-[15px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-white";
 
 /** A sentence cut to length on a word, so a long answer reads as a quote and not a wall. */
 function excerpt(text: string, max = 260): string {
@@ -52,70 +49,65 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
 
   return (
     <div className="space-y-4">
-      <Card title="Your ranking" color={METRIC_COLOR.visibility}>
-        <div className="flex flex-wrap items-center gap-x-8 gap-y-4">
-          <ScoreRings scores={{ overall: null, facts: null, visibility: ranking }} size={150} />
-          <div>
-            <div className="text-[34px] font-bold leading-none tracking-tight" style={{ color: METRIC_COLOR.visibility }}>
-              {ranking ?? "N/A"}<span className="text-[18px]">/100</span>
-            </div>
-            <p className="mt-2 max-w-xs text-[15px] text-[#aeaeb2]">How often and how high AI names you when buyers ask without using your name.</p>
-          </div>
+      <Card title="Recommended by AI">
+        <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
+          <ScoreDial value={ranking} label="Score" />
+          <p className="max-w-xs text-[15px] leading-relaxed text-ink-soft">How often and how high AI names you when buyers ask without using your name.</p>
         </div>
-        <p className="mt-4 text-[13px] text-[#8e8e93]">
+        <Note className="mt-5">
           From the scan on {scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}.
           Your overall score and fact check come after your call.
-        </p>
+        </Note>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card title="Named by AI" color={METRIC_COLOR.visibility}>
-          <BigValue value={`${named}/${earned.length}`} unit="answers" />
-          <p className="mt-1 text-[13px] text-[#8e8e93]">When buyers asked without using your name</p>
+        <Card title="Named by AI">
+          <Stat value={`${named}/${earned.length}`} unit="answers" tone="gold" />
+          <Note className="mt-2">When buyers asked without using your name</Note>
         </Card>
         <Card title="Top competitor">
           {topCompetitor ? (
             <>
-              <div className="truncate text-[22px] font-bold text-white">{topCompetitor.name}</div>
-              <p className="mt-1 text-[13px] text-[#8e8e93]">Named {topCompetitor.mentions} time{topCompetitor.mentions === 1 ? "" : "s"}, you {named}</p>
+              <div className="truncate text-[24px] font-semibold tracking-tight text-ink">{topCompetitor.name}</div>
+              <Note className="mt-2">Named {topCompetitor.mentions} time{topCompetitor.mentions === 1 ? "" : "s"}, you {named}</Note>
             </>
-          ) : <p className="text-[15px] text-[#8e8e93]">No competitors named in the latest scan.</p>}
+          ) : <Note>No competitors named in the latest scan.</Note>}
         </Card>
       </div>
 
       {missed && (
-        <Card title="An answer you were left out of" color={METRIC_COLOR.warn}>
-          <p className="text-[13px] text-[#8e8e93]">
+        <Card title="An answer you were left out of">
+          <Note>
             We asked {ENGINE_NAMES[missed.engine as keyof typeof ENGINE_NAMES] ?? missed.engine}: &ldquo;{missed.promptText}&rdquo;
-          </p>
-          <p className="mt-2 text-[15px] italic text-white">&ldquo;{excerpt(missed.answerText)}&rdquo;</p>
+          </Note>
+          <p className="mt-3 border-l-2 border-gold pl-4 text-[15px] leading-relaxed text-ink">&ldquo;{excerpt(missed.answerText)}&rdquo;</p>
         </Card>
       )}
 
       {bestTool && (
-        <Card title="Best AI tool" color={METRIC_COLOR.overall}>
-          <div className="text-[22px] font-bold text-white">{ENGINE_NAMES[bestTool[0] as keyof typeof ENGINE_NAMES] ?? bestTool[0]}</div>
-          <p className="mt-1 text-[13px] text-[#8e8e93]">Named you {bestTool[1]} time{bestTool[1] === 1 ? "" : "s"}</p>
+        <Card title="Best AI tool">
+          <div className="text-[24px] font-semibold tracking-tight text-ink">{ENGINE_NAMES[bestTool[0] as keyof typeof ENGINE_NAMES] ?? bestTool[0]}</div>
+          <Note className="mt-2">Named you {bestTool[1]} time{bestTool[1] === 1 ? "" : "s"}</Note>
         </Card>
       )}
 
       <Card title="Your one-page summary">
-        <p className="text-[15px] text-[#aeaeb2]">How you compare, and the three changes that would help most.</p>
+        <p className="text-[15px] text-ink-soft">How you compare, and the three changes that would help most.</p>
         <div className="mt-4 flex flex-wrap gap-2">
-          <Link href={`/dashboard/${slug}/audit?variant=summary`} className={`${BUTTON} bg-[#2c2c2e] text-white hover:bg-[#3a3a3c]`}>Open</Link>
-          <a href={`/dashboard/${slug}/reports/pdf?variant=summary`} download className={`${BUTTON} bg-white text-black hover:bg-[#e5e5ea]`}>Download PDF</a>
+          <Link href={`/dashboard/${slug}/audit?variant=summary`} className={buttonClass("outline")}>Open</Link>
+          <a href={`/dashboard/${slug}/reports/pdf?variant=summary`} download className={buttonClass("primary")}>Download PDF</a>
         </div>
       </Card>
 
       <Card title="Unlocks after your call">
-        <p className="text-[15px] text-[#aeaeb2]">
+        <p className="text-[15px] leading-relaxed text-ink-soft">
           On a 30-minute call we confirm your prices, services and hours with you. Then we check AI against the truth, not a guess, and open the rest:
         </p>
-        <ul className="mt-3 divide-y divide-[#2c2c2e]">
+        <ul className="mt-3 divide-y divide-line">
           {LOCKED.map(item => (
             <li key={item.title} className="flex items-baseline gap-3 py-2.5">
-              <span className="text-[13px] font-semibold uppercase tracking-wide text-[#636366]">Locked</span>
-              <span className="text-[15px] text-[#aeaeb2]"><strong className="font-semibold text-white">{item.title}.</strong> {item.what}</span>
+              <Tag>Locked</Tag>
+              <span className="text-[15px] text-ink-soft"><strong className="font-semibold text-ink">{item.title}.</strong> {item.what}</span>
             </li>
           ))}
         </ul>

@@ -24,13 +24,13 @@ export default async function ChangePasswordPage() {
   const requireCurrent = session.user.channel === "password" && !forced;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-16 dark:bg-black">
+    <div className="app flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm space-y-6">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-black dark:text-zinc-50">
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
             {forced ? "Choose your password" : "Change your password"}
           </h1>
-          <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+          <p className="mt-3 text-[15px] leading-relaxed text-muted">
             {forced
               ? `You're signed in with a temporary password. Pick your own to carry on. At least ${MIN_PASSWORD_LENGTH} characters.`
               : `At least ${MIN_PASSWORD_LENGTH} characters. You'll sign in again with the new one.`}

@@ -174,6 +174,16 @@ describe("buildAuditReportData", () => {
     expect(r.prospect).toBe(false);
     await db.update(practices).set({ active: false });
     expect((await buildAuditReportData(db, practiceId))!.prospect).toBe(true);
+    // Once the operator unlocks the dashboard, they get the full reports.
+    await db.update(practices).set({ dashboardUnlocked: true });
+    expect((await buildAuditReportData(db, practiceId))!.prospect).toBe(false);
+  });
+
+  it("carries Google's AI Overview counts when the scan has them, and null when it doesn't", async () => {
+    const { db, practiceId } = await scanned();
+    expect((await buildAuditReportData(db, practiceId))!.aiOverviews).toBeNull();
+    await db.update(scans).set({ aiOverviews: { asked: 8, shown: 6, namedIn: 2, failed: 1, results: [] } });
+    expect((await buildAuditReportData(db, practiceId))!.aiOverviews).toEqual({ asked: 8, shown: 6, namedIn: 2 });
   });
 
   it("never quotes a vetoed namesake as the answer that named others and not them", async () => {

@@ -1,9 +1,8 @@
 /**
- * Mirror AI Visibility Audit — derived values.
+ * Mirror reports: derived values.
  *
  * Pure functions, no framework. Every color, label, sort order and
- * headline in the report comes from here so the three report variants
- * always agree. Colors reference `tokens.ts`.
+ * headline in the reports comes from here so the reports always agree. Colors reference `tokens.ts`.
  */
 import type {
   AuditReport, ScoreComponent, ToolResult, LeaderboardEntry, FactCheck,
@@ -250,57 +249,82 @@ export function headlines(r: AuditReport) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Report variants                                                     */
+/* The four reports                                                    */
 /* ------------------------------------------------------------------ */
 
-export type Variant = 'master' | 'visibility' | 'factcheck' | 'summary';
+export type Variant = 'summary' | 'visibility' | 'factcheck' | 'master';
 
-/** Page order per variant. Page ids match the sections in HANDOFF.md. */
+/**
+ * Page order per report. Each id maps to a component in pages/index.ts. The
+ * recommendation report and the fact check are the full report's own pages
+ * on one subject each, so the three never disagree.
+ */
 export const variantPages: Record<Variant, string[]> = {
-  master: [
-    'cover', 'summary', 'score_and_tools', 'competitors', 'wins_and_tone',
-    'sources', 'searches', 'wrong_facts', 'website_check', 'action_plan',
-    'method', 'next_step',
-  ],
-  visibility: ['v_cover', 'v_summary', 'v_tools_tone', 'v_questions_wins', 'v_sources_next'],
-  factcheck: ['f_cover', 'f_true_false', 'f_wrong_facts', 'f_fix'],
   summary: ['one_page'],
+  visibility: ['score_and_tools', 'competitors', 'sources', 'action_plan', 'closing'],
+  factcheck: ['wrong_facts', 'action_plan', 'closing'],
+  master: ['overview', 'score_and_tools', 'competitors', 'wrong_facts', 'sources', 'action_plan', 'closing'],
 };
 
 /**
- * The four reports as a customer is offered them, shortest first: on the
- * Reports tab, in the report viewer's switcher and as the PDF's file name.
+ * The reports as a customer is offered them, shortest first: on the Reports
+ * tab, in the report viewer's switcher and as the PDF's file name.
  */
 export const VARIANT_INFO: { key: Variant; label: string; title: string; blurb: string }[] = [
-  { key: 'summary', label: 'Summary', title: 'One-page summary', blurb: 'Your three scores, the top problems and the top fixes.' },
-  { key: 'visibility', label: 'Ranking snapshot', title: 'Where you rank', blurb: 'How often and how high AI names you, tool by tool.' },
-  { key: 'factcheck', label: 'Fact check', title: 'What AI gets wrong', blurb: 'Every fact checked, true or false, and how to fix it.' },
-  { key: 'master', label: 'Full audit', title: 'Full AI audit', blurb: 'Everything: scores, every AI tool, competitors, sources, wrong facts and the 90-day plan.' },
+  { key: 'summary', label: 'Summary', title: 'One-page summary', blurb: 'Your three scores, who AI recommends over you and the three changes that help most.' },
+  { key: 'visibility', label: 'Recommendations', title: 'Who AI recommends', blurb: 'How often each AI tool names you, who it names over you, the sites it relies on and what gets you named more.' },
+  { key: 'factcheck', label: 'Fact check', title: 'What AI gets wrong', blurb: 'Every wrong fact AI states about you, next to the truth, with where it read it and how to fix it.' },
+  { key: 'master', label: 'Full report', title: 'Full report', blurb: 'Everything: your scores, every AI tool, who AI recommends, wrong facts, the sites AI relies on and what to do first.' },
 ];
 
-/** "1 page", "12 pages". */
+/** "1 page", "7 pages". */
 export function pageCountLabel(variant: Variant): string {
   const n = variantPages[variant].length;
   return `${n} page${n === 1 ? '' : 's'}`;
 }
 
-/** Whether a string from a URL is one of the four reports. */
+/** Whether a string from a URL is one of the reports. */
 export function isVariant(value: string | null | undefined): value is Variant {
   return VARIANT_INFO.some(v => v.key === value);
 }
 
-/** The downloaded PDF's name: "harbor-plumbing-full-audit-2026-10-12.pdf". */
+/** The downloaded PDF's name: "harbor-plumbing-full-report-2026-10-12.pdf". */
 export function pdfFileName(slug: string, variant: Variant, scanDate: string): string {
   const label = VARIANT_INFO.find(v => v.key === variant)!.label.toLowerCase().replace(/\s+/g, '-');
   return `${slug}-${label}-${scanDate}.pdf`;
 }
 
-/** Which actions each variant shows. */
-export function actionsFor(variant: Variant, r: AuditReport) {
-  // Master shows the first 6 actions (one page). Snapshots filter by track.
-  if (variant === 'master') return r.actions.slice(0, 6);
-  const want = variant === 'visibility' ? 'visibility' : 'facts';
-  return r.actions.filter((a) => a.track === want || a.track === 'both');
+/**
+ * Which actions to show. "master" is the first six in priority order (one
+ * page). "visibility" is only the actions that get AI to recommend the
+ * business more often: what a prospect sees before their facts are confirmed
+ * (the one-page summary and the prospect email both use it).
+ */
+export function actionsFor(set: 'master' | 'visibility', r: AuditReport) {
+  if (set === 'master') return r.actions.slice(0, 6);
+  return r.actions.filter((a) => a.track === 'visibility' || a.track === 'both');
+}
+
+/**
+ * Score explanations are written upstream with the old score names. Reports
+ * call the scores "Recommended by AI" and "Accuracy".
+ */
+export function plainScoreNames(text: string): string {
+  return text
+    .replace(/your visibility/g, 'your Recommended by AI score')
+    .replace(/fact accuracy/g, 'Accuracy')
+    .replace(/visibility/g, 'Recommended by AI');
+}
+
+/**
+ * The actions a report's plan page lists. The recommendation report keeps
+ * the ones that get the business named more, the fact check the ones that
+ * correct a wrong fact; an action that does both is in each.
+ */
+export function planActions(variant: Variant, r: AuditReport) {
+  if (variant === 'visibility') return r.actions.filter((a) => a.track !== 'facts');
+  if (variant === 'factcheck') return r.actions.filter((a) => a.track !== 'visibility');
+  return r.actions;
 }
 
 /** How to show a fact score that may be missing: grey "N/A" instead of a red 0. */

@@ -1,113 +1,100 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ENGINE_NAMES, blockedReason, coverageLabel, type Coverage } from "@/core/coverage";
-import { domainOf } from "@/core/citations";
-import type { Engine } from "@/core/types";
+import { blockedReason, coverageLabel, type Coverage } from "@/core/coverage";
 import { SUPPORT_TOPICS, type SupportTopic } from "@/services/support";
-import { ACCENT_TEXT, Pill, SCAN_STATUS, formatDate, type Tone } from "@/app/admin/ui";
-import { ScoreRings, ScoreRingsWithLegend } from "@/components/score-rings";
+import { Card, Meter, Note, ScoreDial, Stat, Tag } from "@/components/ui";
+import { Empty, ROW, SCAN_STATUS, TD, TH, actionClass, formatDate, linkClass } from "@/app/admin/ui";
+import { businessHref } from "../tabs";
 
-/** The tabs of the admin customer overview. Each is a plain server-rendered section. */
+/** Tabs of the admin customer overview. Each is a plain server-rendered section. See answers.tsx for the other two. */
 
-export function H2({ children, note }: { children: ReactNode; note?: string }) {
+type Shown = { overall: number | null; visibility: number | null; facts: number | null; estimated: boolean };
+
+export function KeyValues({ rows }: { rows: { k: string; v: ReactNode }[] }) {
   return (
-    <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-      <h2 className="text-base font-semibold text-black">{children}</h2>
-      {note && <span className="text-[13px] text-zinc-500">{note}</span>}
-    </div>
-  );
-}
-
-function KeyValues({ rows }: { rows: { k: string; v: ReactNode }[] }) {
-  return (
-    <div className="text-sm">
+    <dl className="divide-y divide-line">
       {rows.map(r => (
-        <div key={r.k} className="grid grid-cols-[120px_1fr] gap-3 border-b border-[#f0f0f0] py-2.5">
-          <div className="text-zinc-500">{r.k}</div>
-          <div className="min-w-0 break-words text-black">{r.v}</div>
+        <div key={r.k} className="grid grid-cols-[120px_1fr] gap-3 py-2.5 text-[15px]">
+          <dt className="text-muted">{r.k}</dt>
+          <dd className="min-w-0 break-words text-ink">{r.v}</dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
-function Empty({ children }: { children: ReactNode }) {
-  return <p className="rounded-[10px] border border-dashed border-zinc-300 p-5 text-sm text-zinc-500">{children}</p>;
-}
-
-function SummaryCard({ label, value, sub, hue }: { label: string; value: ReactNode; sub: string; hue: number }) {
-  return (
-    <div className="rounded-[10px] p-4" style={{ background: `oklch(0.96 0.03 ${hue})`, border: `1px solid oklch(0.88 0.06 ${hue})` }}>
-      <div className="text-[13px] text-zinc-600">{label}</div>
-      <div className="text-[30px] font-bold leading-tight" style={{ color: `oklch(0.35 0.12 ${hue})` }}>{value}</div>
-      <div className="text-xs text-zinc-600">{sub}</div>
-    </div>
-  );
-}
-
-const TWO_COL = "grid gap-7 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]";
+const TWO_COL = "grid items-start gap-4 lg:grid-cols-2";
 
 // ---------------------------------------------------------------- Account
 
 export function AccountTab(p: {
-  practice: { name: string; website: string | null; category: string | null; location: string | null; active: boolean; createdAt: Date; slug: string };
-  latest: { startedAt: Date; coverage: Coverage | null; shown: { overall: number | null; visibility: number | null; facts: number | null; estimated: boolean } } | null;
+  practice: { id: string; name: string; website: string | null; category: string | null; location: string | null; active: boolean; createdAt: Date; slug: string };
+  latest: { startedAt: Date; coverage: Coverage | null; shown: Shown } | null;
   openWrongFacts: number;
   openSupport: number;
   logins: { email: string; mustChangePassword: boolean; hasPassword: boolean; createdAt: Date }[];
 }) {
   const l = p.latest;
+  const site = p.practice.website;
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-6 rounded-[10px] border border-[#e4e4e7] p-5">
-        {l ? (
-          <ScoreRingsWithLegend
-            scores={l.shown}
-            note={`Scan of ${formatDate(l.startedAt)}. ${l.shown.estimated
-              ? "Older scan: ranking rebuilt from its parts, fact check estimated. Run a new scan for exact numbers."
-              : coverageLabel(l.coverage) ?? "All AI tools answered."}`} />
-        ) : (
-          <div className="flex items-center gap-5">
-            <ScoreRings scores={{ overall: null, visibility: null, facts: null }} size={120} />
-            <p className="text-sm text-zinc-500">No scores yet. They appear after the first scan.</p>
+    <div className="space-y-4">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card title="Scores">
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
+            <ScoreDial value={l?.shown.overall ?? null} label="Overall" size={132} />
+            <div className="min-w-[220px] flex-1 space-y-4">
+              <Meter label="Recommended by AI" value={l?.shown.visibility ?? null} />
+              <Meter label="Accuracy" value={l?.shown.facts ?? null} />
+              <Note>
+                {!l ? "No scores yet. They appear after the first scan."
+                  : `Scan of ${formatDate(l.startedAt)}. ${l.shown.estimated
+                    ? "Older scan: Recommended by AI rebuilt from its parts, Accuracy estimated. Run a new scan for exact numbers."
+                    : coverageLabel(l.coverage) ?? "All AI tools answered."}`}
+              </Note>
+            </div>
           </div>
-        )}
-        <div className="grid min-w-[180px] flex-1 gap-3 sm:max-w-[220px]">
-          <SummaryCard label="Wrong facts" value={p.openWrongFacts} hue={25} sub="open in the latest scan" />
-          <SummaryCard label="Support" value={p.openSupport} hue={70} sub={`open request${p.openSupport === 1 ? "" : "s"}`} />
+        </Card>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Card title="Wrong facts">
+            <Stat value={p.openWrongFacts} unit="open in the latest scan" tone={p.openWrongFacts > 0 ? "flag" : "neutral"} />
+          </Card>
+          <Card title="Support">
+            <Stat value={p.openSupport} unit={`open request${p.openSupport === 1 ? "" : "s"}`} tone={p.openSupport > 0 ? "gold" : "neutral"} />
+          </Card>
         </div>
       </div>
       <div className={TWO_COL}>
-        <div>
-          <H2>Account</H2>
+        <Card title="Account">
           <KeyValues rows={[
             { k: "Name", v: p.practice.name },
-            { k: "Website", v: p.practice.website ? <a href={p.practice.website.includes("://") ? p.practice.website : `https://${p.practice.website}`} target="_blank" rel="noreferrer" className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>{p.practice.website}</a> : "Not set" },
-            { k: "Category", v: p.practice.category || "Not set" },
+            { k: "Website", v: site ? <a href={site.includes("://") ? site : `https://${site}`} target="_blank" rel="noreferrer" className={linkClass}>{site}</a> : "Not set" },
+            { k: "Kind", v: p.practice.category || "Not set" },
             { k: "Location", v: p.practice.location || "Not set" },
-            { k: "Status", v: p.practice.active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Paused</Pill> },
+            { k: "Status", v: p.practice.active ? <Tag tone="ok">Active</Tag> : <Tag>Paused</Tag> },
             { k: "Signed up", v: formatDate(p.practice.createdAt) },
-            { k: "Dashboard", v: <Link href={`/dashboard/${p.practice.slug}`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>/dashboard/{p.practice.slug}</Link> },
+            { k: "Dashboard", v: <Link href={`/dashboard/${p.practice.slug}`} className={linkClass}>/dashboard/{p.practice.slug}</Link> },
           ]} />
-        </div>
-        <div>
-          <H2>Logins</H2>
-          {p.logins.length === 0 ? <Empty>No logins yet. Issue one on the business page.</Empty> : (
-            <div className="text-sm">
+        </Card>
+        <Card title="Logins">
+          {p.logins.length === 0 ? <Empty>No logins yet.</Empty> : (
+            <ul className="divide-y divide-line">
               {p.logins.map(u => (
-                <div key={u.email} className="border-b border-[#f0f0f0] py-2.5">
+                <li key={u.email} className="py-2.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-black">{u.email}</span>
-                    {u.mustChangePassword && <Pill tone="amber">Still on temporary password</Pill>}
-                    {!u.hasPassword && <Pill tone="gray">Email link only</Pill>}
+                    <span className="break-all text-[15px] font-semibold text-ink">{u.email}</span>
+                    {u.mustChangePassword && <Tag tone="gold">Still on temporary password</Tag>}
+                    {!u.hasPassword && <Tag>Email link only</Tag>}
                   </div>
-                  <div className="text-xs text-zinc-500">Added {formatDate(u.createdAt)} · Last login not recorded</div>
-                </div>
+                  <div className="text-[13px] text-muted">Added {formatDate(u.createdAt)} · Last login not recorded</div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
-          <p className="mt-3 text-xs text-zinc-500">Password resets stay on the business page. Nothing here emails the customer.</p>
-        </div>
+          <Note className="mt-3">
+            Add a login or reset a password on the{" "}
+            <Link href={businessHref(p.practice.id, "access")} className={linkClass}>Access tab</Link>. Nothing here emails the customer.
+          </Note>
+        </Card>
       </div>
     </div>
   );
@@ -116,217 +103,82 @@ export function AccountTab(p: {
 // ---------------------------------------------------------------- Scores
 
 export function ScoresTab({ scans }: {
-  scans: { id: string; status: string; startedAt: Date; coverage: Coverage | null; shown: { overall: number | null; visibility: number | null; facts: number | null; estimated: boolean } }[];
+  scans: { id: string; status: string; startedAt: Date; coverage: Coverage | null; shown: Shown }[];
 }) {
-  if (scans.length === 0) return <Empty>No scans yet. Run one from the business page.</Empty>;
-  const grid = "grid grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)_60px_70px_50px] gap-3 items-center";
+  if (scans.length === 0) return <Card><Empty>No scans yet. Run one from the Scans tab of the business page.</Empty></Card>;
   return (
-    <div>
-      <H2 note="Newest first · includes blocked, failed and running scans">Every scan</H2>
+    <Card title="Every scan" aside={<span className="text-[13px] text-muted">Newest first. Includes blocked, failed and running scans.</span>}>
       <div className="overflow-x-auto">
-        <div className="min-w-[520px] text-sm">
-          <div className={`${grid} border-b border-[#e4e4e7] pb-2 text-[13px] text-zinc-500`}>
-            <div>Scan</div><div>Status</div><div>Overall</div><div>Ranking</div><div>Facts</div>
-          </div>
-          {scans.map(s => {
-            const st = SCAN_STATUS[s.status] ?? SCAN_STATUS.failed;
-            const reason = s.status === "blocked" && s.coverage ? blockedReason(s.coverage)
-              : s.status === "failed" ? "The scan hit an error. See internal diagnostics on the Work log tab." : null;
-            return (
-              <div key={s.id} className="border-b border-[#f0f0f0] py-3">
-                <div className={grid}>
-                  <div className="flex items-center gap-2.5">
-                    <ScoreRings scores={s.shown} size={34} />
-                    <div>
-                    <div className="font-medium text-black">{formatDate(s.startedAt)}</div>
-                    <div className="text-xs text-zinc-500">{s.status === "complete" ? coverageLabel(s.coverage) ?? "All AI tools answered" : ""}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: st.dot }} />{st.label}
-                  </div>
-                  <div className="font-semibold text-black">{s.shown.overall ?? "N/A"}</div>
-                  <div>{s.shown.visibility ?? "N/A"}</div>
-                  <div>{s.status === "complete" ? `${s.shown.facts ?? "N/A"}${s.shown.estimated && s.shown.facts !== null ? "*" : ""}` : "N/A"}</div>
-                </div>
-                {reason && <div className="mt-2 rounded-md bg-[#f4f4f5] px-3 py-2 text-[13px] text-zinc-700">Why: {reason}</div>}
-              </div>
-            );
-          })}
-        </div>
+        <table className="w-full min-w-[620px] border-collapse">
+          <thead>
+            <tr className="border-b border-line">
+              <th className={TH}>Scan</th><th className={TH}>Status</th><th className={TH}>Overall</th>
+              <th className={TH}>Recommended by AI</th><th className={TH}>Accuracy</th>
+            </tr>
+          </thead>
+          <tbody>
+            {scans.map(s => {
+              const st = SCAN_STATUS[s.status] ?? SCAN_STATUS.failed;
+              const reason = s.status === "blocked" && s.coverage ? blockedReason(s.coverage)
+                : s.status === "failed" ? "The scan hit an error. See internal diagnostics on the Work log tab." : null;
+              return (
+                <tr key={s.id} className={ROW}>
+                  <td className={TD}>
+                    <div className="font-semibold text-ink">{formatDate(s.startedAt)}</div>
+                    <div className="text-[13px] text-muted">{s.status === "complete" ? coverageLabel(s.coverage) ?? "All AI tools answered" : ""}</div>
+                    {reason && <div className="mt-1.5 rounded-lg bg-bone px-3 py-2 text-[13px] text-ink-soft">Why: {reason}</div>}
+                  </td>
+                  <td className={`${TD} whitespace-nowrap text-ink-soft`}>
+                    <span className={`mr-2 inline-block h-2 w-2 rounded-full ${st.dot}`} aria-hidden="true" />{st.label}
+                  </td>
+                  <td className={`${TD} font-semibold text-ink`}>{s.shown.overall ?? "N/A"}</td>
+                  <td className={`${TD} text-ink-soft`}>{s.shown.visibility ?? "N/A"}</td>
+                  <td className={`${TD} text-ink-soft`}>
+                    {s.status === "complete" ? `${s.shown.facts ?? "N/A"}${s.shown.estimated && s.shown.facts !== null ? "*" : ""}` : "N/A"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
       {scans.some(s => s.shown.estimated) && (
-        <p className="mt-3 text-xs text-zinc-500">* Estimated: this scan ran before fact checks were scored the current way.</p>
+        <Note className="mt-3">* Estimated: this scan ran before Accuracy was scored the current way.</Note>
       )}
-    </div>
+    </Card>
   );
 }
 
 // ---------------------------------------------------------------- Reports
 
 const REPORTS = [
-  { kind: "Summary", hue: 300, title: "One-page summary", summary: "1 page: the three scores, top problems, top fixes and the next step.", path: "audit?variant=summary" },
-  { kind: "Full audit", hue: 265, title: "Full AI audit", summary: "12 pages: score, every AI tool, competitors, sources, wrong facts and the 90-day plan.", path: "audit?variant=master" },
-  { kind: "Ranking snapshot", hue: 210, title: "Where you rank", summary: "5 pages: how often and how high AI names them, tool by tool.", path: "audit?variant=visibility" },
-  { kind: "Fact check", hue: 150, title: "What AI gets wrong", summary: "4 pages: every fact checked, true or false, and how to fix it.", path: "audit?variant=factcheck" },
-  { kind: "Monthly report", hue: 60, title: "Monthly summary", summary: "Score trend, what changed, and the work log for the month.", path: "report" },
+  { kind: "Summary", title: "One-page summary", summary: "1 page: the three scores, top problems, top fixes and the next step.", path: "audit?variant=summary" },
+  { kind: "Recommendations", title: "Who AI recommends", summary: "5 pages: every AI tool, competitors, sources and what gets them named more.", path: "audit?variant=visibility" },
+  { kind: "Fact check", title: "What AI gets wrong", summary: "3 pages: every wrong fact next to the truth, and how to fix each.", path: "audit?variant=factcheck" },
+  { kind: "Full report", title: "Full report", summary: "7 pages: scores, every AI tool, competitors, wrong facts, sources and the action plan.", path: "audit?variant=master" },
+  { kind: "Monthly report", title: "Monthly summary", summary: "Score trend, what changed, and the work log for the month.", path: "report" },
 ];
 
 export function ReportsTab({ slug, latestDate }: { slug: string; latestDate: Date | null }) {
-  if (!latestDate) return <Empty>Reports appear once the first scan finishes.</Empty>;
+  if (!latestDate) return <Card><Empty>Reports appear once the first scan finishes.</Empty></Card>;
   return (
     <div>
-      <H2 note="Built from the latest scan, exactly as the customer sees them">Reports</H2>
-      <div className="grid gap-4 [grid-template-columns:repeat(auto-fill,minmax(260px,1fr))]">
+      <Note className="mb-4">Built from the scan of {formatDate(latestDate)}, exactly as the customer sees them.</Note>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {REPORTS.map(r => {
           const href = `/dashboard/${slug}/${r.path}`;
           return (
-            <div key={r.kind} className="flex flex-col overflow-hidden rounded-[10px] border border-[#e4e4e7] bg-white">
-              <div className="h-1.5" style={{ background: `oklch(0.6 0.15 ${r.hue})` }} />
-              <div className="flex-1 p-4">
-                <div className="text-xs font-semibold uppercase tracking-wide" style={{ color: `oklch(0.45 0.15 ${r.hue})` }}>{r.kind}</div>
-                <div className="mt-1 font-semibold text-black">{r.title}</div>
-                <p className="mt-1 text-[13px] text-zinc-600">{r.summary}</p>
-                <div className="mt-2 text-xs text-zinc-500">From the scan of {formatDate(latestDate)}</div>
+            <Card key={r.kind} title={r.kind} className="flex flex-col">
+              <div className="text-[17px] font-semibold text-ink">{r.title}</div>
+              <Note className="mt-1 flex-1">{r.summary}</Note>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link href={href} className={actionClass("primary", "sm")}>Open report</Link>
+                <Link href={`${href}${href.includes("?") ? "&" : "?"}print=1`} className={actionClass("outline", "sm")}>Download PDF</Link>
               </div>
-              <div className="grid grid-cols-2 border-t border-[#e4e4e7] text-center text-[13px] font-medium">
-                <Link href={href} className="border-r border-[#e4e4e7] py-2.5 hover:bg-zinc-50" style={{ color: ACCENT_TEXT }}>Open report</Link>
-                <Link href={`${href}${href.includes("?") ? "&" : "?"}print=1`} className="py-2.5 hover:bg-zinc-50" style={{ color: ACCENT_TEXT }}>Download PDF</Link>
-              </div>
-            </div>
+            </Card>
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- AI answers
-
-const POSITION: Record<string, { label: string; tone: Tone }> = {
-  first: { label: "Mentioned · #1", tone: "green" },
-  top3: { label: "Mentioned · top 3", tone: "green" },
-  mentioned: { label: "Mentioned", tone: "green" },
-  absent: { label: "Not mentioned", tone: "red" },
-};
-
-// The scan runner stores a vetoed namesake's tone reason as this prefix plus
-// the fragment of the answer that placed the business elsewhere.
-const DIFFERENT_BUSINESS = "Different business:";
-
-/** The evidence behind a namesake veto, or null when the check was not vetoed. */
-function namesakeEvidence(toneReason: string | null | undefined): string | null {
-  return toneReason?.startsWith(DIFFERENT_BUSINESS) ? toneReason.slice(DIFFERENT_BUSINESS.length).trim() : null;
-}
-
-export function AnswersTab({ date, questions }: {
-  date: Date | null;
-  questions: {
-    prompt: string; kind: string;
-    answers: { engine: Engine; answerText: string; position: string; citations: string[]; toneReason?: string | null }[];
-    missing: Engine[];
-  }[];
-}) {
-  if (!date || questions.length === 0) return <Empty>No answers yet. They appear after the first scan.</Empty>;
-  return (
-    <div className="space-y-8">
-      <H2 note="First run of each question">{`Latest answers · ${formatDate(date)}`}</H2>
-      {questions.map(q => (
-        <div key={q.prompt}>
-          <div className="mb-3 text-sm text-zinc-600">
-            Question: <span className="font-medium text-black">&ldquo;{q.prompt}&rdquo;</span>
-            {q.kind === "branded" && <span className="ml-2"><Pill tone="gray">Names the business</Pill></span>}
-          </div>
-          <div className="space-y-3">
-            {q.answers.map(a => {
-              const pos = POSITION[a.position] ?? POSITION.absent;
-              const sources = [...new Set(a.citations.map(domainOf).filter((d): d is string => !!d))];
-              const namesake = namesakeEvidence(a.toneReason);
-              return (
-                <div key={a.engine} className="rounded-[10px] border border-[#e4e4e7] p-4">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold text-black">{ENGINE_NAMES[a.engine] ?? a.engine}</div>
-                    <div className="flex flex-wrap items-center justify-end gap-1.5">
-                      {namesake !== null && <Pill tone="amber">Different business</Pill>}
-                      <Pill tone={pos.tone}>{pos.label}</Pill>
-                    </div>
-                  </div>
-                  {namesake !== null && (
-                    <p className="mb-2 text-xs text-zinc-600">
-                      The answer describes another business with this name: &ldquo;{namesake}&rdquo;. Not counted as a mention.
-                    </p>
-                  )}
-                  <p className="line-clamp-6 whitespace-pre-wrap text-sm text-zinc-700">{a.answerText}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs">
-                    <span className="text-zinc-500">Sources cited:</span>
-                    {sources.length === 0 ? <span className="text-zinc-400">none</span> : sources.map(d => (
-                      <span key={d} className="rounded bg-[#f4f4f5] px-1.5 py-0.5 font-mono text-zinc-700">{d}</span>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {q.missing.map(e => (
-              <div key={e} className="flex items-center justify-between rounded-[10px] border border-dashed border-zinc-300 p-4">
-                <div className="font-semibold text-zinc-500">{ENGINE_NAMES[e]}</div>
-                <Pill tone="gray">No answer</Pill>
-              </div>
-            ))}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------- Wrong facts
-
-export type FactFilter = "open" | "not_seen" | "fixed" | "dismissed" | "all";
-
-export function WrongFactsTab({ base, filter, findings, practiceId }: {
-  base: string;
-  filter: FactFilter;
-  practiceId: string;
-  findings: { id: string; field: string; said: string; correct: string; engine: Engine; createdAt: Date; group: Exclude<FactFilter, "all"> }[];
-}) {
-  const CHIPS: { key: FactFilter; label: string }[] = [
-    { key: "open", label: "Open" }, { key: "not_seen", label: "Not seen in latest scan" },
-    { key: "fixed", label: "Fixed" }, { key: "dismissed", label: "Dismissed" }, { key: "all", label: "All" },
-  ];
-  const STATUS: Record<Exclude<FactFilter, "all">, { label: string; tone: Tone }> = {
-    open: { label: "Open", tone: "red" }, not_seen: { label: "Not seen in latest scan", tone: "amber" },
-    fixed: { label: "Fixed", tone: "green" }, dismissed: { label: "Dismissed", tone: "gray" },
-  };
-  const count = (k: FactFilter) => k === "all" ? findings.length : findings.filter(f => f.group === k).length;
-  const shown = filter === "all" ? findings : findings.filter(f => f.group === filter);
-  return (
-    <div>
-      <div className="mb-4 flex flex-wrap gap-2">
-        {CHIPS.map(c => (
-          <Link key={c.key} href={`${base}?tab=facts&filter=${c.key}`}
-            className={`rounded-full border px-3 py-1 text-[13px] ${c.key === filter ? "border-black bg-black text-white" : "border-zinc-300 bg-white text-zinc-700 hover:border-zinc-500"}`}>
-            {c.label} · {count(c.key)}
-          </Link>
-        ))}
-      </div>
-      {shown.length === 0 ? <Empty>Nothing in this group.</Empty> : (
-        <div className="text-sm">
-          {shown.map(f => (
-            <div key={f.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f0f0f0] py-3">
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold text-black">{f.field}</div>
-                <div className="mt-1"><span className="rounded px-1.5 py-0.5" style={{ background: "oklch(0.95 0.05 25)", color: "oklch(0.42 0.13 25)" }}>AI said: {f.said}</span></div>
-                <div className="mt-1 text-zinc-700">Correct: {f.correct}</div>
-                <div className="mt-1 text-xs text-zinc-500">{ENGINE_NAMES[f.engine] ?? f.engine} · first seen {formatDate(f.createdAt)}</div>
-              </div>
-              <Pill tone={STATUS[f.group].tone}>{STATUS[f.group].label}</Pill>
-            </div>
-          ))}
-        </div>
-      )}
-      <p className="mt-4 text-xs text-zinc-500">
-        Triage (fix / dismiss) stays on the <Link href={`/admin/practices/${practiceId}#findings`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>business page</Link> for now.
-      </p>
     </div>
   );
 }
@@ -342,28 +194,25 @@ export function SetupTab({ practiceId, facts, questions, competitors }: {
   return (
     <div>
       <div className={TWO_COL}>
-        <div>
-          <H2>Fact sheet</H2>
+        <Card title="Fact sheet">
           {facts.length === 0 ? <Empty>No confirmed facts yet.</Empty> : <KeyValues rows={facts.map(f => ({ k: f.label, v: f.value }))} />}
-        </div>
-        <div className="space-y-7">
-          <div>
-            <H2>Questions we ask the AI tools</H2>
+        </Card>
+        <div className="space-y-4">
+          <Card title="Questions we ask the AI tools">
             {questions.length === 0 ? <Empty>No questions yet.</Empty> : (
-              <ol className="list-decimal space-y-1.5 pl-5 text-sm text-black">{questions.map(q => <li key={q}>{q}</li>)}</ol>
+              <ol className="list-decimal space-y-1.5 pl-5 text-[15px] text-ink">{questions.map(q => <li key={q}>{q}</li>)}</ol>
             )}
-          </div>
-          <div>
-            <H2>Competitors</H2>
+          </Card>
+          <Card title="Competitors">
             {competitors.length === 0 ? <Empty>None yet.</Empty> : (
-              <div className="flex flex-wrap gap-2">{competitors.map(c => <Pill key={c} tone="gray">{c}</Pill>)}</div>
+              <div className="flex flex-wrap gap-2">{competitors.map(c => <Tag key={c}>{c}</Tag>)}</div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
-      <p className="mt-5 text-xs text-zinc-500">
-        Read-only here. <Link href={`/admin/practices/${practiceId}`} className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>Edit on the business page ↗</Link>
-      </p>
+      <Note className="mt-4">
+        Read-only here. <Link href={businessHref(practiceId)} className={linkClass}>Edit on the business page</Link>
+      </Note>
     </div>
   );
 }
@@ -372,16 +221,16 @@ export function SetupTab({ practiceId, facts, questions, competitors }: {
 
 export function EmailsTab() {
   return (
-    <div className="rounded-[10px] border border-dashed border-zinc-300 p-5 text-sm">
-      <div className="font-semibold text-black">We don&apos;t keep a record of sent emails yet.</div>
-      <p className="mt-1 text-zinc-600">Weekly Pulse, alerts and support receipts go out, but nothing saves them, so this tab can&apos;t show them.</p>
-      <div className="mt-4 text-[13px] font-semibold text-black">Smallest way to start</div>
-      <ol className="mt-1 list-decimal space-y-1 pl-5 text-zinc-600">
-        <li>Add one table: <span className="rounded bg-[#f4f4f5] px-1 font-mono text-xs">sent_emails</span> (business, kind, to, subject, sent at, email service id).</li>
+    <Card title="Emails">
+      <div className="text-[15px] font-semibold text-ink">We don&apos;t keep a record of sent emails yet.</div>
+      <Note className="mt-1">Weekly Pulse, alerts and support receipts go out, but nothing saves them, so this tab can&apos;t show them.</Note>
+      <div className="mt-4 text-[14px] font-semibold text-ink">Smallest way to start</div>
+      <ol className="mt-1 list-decimal space-y-1 pl-5 text-[14px] leading-relaxed text-muted">
+        <li>Add one table: <span className="rounded bg-bone px-1 font-mono text-[12px] text-ink-soft">sent_emails</span> (business, kind, to, subject, sent at, email service id).</li>
         <li>Write one row inside the shared send function, so every email type is covered at once.</li>
         <li>This tab lists those rows. Older emails won&apos;t appear.</li>
       </ol>
-    </div>
+    </Card>
   );
 }
 
@@ -390,25 +239,25 @@ export function EmailsTab() {
 export function SupportTab({ requests }: {
   requests: { id: string; topic: string; message: string; email: string; status: string; createdAt: Date }[];
 }) {
-  if (requests.length === 0) return <Empty>No support requests from this customer.</Empty>;
+  if (requests.length === 0) return <Card><Empty>No support requests from this customer.</Empty></Card>;
   return (
-    <div>
-      <div className="text-sm">
+    <Card title="Support requests">
+      <ul className="divide-y divide-line">
         {requests.map(r => (
-          <div key={r.id} className="flex flex-wrap items-start justify-between gap-3 border-b border-[#f0f0f0] py-3">
+          <li key={r.id} className="flex flex-wrap items-start justify-between gap-3 py-3">
             <div className="min-w-0 flex-1">
-              <div className="font-semibold text-black">{SUPPORT_TOPICS[r.topic as SupportTopic] ?? r.topic}</div>
-              <p className="mt-1 whitespace-pre-wrap text-zinc-700">{r.message}</p>
-              <div className="mt-1 text-xs text-zinc-500">{r.email} · {formatDate(r.createdAt)}</div>
+              <div className="text-[15px] font-semibold text-ink">{SUPPORT_TOPICS[r.topic as SupportTopic] ?? r.topic}</div>
+              <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed text-ink-soft">{r.message}</p>
+              <div className="mt-1 text-[13px] text-muted">{r.email} · {formatDate(r.createdAt)}</div>
             </div>
-            {r.status === "open" ? <Pill tone="amber">Open · waiting on us</Pill> : <Pill tone="green">Answered · closed</Pill>}
-          </div>
+            {r.status === "open" ? <Tag tone="gold">Open, waiting on us</Tag> : <Tag tone="ok">Answered</Tag>}
+          </li>
         ))}
-      </div>
-      <p className="mt-4 text-xs text-zinc-500">
-        Close requests from the queue on <Link href="/admin#support" className="underline-offset-2 hover:underline" style={{ color: ACCENT_TEXT }}>/admin</Link>, same as today.
-      </p>
-    </div>
+      </ul>
+      <Note className="mt-3">
+        Mark requests answered in the <Link href="/admin/support" className={linkClass}>support queue</Link>.
+      </Note>
+    </Card>
   );
 }
 
@@ -420,29 +269,27 @@ export function LogTab({ workLog, diagnostics }: {
 }) {
   return (
     <div className={TWO_COL}>
-      <div>
-        <H2>Work log</H2>
-        <div className="-mt-2 mb-3 text-xs text-zinc-500">The customer sees this</div>
+      <Card title="Work log">
+        <Note className="mb-2">The customer sees this.</Note>
         {workLog.length === 0 ? <Empty>Nothing logged yet.</Empty> : (
-          <div className="text-sm">
+          <ul className="divide-y divide-line">
             {workLog.map(w => (
-              <div key={w.id} className="flex justify-between gap-3 border-b border-[#f0f0f0] py-2.5">
-                <div className="text-black">{w.description}</div>
-                <div className="shrink-0 text-xs text-zinc-500">{formatDate(w.createdAt)}</div>
-              </div>
+              <li key={w.id} className="flex justify-between gap-3 py-2.5">
+                <span className="text-[15px] text-ink">{w.description}</span>
+                <span className="shrink-0 text-[13px] text-muted">{formatDate(w.createdAt)}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
-      <div>
-        <H2>Internal diagnostics</H2>
-        <div className="-mt-2 mb-3 text-xs text-zinc-500">Only operators see this</div>
-        <div className="max-h-[480px] overflow-y-auto rounded-[10px] bg-[#18181b] p-4 font-mono text-xs leading-relaxed text-zinc-200">
-          {diagnostics.length === 0 ? <div className="text-zinc-500">No warnings.</div> : diagnostics.map(d => (
-            <div key={d.id}><span className="text-zinc-500">{d.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span> {d.description}</div>
+      </Card>
+      <Card title="Internal diagnostics">
+        <Note className="mb-2">Only we see this.</Note>
+        <div className="max-h-[480px] overflow-y-auto rounded-xl bg-ivory p-4 font-mono text-[12px] leading-relaxed text-ink-soft">
+          {diagnostics.length === 0 ? <div className="text-muted">No warnings.</div> : diagnostics.map(d => (
+            <div key={d.id}><span className="text-muted">{d.createdAt.toISOString().slice(0, 16).replace("T", " ")}</span> {d.description}</div>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

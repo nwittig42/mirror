@@ -37,6 +37,34 @@ export function computeVisibility(checks: ScoreInput["checks"], engineCount?: nu
   return Math.round(100 * (0.5 * p.citationRate + 0.2 * p.positionQuality + 0.15 * p.engineBreadth) / 0.85);
 }
 
+export interface EngineScore {
+  engine: ScoreInput["checks"][number]["engine"];
+  /** This tool's own visibility, 0-100. */
+  score: number;
+  /** Buyer-question answers from this tool that named the business. */
+  named: number;
+  /** Buyer-question answers this tool gave. */
+  asked: number;
+}
+
+/**
+ * Visibility one AI tool at a time: the same formula as `computeVisibility`,
+ * over that tool's answers alone, with reach counted out of one tool (it
+ * either named the business or it didn't). Best score first. Tools that gave
+ * no buyer-question answers are left out.
+ */
+export function engineScores(checks: ScoreInput["checks"]): EngineScore[] {
+  const byEngine = new Map<EngineScore["engine"], ScoreInput["checks"]>();
+  for (const c of checks) byEngine.set(c.engine, [...(byEngine.get(c.engine) ?? []), c]);
+  return [...byEngine.entries()]
+    .map(([engine, own]) => {
+      const earned = own.filter(c => c.promptKind !== "branded");
+      return { engine, score: computeVisibility(own, 1), named: earned.filter(c => c.mentioned).length, asked: earned.length };
+    })
+    .filter(e => e.asked > 0)
+    .sort((a, b) => b.score - a.score || b.named - a.named || a.engine.localeCompare(b.engine));
+}
+
 export interface ShareOfVoice {
   /** The business's part of every mention of any business, 0 to 100. Null when no answer named anyone. */
   share: number | null;

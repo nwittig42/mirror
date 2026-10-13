@@ -3,7 +3,7 @@ import type { Db } from "@/db";
 import { facts } from "@/db/schema";
 import { loadEnv } from "@/lib/env";
 import { isSafeHttpUrl } from "@/lib/url";
-import { factPageLinks, htmlToText, htmlTitle } from "@/core/site-text";
+import { sitePageLinks, htmlToText, htmlTitle } from "@/core/site-text";
 import { parseDraftFacts, type DraftFact } from "@/core/fact-draft-parse";
 
 /**
@@ -15,9 +15,9 @@ import { parseDraftFacts, type DraftFact } from "@/core/fact-draft-parse";
  * not be able to mark an AI answer "wrong".
  */
 
-const MAX_EXTRA_PAGES = 6;
+const MAX_EXTRA_PAGES = 14;
 const PAGE_TEXT_LIMIT = 8_000;
-const TOTAL_TEXT_LIMIT = 36_000;
+const TOTAL_TEXT_LIMIT = 80_000;
 const MAX_HTML_BYTES = 1_500_000;
 const FETCH_TIMEOUT_MS = 15_000;
 
@@ -41,8 +41,10 @@ async function fetchHtml(url: string, fetchImpl: Fetch): Promise<string | null> 
 }
 
 /**
- * The homepage plus up to six fact-looking pages it links to (about, pricing,
- * services, contact...). Pages that fail to load are skipped, not fatal.
+ * The homepage plus up to fourteen more of the site's own pages: the ones
+ * that look like they hold facts first (about, pricing, services, contact...),
+ * then the rest of what the homepage links to. Pages that fail to load are
+ * skipped, not fatal.
  */
 // The operator types the website, but it is still a URL we fetch from our
 // server, so refuse the obvious internal targets.
@@ -56,7 +58,7 @@ export async function fetchSitePages(website: string, fetchImpl: Fetch = fetch):
   const homeHtml = await fetchHtml(home, fetchImpl);
   if (!homeHtml) throw new Error(`Could not load ${home}`);
 
-  const links = factPageLinks(homeHtml, home, MAX_EXTRA_PAGES);
+  const links = sitePageLinks(homeHtml, home, MAX_EXTRA_PAGES);
   const extra = await Promise.all(links.map(async url => ({ url, html: await fetchHtml(url, fetchImpl) })));
 
   let budget = TOTAL_TEXT_LIMIT;
@@ -73,16 +75,21 @@ export async function fetchSitePages(website: string, fetchImpl: Fetch = fetch):
 
 const DRAFTER_SYSTEM = `You pre-fill a fact sheet for a business from the text of its own website.
 The fact sheet is later used to check whether AI assistants describe the business correctly, so every fact must be specific, checkable, and stated on the pages given. Never guess, infer, or use outside knowledge.
-Categories:
-- identity: legal/brand name, what the business is in one line, founding year, owner or founder
-- providers: named people who deliver the service or run the business (owner, lead technician, chef, attorney, stylist, injector), with titles and credentials as written
-- services: each service, product, or feature offered (one fact per item or tight group: drain cleaning, sourdough loaves, estate planning, Botox)
-- not_offered: things the site explicitly says it does NOT do or offer
-- pricing: each stated price, plan, fee, or "free" claim, with the unit (per unit, per month, per session)
-- logistics: address, service area, phone, email, hours, booking method, languages
-- compliance: licenses, certifications, accreditations, insurance accepted, regulatory statements
-Rules: one fact per row; label is a short name ("Water heater install price", "Saturday hours", "Head chef", "Contractor license"); value is the fact as stated, including units; skip marketing adjectives and testimonials; skip anything you are unsure of. Aim for 10 to 40 facts.
-Output ONLY a JSON array: [{"category": "<one of the categories>", "label": "<short name>", "value": "<the fact>", "sourceUrl": "<the PAGE url it came from>"}]`;
+
+Step 1. Decide the sections THIS business's fact sheet needs. Every business is different, so do not use a standard list: choose 4 to 8 short, plain headings that the owner of this particular business would recognise as how their business is organised. Examples of the idea only: a bakery might have "Menu", "Custom orders", "Allergens and dietary", "Hours and location"; a law firm "Practice areas", "Attorneys", "Fees", "Areas served"; a plumber "Services", "Emergency call-outs", "Pricing", "Service area", "Licenses". Headings are 1 to 4 words, in the business's own vocabulary, with no jargon. Use the exact same heading text for every fact in a section, and list a section's facts together.
+
+Step 2. Write the facts, one per row. label is a short name ("Water heater install price", "Saturday hours", "Head baker", "Contractor license"); value is the fact as stated, including units. Skip marketing adjectives and testimonials. Skip anything you are unsure of. Include things the site explicitly says the business does NOT do or offer. Aim for 15 to 60 facts.
+
+Step 3. Give each fact a type. The type is internal bookkeeping, separate from the section, and must be exactly one of:
+- pricing: any stated price, plan, fee, rate, or "free" claim
+- not_offered: something the site explicitly says the business does NOT do or offer
+- providers: a named person who delivers the service or runs the business, with title and credentials as written
+- compliance: a license, certification, accreditation, insurance, or regulatory statement
+- logistics: address, service area, phone, email, hours, how to book or order, languages
+- identity: the name, what the business is in one line, founding year, owner or founder
+- services: any other service, product, feature, or policy
+
+Output ONLY a JSON array: [{"section": "<the heading you chose>", "category": "<the type>", "label": "<short name>", "value": "<the fact>", "sourceUrl": "<the PAGE url it came from>"}]`;
 
 export async function draftFactsFromPages(args: {
   businessName: string;
@@ -97,7 +104,7 @@ export async function draftFactsFromPages(args: {
     headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01",
       "content-type": "application/json" },
     body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL, max_tokens: 4000, system: DRAFTER_SYSTEM,
+      model: env.ANTHROPIC_MODEL, max_tokens: 8000, system: DRAFTER_SYSTEM,
       messages: [{ role: "user", content: `BUSINESS: ${args.businessName}\n\n${body}` }],
     }),
   });
@@ -120,9 +127,13 @@ export async function saveDraftFacts(db: Db, practiceId: string, drafts: DraftFa
   const taken = new Set(existing.map(f => f.label.trim().toLowerCase()));
   const fresh = drafts.filter(d => !taken.has(d.label.toLowerCase()));
   if (fresh.length === 0) return 0;
-  await db.insert(facts).values(fresh.map(d => ({
-    practiceId, category: d.category, label: d.label, value: d.value,
-    status: "draft", source: "website", sourceUrl: d.sourceUrl,
+  // One insert would stamp every row with the same time and lose the order
+  // the drafter wrote them in, which is the order the sections read in. A
+  // millisecond apart keeps it.
+  const now = Date.now();
+  await db.insert(facts).values(fresh.map((d, i) => ({
+    practiceId, section: d.section ?? null, category: d.category, label: d.label, value: d.value,
+    status: "draft", source: "website", sourceUrl: d.sourceUrl, createdAt: new Date(now + i),
   })));
   return fresh.length;
 }

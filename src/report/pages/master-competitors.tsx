@@ -1,24 +1,25 @@
-import { ReportPage, EmptyState, nn, text, type PageProps } from "@/report/components";
+import { Bar, EmptyState, PageTitle, ReportPage, ToolBadge, card, clamp, text, type PageProps } from "@/report/components";
 import { sortedLeaderboard } from "@/report/scoring";
-import { toolMeta } from "@/report/tokens";
+import { color, statusColor, toolMeta } from "@/report/tokens";
 import type { AuditReport, GridCell } from "@/report/types";
 
-/** Leaderboard columns that fit side by side; heatmap rows that fit under them. */
-const MAX_COLUMNS = 6;
+/** Leaderboard rows and question rows that fit on the sheet (one question fewer with six AI tools across). */
+const MAX_BOARD = 6;
 const MAX_ROWS = 5;
+const MAX_ROWS_NARROW = 4;
 
 const ORDINAL = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"];
-const ordinalPlace = (n: number) => (ORDINAL[n - 1] ? `${ORDINAL[n - 1]} place` : `#${n} on the list`);
+const ordinalPlace = (n: number) => (ORDINAL[n - 1] ? `${ORDINAL[n - 1]} place` : `number ${n} on the list`);
 const times = (n: number) => (n === 1 ? "once" : n === 2 ? "twice" : `${n} times`);
 
 /** Top entries that fit, always including the client. */
 function boardRows(r: AuditReport) {
   const all = sortedLeaderboard(r.leaderboard);
-  if (all.length <= MAX_COLUMNS) return all;
-  const top = all.slice(0, MAX_COLUMNS);
+  if (all.length <= MAX_BOARD) return all;
+  const top = all.slice(0, MAX_BOARD);
   if (top.some((e) => e.isClient)) return top;
   const client = all.find((e) => e.isClient);
-  return client ? [...all.slice(0, MAX_COLUMNS - 1), client] : top;
+  return client ? [...all.slice(0, MAX_BOARD - 1), client] : top;
 }
 
 function leaderTakeaway(r: AuditReport, buyerAnswers: number): string {
@@ -26,7 +27,7 @@ function leaderTakeaway(r: AuditReport, buyerAnswers: number): string {
   const client = all.find((e) => e.isClient);
   const lead = all[0];
   if (!lead) return "No businesses were named in these answers.";
-  if (!client || client.count === 0) return `${lead.name} was named in ${lead.count} of ${buyerAnswers} answers. You weren’t named in any.`;
+  if (!client || client.count === 0) return `${lead.name} was named in ${lead.count} of ${buyerAnswers} answers. You were not named in any.`;
   if (client.rank === 1) {
     const next = all[1];
     return `You were named in ${client.count} of ${buyerAnswers} answers, more than anyone else.` + (next ? ` ${next.name} was next with ${next.count}.` : "");
@@ -34,7 +35,7 @@ function leaderTakeaway(r: AuditReport, buyerAnswers: number): string {
   return `${lead.name} was named in ${lead.count} of ${buyerAnswers} answers. You were named in ${client.count}, ${ordinalPlace(client.rank)}.`;
 }
 
-function heatTakeaway(r: AuditReport): string {
+function gridTakeaway(r: AuditReport): string {
   const you = r.business.name;
   const firsts = new Map<string, number>();
   let spots = 0;
@@ -47,11 +48,11 @@ function heatTakeaway(r: AuditReport): string {
       if (c.clientRank === 1) clientFirst.push({ tool: toolMeta[c.tool].name, q: q.text });
     }
   }
-  if (!spots) return "No buyer questions were asked in this scan.";
+  if (!spots) return "No customer questions were asked in this scan.";
   const [leader, leaderCount] = [...firsts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ["", 0];
   const lead = leader && leader !== you ? `${leader} was named first in ${leaderCount} of ${spots} spots.` : "";
   let mine: string;
-  if (!clientFirst.length) mine = "You weren’t named first anywhere.";
+  if (!clientFirst.length) mine = "You were not named first anywhere.";
   else if (clientFirst.length === 1) {
     const { tool, q } = clientFirst[0];
     mine = q.length <= 48 ? `You were first once: ${tool}, for “${q}”.` : `You were first once, on ${tool}.`;
@@ -60,83 +61,62 @@ function heatTakeaway(r: AuditReport): string {
 }
 
 function cellView(c: GridCell | undefined, runs: number) {
-  if (!c) return { first: "No answer", you: "", bg: "#F1F5F9", fg: "#475569", youColor: "#475569" };
-  if (c.clientRank === 1) return { first: "You ★", you: `First · ${c.runsAppeared} of ${runs} runs`, bg: "#16A34A", fg: "#FFFFFF", youColor: "#FFFFFF" };
-  if (c.clientRank && c.clientRank > 1) return { first: c.firstNamed, you: `You #${c.clientRank} · ${c.runsAppeared}/${runs}`, bg: "#FDE68A", fg: "#0F172A", youColor: "#92400E" };
-  return { first: c.firstNamed, you: "You: left out", bg: "#FEE2E2", fg: "#0F172A", youColor: "#B91C1C" };
+  if (!c) return { first: "No answer", you: "", bg: color.surface, border: color.rule, youColor: color.muted };
+  if (c.clientRank === 1) return { first: "You", you: `First, ${c.runsAppeared} of ${runs} runs`, bg: statusColor.good.soft, border: statusColor.good.soft, youColor: statusColor.good.text };
+  if (c.clientRank && c.clientRank > 1) return { first: c.firstNamed, you: `You: number ${c.clientRank}`, bg: statusColor.warn.soft, border: statusColor.warn.soft, youColor: color.ink };
+  return { first: c.firstNamed || "No one named", you: "You: left out", bg: color.panel, border: color.panel, youColor: statusColor.bad.text };
 }
 
-const clamp = (lines: number) => ({ display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" }) as const;
-
-/** Page 4 of the master report: who AI recommends instead. */
+/** Page 3 of the full report: who AI recommends instead, overall and question by question. */
 export function CompetitorsPage({ r, ctx }: PageProps) {
   const buyerAnswers = r.scan.buyerQuestionCount * r.scan.runsPerQuestion * r.scan.tools.length;
   const all = sortedLeaderboard(r.leaderboard);
-  const max = all[0]?.count || 1;
-  const board = boardRows(r).map((e) => ({
-    ...e,
-    label: e.isClient ? "You" : e.name,
-    h: Math.max(36, Math.round((e.count / max) * 150)),
-    color: e.isClient ? "#2563EB" : "#CBD5E1",
-    valColor: e.isClient ? "#1D4ED8" : "#0F172A",
-    nameColor: e.isClient ? "#1D4ED8" : "#0F172A",
-    weight: e.isClient ? 800 : 600,
-  }));
-
+  const board = boardRows(r);
   const client = all.find((e) => e.isClient);
   const lead = all[0];
   const above = client && client.rank > 1 ? all[client.rank - 2] : undefined;
   const second = all[1];
 
-  const tools = r.scan.tools.map((t) => ({ id: t, ...toolMeta[t] }));
-  const rows = r.questions.slice(0, MAX_ROWS);
+  const tools = r.scan.tools;
+  const narrow = tools.length > 5;
+  const rows = r.questions.slice(0, narrow ? MAX_ROWS_NARROW : MAX_ROWS);
   const hidden = r.questions.length - rows.length;
 
   return (
-    <ReportPage r={r} ctx={ctx} section={`${nn(ctx.index)} · Who AI recommends instead`}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <span style={{ alignSelf: "flex-start", fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", padding: "5px 11px", borderRadius: 99, background: "#EDE9FE", color: "#6D28D9" }}>Who’s beating you</span>
-        <h1 style={text.h1}>Who AI recommends instead</h1>
-      </div>
+    <ReportPage r={r} ctx={ctx} section="Who AI recommends">
+      <PageTitle eyebrow="Who AI recommends" title="The businesses AI names instead of you">
+        {board.length ? leaderTakeaway(r, buyerAnswers) : undefined}
+      </PageTitle>
 
       {board.length === 0 ? (
-        <EmptyState title="No businesses named">None of the buyer answers named a business, so there is no leaderboard this time.</EmptyState>
+        <EmptyState title="No businesses named">None of the answers named a business, so there is no list this time.</EmptyState>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 210px", gap: 24, alignItems: "end" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            <p style={text.take}>{leaderTakeaway(r, buyerAnswers)}</p>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: 14, height: 190, borderBottom: "2px solid #0F172A", padding: "0 8px" }}>
-              {board.map((b) => (
-                <div key={`${b.rank}-${b.name}`} style={{ flexGrow: 1, flexBasis: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: b.valColor }}>{b.count}</span>
-                  <div style={{ width: "100%", height: b.h, background: b.color, borderRadius: "8px 8px 0 0", display: "flex", justifyContent: "center", paddingTop: 8, boxSizing: "border-box" }}>
-                    <span style={{ width: 24, height: 24, borderRadius: 12, background: "#FFFFFF", color: "#0F172A", fontSize: 12, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{b.rank}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: "flex", gap: 14, padding: "0 8px" }}>
-              {board.map((b) => (
-                <span key={`${b.rank}-${b.name}`} style={{ flexGrow: 1, flexBasis: 0, minWidth: 0, textAlign: "center", fontSize: 12.5, fontWeight: b.weight, color: b.nameColor, overflowWrap: "anywhere", ...clamp(2) }}>{b.label}</span>
-              ))}
-            </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 12, alignItems: "stretch" }}>
+          <div style={{ ...card, display: "flex", flexDirection: "column", gap: 9 }}>
+            <span style={text.label}>Answers that named each business, out of {buyerAnswers}</span>
+            {board.map((b) => (
+              <div key={`${b.rank}-${b.name}`} style={{ display: "grid", gridTemplateColumns: "18px 150px 1fr 28px", gap: 10, alignItems: "center", fontSize: 13 }}>
+                <span style={{ color: color.muted, fontSize: 12 }}>{b.rank}</span>
+                <span style={{ fontWeight: 600, color: b.isClient ? color.clientText : color.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.isClient ? `You (${b.name})` : b.name}</span>
+                <Bar pct={Math.max(b.count ? 2 : 0, b.barPct)} fill={b.isClient ? color.client : color.competitor} height={12} track={color.panel} />
+                <span style={{ fontWeight: 600, textAlign: "right", color: b.isClient ? color.clientText : color.ink }}>{b.count}</span>
+              </div>
+            ))}
           </div>
-          <div style={{ background: "#EFF6FF", borderRadius: 18, padding: 18, display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ ...card, background: color.panel, borderColor: color.panel, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
             {client && client.rank === 1 ? (
               <>
-                <span style={{ ...text.label, color: "#1D4ED8" }}>Lead over second place</span>
-                <span style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, color: "#1D4ED8" }}>{second ? client.count - second.count : client.count}</span>
-                <span style={{ fontSize: 13, lineHeight: 1.4 }}>{second ? `more answers named you than named ${second.name}.` : "answers named you, and no one else was named."}</span>
+                <span style={text.label}>Lead over second place</span>
+                <span style={{ ...text.stat, fontSize: 44, color: color.clientText }}>{second ? client.count - second.count : client.count}</span>
+                <span style={{ fontSize: 13, lineHeight: 1.4, color: color.body }}>{second ? `more answers named you than named ${second.name}.` : "answers named you, and no one else was named."}</span>
               </>
             ) : (
               <>
-                <span style={{ ...text.label, color: "#1D4ED8" }}>Gap to first place</span>
-                <span style={{ fontSize: 44, fontWeight: 800, lineHeight: 1, color: "#1D4ED8" }}>{lead.count - (client?.count ?? 0)}</span>
-                <span style={{ fontSize: 13, lineHeight: 1.4 }}>more answers named {lead.name} than named you.</span>
+                <span style={text.label}>Gap to first place</span>
+                <span style={{ ...text.stat, fontSize: 44, color: color.clientText }}>{lead.count - (client?.count ?? 0)}</span>
+                <span style={{ fontSize: 13, lineHeight: 1.4, color: color.body }}>more answers named {lead.name} than named you.</span>
                 {above && client && above.rank > 1 && (
-                  <span style={{ ...text.small, color: "#475569" }}>
-                    Passing {above.name} (#{above.rank}) takes {above.count - client.count + 1 <= 5 ? "just " : ""}{above.count - client.count + 1} more.
-                  </span>
+                  <span style={text.small}>Passing {above.name} takes {above.count - client.count + 1} more.</span>
                 )}
               </>
             )}
@@ -144,44 +124,46 @@ export function CompetitorsPage({ r, ctx }: PageProps) {
         </div>
       )}
 
-      <div style={{ height: 1, background: "#E2E8F0" }} />
+      <div style={{ height: 1, background: color.rule }} />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <span style={text.label}>Question by question</span>
-        <p style={text.take}>{heatTakeaway(r)}</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <span style={text.label}>Question by question</span>
+          <p style={{ ...text.h2, fontWeight: 500, ...clamp(3) }}>{gridTakeaway(r)}</p>
+        </div>
         {rows.length === 0 || tools.length === 0 ? (
-          <EmptyState>No buyer questions were asked in this scan, so there is no question-by-question grid.</EmptyState>
+          <EmptyState>No customer questions were asked in this scan, so there is no question by question table.</EmptyState>
         ) : (
           <>
-            <div style={{ display: "grid", gridTemplateColumns: `170px repeat(${tools.length}, minmax(0, 1fr))`, gap: 4 }}>
-              <span style={{ ...text.small, padding: "4px 0", fontWeight: 700, color: "#0F172A" }}>Buyer question</span>
+            <div style={{ display: "grid", gridTemplateColumns: `${narrow ? 140 : 160}px repeat(${tools.length}, minmax(0, 1fr))`, gap: 4 }}>
+              <span style={{ ...text.small, padding: "4px 0" }}>What a customer asked</span>
               {tools.map((t) => (
-                <span key={t.id} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 2px", fontSize: 12, fontWeight: 800 }}>
-                  <span style={{ width: 18, height: 18, borderRadius: 6, background: t.color, color: "#FFFFFF", fontSize: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{t.short}</span>
-                  {t.name}
+                <span key={t} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 2px", fontSize: narrow ? 10.5 : 12, fontWeight: 600, minWidth: 0 }}>
+                  <ToolBadge tool={t} size={18} />
+                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{toolMeta[t].name}</span>
                 </span>
               ))}
               {rows.map((q) => [
-                <div key={`${q.id}-q`} style={{ padding: "6px 8px 6px 0", fontSize: 12.5, lineHeight: 1.3, fontWeight: 500, display: "flex", alignItems: "center" }}>
+                <div key={`${q.id}-q`} style={{ padding: "4px 8px 4px 0", fontSize: 12.5, lineHeight: 1.3, color: color.ink, display: "flex", alignItems: "center" }}>
                   <span style={clamp(3)}>{q.text}</span>
                 </div>,
                 ...tools.map((t) => {
-                  const c = cellView(q.cells.find((x) => x.tool === t.id), r.scan.runsPerQuestion);
+                  const c = cellView(q.cells.find((x) => x.tool === t), r.scan.runsPerQuestion);
                   return (
-                    <div key={`${q.id}-${t.id}`} style={{ background: c.bg, borderRadius: 8, padding: "7px 8px", display: "flex", flexDirection: "column", gap: 2, minHeight: 54, boxSizing: "border-box", justifyContent: "center" }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: c.fg, lineHeight: 1.2, overflowWrap: "anywhere", ...clamp(2) }}>{c.first}</span>
-                      {c.you && <span style={{ fontSize: 11, fontWeight: 700, lineHeight: 1.25, color: c.youColor }}>{c.you}</span>}
+                    <div key={`${q.id}-${t}`} style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 8, padding: "6px 8px", display: "flex", flexDirection: "column", gap: 2, minHeight: 52, boxSizing: "border-box", justifyContent: "center", minWidth: 0 }}>
+                      <span style={{ fontSize: narrow ? 11 : 12, fontWeight: 600, color: color.ink, lineHeight: 1.2, overflowWrap: "anywhere", ...clamp(2) }}>{c.first}</span>
+                      {c.you && <span style={{ fontSize: narrow ? 10 : 11, fontWeight: 500, lineHeight: 1.25, color: c.youColor }}>{c.you}</span>}
                     </div>
                   );
                 }),
               ])}
             </div>
-            <div style={{ display: "flex", gap: 16, fontSize: 11.5, color: "#475569", flexWrap: "wrap", alignItems: "center" }}>
-              <span>Each box: who AI named first, and where you placed.</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: "#16A34A" }} />You were first</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: "#FDE68A" }} />You made the list</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: "#FEE2E2" }} />You were left out</span>
-              {hidden > 0 && <span style={{ fontWeight: 700 }}>Showing {rows.length} of {r.questions.length} questions.</span>}
+            <div style={{ display: "flex", gap: 16, fontSize: 11.5, color: color.muted, flexWrap: "wrap", alignItems: "center" }}>
+              <span>Each box shows who AI named first, and where you placed.</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: statusColor.good.soft }} />You were first</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: statusColor.warn.soft }} />You made the list</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 11, height: 11, borderRadius: 3, background: color.panel, border: `1px solid ${color.rule}` }} />You were left out</span>
+              {hidden > 0 && <span style={{ fontWeight: 600 }}>Showing {rows.length} of {r.questions.length} questions.</span>}
             </div>
           </>
         )}

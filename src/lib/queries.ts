@@ -124,11 +124,15 @@ export async function getFindingsForPractice(db: Db, practiceId: string) {
     lastSeenScanId: findings.lastSeenScanId,
     createdAt: findings.createdAt,
     resolvedAt: findings.resolvedAt,
+    workStartedAt: findings.workStartedAt,
+    note: findings.note,
+    noteUpdatedAt: findings.noteUpdatedAt,
     engine: checks.engine,
     // The pages the engine read when it made the claim: the first place to
     // look for where a wrong fact came from.
     citations: checks.citations,
     factCategory: facts.category,
+    factLabel: facts.label,
   })
     .from(findings)
     .innerJoin(checks, eq(findings.checkId, checks.id))

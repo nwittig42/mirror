@@ -19,4 +19,9 @@ describe("report PDF", () => {
     expect(pdf.subarray(0, 5).toString()).toBe("%PDF-");
     expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(1);
   }, 60_000);
+
+  it.skipIf(!existsSync(LOCAL_CHROME))("prints the full report as seven sheets, with nothing spilling onto an eighth", async () => {
+    const pdf = await renderReportPdf(r, "master");
+    expect((pdf.toString("latin1").match(/\/Type\s*\/Page\b/g) ?? []).length).toBe(7);
+  }, 60_000);
 });

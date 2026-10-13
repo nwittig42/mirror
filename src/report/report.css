@@ -1,20 +1,24 @@
 /*
- * Audit report sheets. Design tokens come from src/report/tokens.ts (inline
- * styles); this file only handles the sheet box, fonts, the on-screen
- * gallery around the sheets, and print.
+ * Report sheets. Colours come from src/report/tokens.ts (inline styles) and
+ * match the website palette; this file only handles the sheet box, fonts, the
+ * on-screen gallery around the sheets, and print.
+ *
+ * Inter is the text font and Playfair Display is the "Mirror" wordmark. In
+ * the app both arrive as --font-body / --font-display from the root layout;
+ * the standalone PDF page has no such variables, so they are also loaded here.
  */
-@import url("https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;500&display=swap");
 
 .report-root {
-  font-family: "Hanken Grotesk", system-ui, sans-serif;
-  color: #0f172a;
+  font-family: var(--font-body, "Inter"), "Inter", system-ui, sans-serif;
+  color: #1a1a18;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
-  background: #e2e8f0;
+  background: #ede8df;
   min-height: 100vh;
   padding: 24px 0 64px;
 }
-.report-root a { color: #2563eb; }
+.report-root a { color: #a8763e; }
 
 .report-sheets {
   display: flex;
@@ -32,13 +36,14 @@
   display: flex;
   flex-direction: column;
   background: #ffffff;
+  color: #1a1a18;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12), 0 8px 24px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 1px 2px rgba(26, 26, 24, 0.08), 0 8px 24px rgba(26, 26, 24, 0.06);
   break-after: page;
   page-break-after: always;
 }
 
-/* Toolbar above the sheets (variant switcher, download). Never printed. */
+/* Toolbar above the sheets (report switcher, download). Never printed. */
 .report-toolbar {
   width: 816px;
   margin: 0 auto 20px;
@@ -50,21 +55,29 @@
   font-size: 14px;
 }
 
-/* "See all" continuation sheets: collapsed on screen until expanded, always in the PDF. */
-.report-more[data-open="false"] > .report-more-sheets { display: none; }
+/* "See all" continuation sheets: folded on screen until the box is ticked, always in the PDF. */
+.report-more { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.report-more-sheets { display: none; flex-direction: column; align-items: center; gap: 28px; }
+.report-more:has(.report-more-toggle:checked) > .report-more-sheets { display: flex; }
 .report-more-button {
+  display: block;
   width: 816px;
-  border: 1px dashed #94a3b8;
-  background: #f8fafc;
+  box-sizing: border-box;
+  border: 1px dashed #78746c;
+  background: #f7f5f0;
   border-radius: 12px;
   padding: 12px;
-  font: 700 14px "Hanken Grotesk", system-ui, sans-serif;
-  color: #1d4ed8;
+  text-align: center;
+  font: 600 14px var(--font-body, "Inter"), "Inter", system-ui, sans-serif;
+  color: #1a1a18;
   cursor: pointer;
 }
-.report-more-button:hover { background: #eff6ff; }
-.report-more-sheets { display: flex; flex-direction: column; align-items: center; gap: 28px; }
-.report-more { display: flex; flex-direction: column; align-items: center; gap: 28px; }
+.report-more-button:hover { background: #ffffff; }
+.report-more-button:has(:focus-visible) { outline: 2px solid #a8763e; outline-offset: 2px; }
+.report-more-toggle { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+.report-more-open { display: none; }
+.report-more:has(.report-more-toggle:checked) .report-more-open { display: inline; }
+.report-more:has(.report-more-toggle:checked) .report-more-closed { display: none; }
 
 @page { size: letter portrait; margin: 0; }
 
@@ -74,6 +87,6 @@
   .report-sheets, .report-more, .report-more-sheets { gap: 0; }
   .report-page { box-shadow: none; }
   .report-toolbar, .report-more-button { display: none !important; }
-  .report-more[data-open="false"] > .report-more-sheets { display: flex; }
+  .report-more > .report-more-sheets { display: flex; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

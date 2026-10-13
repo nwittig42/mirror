@@ -1,12 +1,9 @@
-import { ReportPage, text, FONT_DISPLAY, type PageProps } from "@/report/components";
+import { Bar, NumberDot, ReportPage, card, clamp, joinNames, panel, text, type PageProps } from "@/report/components";
 import { actionsFor } from "@/report/scoring";
-import { color, toolMeta } from "@/report/tokens";
-import { ScoreRings, RING_COLORS } from "@/components/score-rings";
+import { color, statusColor, toolMeta } from "@/report/tokens";
 
-/** "A", "A and B", "A, B and C". */
-export function joinNames(names: string[]): string {
-  return names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
+// The prospect email imports this from here.
+export { joinNames };
 
 /**
  * The one-page summary, written for a busy owner who isn't technical: are
@@ -25,89 +22,86 @@ export function OnePageSummaryPage({ r, ctx }: PageProps) {
   const q = r.missedQuote;
   const later = "After our call";
 
-  const legend = [
-    { label: "Overall", value: r.prospect ? null : r.scores.overall.value, color: RING_COLORS.overall.from },
-    { label: "Fact check", value: r.prospect ? null : r.scores.factAccuracy, color: RING_COLORS.facts.from },
-    { label: "Ranking", value: r.scores.visibility, color: RING_COLORS.visibility.from },
+  const scores = [
+    { label: "Overall", value: r.prospect ? null : r.scores.overall.value },
+    { label: "Recommended by AI", value: r.scores.visibility },
+    { label: "Accuracy", value: r.prospect ? null : r.scores.factAccuracy },
   ];
 
   return (
-    <ReportPage r={r} ctx={ctx} section="Summary" gap={18}>
-      <h1 style={{ ...text.h1, fontSize: 30 }}>
+    <ReportPage r={r} ctx={ctx} section="Summary" gap={16}>
+      <h1 style={text.h1}>
         What AI tells people looking for a {category} in {city}
       </h1>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <p style={{ margin: 0, fontSize: 18, fontWeight: 700, lineHeight: 1.35 }}>
+        <p style={{ margin: 0, fontSize: 17, fontWeight: 600, lineHeight: 1.35 }}>
           You came up in {named} of {answers} answers. {comp.name} came up in {comp.namedCount}.
         </p>
-        {[{ who: r.business.name, n: named, c: color.client }, { who: comp.name, n: comp.namedCount, c: "#94A3B8" }].map(b => (
+        {[{ who: r.business.name, n: named, c: color.client, you: true }, { who: comp.name, n: comp.namedCount, c: color.competitor, you: false }].map(b => (
           <div key={b.who} style={{ display: "grid", gridTemplateColumns: "150px 1fr 34px", alignItems: "center", gap: 10, fontSize: 13 }}>
-            <span style={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.who}</span>
-            <div style={{ height: 14, borderRadius: 7, background: "#F1F5F9" }}>
-              <div style={{ height: 14, borderRadius: 7, background: b.c, width: `${Math.max(2, (b.n / max) * 100)}%` }} />
-            </div>
-            <span style={{ fontWeight: 800, textAlign: "right" }}>{b.n}</span>
+            <span style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.who}</span>
+            <Bar pct={Math.max(2, (b.n / max) * 100)} fill={b.c} height={12} track={color.panel} />
+            <span style={{ fontWeight: 600, textAlign: "right", color: b.you ? color.clientText : color.ink }}>{b.n}</span>
           </div>
         ))}
       </div>
 
       {q && (
-        <div style={{ background: color.panel, borderRadius: 16, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
-          <div style={{ fontSize: 13, color: color.subtle }}>
-            We asked {toolMeta[q.tool].name}: <strong style={{ color: color.ink }}>&ldquo;{q.question}&rdquo;</strong>
+        <div style={{ ...panel, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontSize: 13, color: color.muted }}>
+            We asked {toolMeta[q.tool].name}: <strong style={{ color: color.ink, fontWeight: 600 }}>&ldquo;{q.question}&rdquo;</strong>
           </div>
-          <p style={{ margin: 0, fontFamily: FONT_DISPLAY, fontStyle: "italic", fontSize: 18, lineHeight: 1.45 }}>&ldquo;{q.text}&rdquo;</p>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "#B91C1C" }}>
+          <p style={{ margin: 0, fontSize: 15, lineHeight: 1.5, color: color.ink, ...clamp(r.prospect ? 3 : 4) }}>&ldquo;{q.text}&rdquo;</p>
+          <div style={{ fontSize: 13, fontWeight: 600, color: statusColor.bad.text }}>
             {r.business.name} wasn&apos;t mentioned. It named {joinNames(q.named)}.
           </div>
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 20, alignItems: "stretch" }}>
-        <div style={{ background: "#000", borderRadius: 20, padding: "14px 18px", display: "flex", gap: 16, alignItems: "center" }}>
-          <ScoreRings scores={{ overall: legend[0].value, facts: legend[1].value, visibility: legend[2].value }} size={112} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {legend.map(l => (
-              <div key={l.label}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#F5F5F7" }}>{l.label}</div>
-                <div style={{ fontSize: l.value === null ? 12 : 20, fontWeight: 800, lineHeight: 1.1, color: l.value === null ? "#8E8E93" : l.color }}>
-                  {l.value === null ? later : <>{l.value}<span style={{ fontSize: 12 }}>/100</span></>}
-                </div>
-              </div>
-            ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+        {scores.map(s => (
+          <div key={s.label} style={{ ...card, padding: "10px 16px", display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={text.label}>{s.label}</span>
+            {s.value === null ? (
+              <span style={{ fontSize: 15, fontWeight: 600, lineHeight: "30px", color: color.muted }}>{r.prospect ? later : "Not checked"}</span>
+            ) : (
+              <span style={{ ...text.stat, fontSize: 30 }}>{s.value}<span style={{ fontSize: 13, fontWeight: 500, letterSpacing: 0, color: color.muted }}>/100</span></span>
+            )}
           </div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
-          <div style={{ fontSize: 15, fontWeight: 800 }}>Why this matters</div>
-          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.5 }}>
-            More people now ask an AI assistant instead of searching Google. If it doesn&apos;t name you, those
-            customers never see you, and they go to whoever it did name.
-          </p>
-        </div>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={text.h2}>Why this matters</div>
+        <p style={{ ...text.body, fontSize: 14 }}>
+          More people now ask an AI assistant instead of searching Google. If it doesn&apos;t name you, those
+          customers never see you, and they go to whoever it did name.
+        </p>
       </div>
 
       <div>
-        <div style={{ fontSize: 15, fontWeight: 800 }}>The three changes that would help most</div>
-        <ol style={{ margin: "8px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-          {fixes.map(f => (
-            <li key={f.id} style={{ fontSize: 14, lineHeight: 1.4 }}>
-              <strong>{f.title}.</strong> <span style={{ color: "#475569" }}>{f.why}</span>
-            </li>
+        <div style={text.h2}>The three changes that would help most</div>
+        <div style={{ margin: "10px 0 0", display: "flex", flexDirection: "column", gap: 9 }}>
+          {fixes.map((f, i) => (
+            <div key={f.id} style={{ display: "flex", gap: 12, alignItems: "flex-start", fontSize: 14, lineHeight: 1.4 }}>
+              <NumberDot n={i + 1} tone="gold" size={22} />
+              <span style={clamp(2)}><strong style={{ fontWeight: 600 }}>{f.title}.</strong> <span style={{ color: color.body }}>{f.why}</span></span>
+            </div>
           ))}
-        </ol>
+        </div>
       </div>
 
       {r.prospect && (
-        <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: "#475569" }}>
+        <p style={text.body}>
           We also checked what AI says about your prices, services and hours. Before we show you, we&apos;ll confirm
           your details with you, so nothing here is a guess.
         </p>
       )}
 
-      <div style={{ marginTop: "auto", borderTop: `1px solid ${color.rule}`, paddingTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+      <div style={{ marginTop: "auto", borderTop: `1px solid ${color.rule}`, paddingTop: 12, paddingBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 800 }}>
+          <div style={{ fontSize: 15, fontWeight: 600 }}>
             {r.prospect ? "Next: a 30-minute call to set up your fact sheet" : "Next: we start on the changes above"}
           </div>
           <div style={text.small}>
@@ -115,8 +109,8 @@ export function OnePageSummaryPage({ r, ctx }: PageProps) {
           </div>
         </div>
         <div style={{ textAlign: "right", fontSize: 13 }}>
-          <div style={{ fontWeight: 700 }}>{r.contact.name}</div>
-          {r.contact.email && <div>{r.contact.email}</div>}
+          <div style={{ fontWeight: 600 }}>{r.contact.name}</div>
+          {r.contact.email && <div style={{ color: color.body }}>{r.contact.email}</div>}
           {r.contact.bookingUrl && <div style={{ color: color.clientText }}>{r.contact.bookingUrl.replace(/^https?:\/\//, "")}</div>}
         </div>
       </div>

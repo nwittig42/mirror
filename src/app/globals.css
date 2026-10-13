@@ -21,6 +21,98 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+}
+
+/* Not `inline`: these have to stay real variables, so a scope can swap the
+   whole palette (see .app.theme-dark below) and every utility follows. */
+@theme {
+  /* The Mirror palette, the same values the marketing pages use under .mk,
+     exposed as Tailwind colours (bg-ivory, text-ink, border-line and so on) so
+     the signed-in app, the admin screens and the website share one look. */
+  --color-ink: #1a1a18;
+  --color-ink-soft: #46443f;
+  --color-ink-raised: #2b2824;
+  --color-muted: #78746c;
+  --color-ivory: #f7f5f0;
+  --color-bone: #ede8df;
+  --color-paper: #ffffff;
+  --color-line: #ded8cd;
+  --color-gold: #a8763e;
+  --color-gold-soft: #e9dcc8;
+  --color-flag: #a33a2a;
+  --color-flag-soft: #f4e1dc;
+  --color-ok: #4f6b4a;
+  --color-ok-soft: #e2e9dd;
+  --color-blush: #f2e6df;
+  /* The three score rings on the customer's Overview: brown for overall,
+     orange for recommended, pink for accuracy. */
+  --color-ring-overall: #855a30;
+  --color-ring-visibility: #d2691e;
+  --color-ring-facts: #cf5f80;
+  /* Extra chart colours, for telling AI tools and kinds of website apart. */
+  --color-teal: #2f7f79;
+  --color-plum: #84528f;
+  --color-sun: #d99a1c;
+}
+
+/* The signed-in app: ivory page, ink text, the website's body font. Dashboard
+   and admin layouts put this class on their outermost element. */
+.app {
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+}
+.app .display {
+  font-family: var(--font-display), Georgia, serif;
+}
+@media print {
+  .app {
+    background: #fff;
+  }
+}
+
+/* A Partner's dashboard: the same palette turned over, black page and light
+   text, with every accent brightened so it still reads. Only the colour
+   variables change, so every component follows without knowing about it. */
+.app.theme-dark {
+  --color-ink: #f5f2ea;
+  --color-ink-soft: #d6d1c6;
+  --color-ink-raised: #ffffff;
+  --color-muted: #a39e94;
+  --color-ivory: #000000;
+  --color-bone: #2a2824;
+  --color-paper: #141312;
+  --color-line: #34312c;
+  --color-gold: #d3a065;
+  --color-gold-soft: #3a2c18;
+  --color-flag: #e8806c;
+  --color-flag-soft: #3d1f1a;
+  --color-ok: #8fbb86;
+  --color-ok-soft: #1f2e1c;
+  --color-blush: #2e2420;
+  --color-ring-overall: #b98a5a;
+  --color-ring-visibility: #f08c45;
+  --color-ring-facts: #e889a6;
+  --color-teal: #56b8b0;
+  --color-plum: #b88dc4;
+  --color-sun: #ebb640;
+}
+/* The header's switch names the look it changes to. */
+.theme-toggle .to-light { display: none; }
+.theme-dark .theme-toggle .to-light { display: inline; }
+.theme-dark .theme-toggle .to-dark { display: none; }
+@media print {
+  /* Paper is white whatever the screen looked like. */
+  .app.theme-dark {
+    --color-ink: #1a1a18; --color-ink-soft: #46443f; --color-ink-raised: #2b2824; --color-muted: #78746c;
+    --color-ivory: #f7f5f0; --color-bone: #ede8df; --color-paper: #ffffff; --color-line: #ded8cd;
+    --color-gold: #a8763e; --color-gold-soft: #e9dcc8; --color-flag: #a33a2a; --color-flag-soft: #f4e1dc;
+    --color-ok: #4f6b4a; --color-ok-soft: #e2e9dd; --color-blush: #f2e6df;
+    --color-ring-overall: #855a30; --color-ring-visibility: #d2691e; --color-ring-facts: #cf5f80;
+    --color-teal: #2f7f79; --color-plum: #84528f; --color-sun: #d99a1c;
+  }
 }
 
 @media (prefers-color-scheme: dark) {

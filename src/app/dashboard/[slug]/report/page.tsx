@@ -7,7 +7,12 @@ import { buildReportData, formatMonthLabel, resolveMonthParam } from "@/lib/repo
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PrintButton } from "@/components/print-button";
 import { AutoPrint } from "@/components/auto-print";
+import { Card, Note, PageBody, Quote, Stat, Table } from "@/components/ui";
 import "./report.css";
+
+const SEVERITY_WORDS: Record<string, string> = { critical: "serious", major: "important", minor: "minor" };
+const MONTH_LINK = "text-[14px] font-medium text-muted underline-offset-4 hover:text-gold hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold";
+const AVOID_BREAK = "break-inside-avoid";
 
 /** Shifts a "YYYY-MM" ISO month string by `delta` calendar months (UTC). */
 function shiftMonth(monthISO: string, delta: number): string {
@@ -16,6 +21,11 @@ function shiftMonth(monthISO: string, delta: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/** The monthly report: the month in one sentence, the score, wrong facts, each AI tool, and the work done. */
 export default async function ReportPage({
   params,
   searchParams,
@@ -28,10 +38,10 @@ export default async function ReportPage({
   const { practice, locked } = await requirePracticeView(slug);
   if (locked) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <DashboardHeader slug={slug} practiceName={practice.name} active="report" />
+      <PageBody>
+        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="report" />
         <LockedSection title="Monthly report" what="Your score trend, what changed and the work done for you each month." />
-      </div>
+      </PageBody>
     );
   }
   const db = getDb();
@@ -44,180 +54,114 @@ export default async function ReportPage({
   ]);
 
   const monthLabel = formatMonthLabel(month);
+  const change = report.score !== null && report.prevMonthScore !== null ? report.score - report.prevMonthScore : null;
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      <DashboardHeader slug={slug} practiceName={practice.name} active="report" />
+    <PageBody>
+      <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="report" />
 
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3 print:hidden">
-        <div className="flex items-center gap-3 text-sm">
-          <Link
-            href={`/dashboard/${slug}/report?month=${shiftMonth(month, -1)}`}
-            className="text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-          >
-            ← Previous month
-          </Link>
-          <span className="font-medium text-black dark:text-zinc-50">{monthLabel}</span>
-          <Link
-            href={`/dashboard/${slug}/report?month=${shiftMonth(month, 1)}`}
-            className="text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-          >
-            Next month →
-          </Link>
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 print:hidden">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <Link href={`/dashboard/${slug}/report?month=${shiftMonth(month, -1)}`} className={MONTH_LINK}>← Previous month</Link>
+          <span className="text-[17px] font-semibold text-ink">{monthLabel}</span>
+          <Link href={`/dashboard/${slug}/report?month=${shiftMonth(month, 1)}`} className={MONTH_LINK}>Next month →</Link>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/dashboard/${slug}/audit`}
-            className="text-sm text-zinc-500 underline-offset-2 hover:underline dark:text-zinc-400"
-          >
-            Latest audit
-          </Link>
-          <PrintButton />
-          <AutoPrint when={print === "1"} />
-        </div>
+        <PrintButton />
+        <AutoPrint when={print === "1"} />
       </div>
 
-      <h1 className="mb-8 hidden text-xl font-semibold text-black print:block">
+      <h1 className="mb-6 hidden text-[22px] font-semibold text-ink print:block">
         {practice.name} · {monthLabel} report
       </h1>
 
-      {/* 1. Verdict */}
-      <section className="mb-10 break-inside-avoid">
-        <p className="text-lg text-black dark:text-zinc-50">{report.verdict}</p>
-      </section>
+      <div className="space-y-4">
+        <Card title="This month" className={AVOID_BREAK}>
+          <p className="text-[20px] leading-snug text-ink">{report.verdict}</p>
+        </Card>
 
-      {/* 2. Score + trend */}
-      <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Score</h2>
-        <p className="mb-4 text-3xl font-semibold text-black dark:text-zinc-50">
-          {report.score ?? "N/A"}
-          {report.score !== null && report.prevMonthScore !== null && (
-            <span className="ml-2 text-base font-normal text-zinc-500 dark:text-zinc-400">
-              ({report.score - report.prevMonthScore >= 0 ? "+" : ""}
-              {report.score - report.prevMonthScore} vs last month)
-            </span>
-          )}
-        </p>
-        {report.trend.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No scans recorded this month.</p>
-        ) : (
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-zinc-200 text-left text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-                <th className="py-2 pr-4 font-medium">Date</th>
-                <th className="py-2 font-medium">Score</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.trend.map((point, i) => (
-                <tr key={i} className="border-b border-zinc-100 dark:border-zinc-900">
-                  <td className="py-2 pr-4 text-black dark:text-zinc-50">{point.date.slice(0, 10)}</td>
-                  <td className="py-2 text-black dark:text-zinc-50">{point.score}</td>
-                </tr>
+        <Card title="Overall score" className={AVOID_BREAK}>
+          <Stat
+            value={report.score ?? "N/A"}
+            unit={change === null ? undefined : change === 0 ? "same as last month" : `${change > 0 ? "up" : "down"} ${Math.abs(change)} from last month`}
+            tone="gold"
+          />
+          <div className="mt-4">
+            {report.trend.length === 0 ? (
+              <Note>No scans were recorded this month.</Note>
+            ) : (
+              <Table head={["Scan date", "Overall"]} right={[1]} rows={report.trend.map(point => [shortDate(point.date), point.score])} />
+            )}
+          </div>
+        </Card>
+
+        <Card title="Wrong facts" className={AVOID_BREAK}>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {([
+              ["Found", report.accuracyLedger.found],
+              ["Fixed", report.accuracyLedger.fixed],
+              ["Confirmed fixed", report.accuracyLedger.verified],
+              ["Still open", report.accuracyLedger.open],
+            ] as const).map(([label, count]) => (
+              <div key={label}>
+                <div className="text-[28px] font-semibold leading-none tracking-tight text-ink">{count}</div>
+                <div className="mt-1.5 text-[13px] text-muted">{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-4 border-t border-line pt-4">
+            {openFindings.length === 0 ? (
+              <Note>No wrong facts are open.</Note>
+            ) : (
+              <ul className="space-y-2">
+                {openFindings.map(f => (
+                  <li key={f.id} className="text-[15px] leading-relaxed text-ink-soft">
+                    {f.claim}
+                    {f.factValue ? `. The truth: ${f.factValue}` : ""} ({SEVERITY_WORDS[f.severity] ?? f.severity})
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+
+        <Card title="How often each AI tool named you" className={AVOID_BREAK}>
+          <Note>
+            Only questions that did not use your name are counted. Ask about you by name and AI names you every time, so those questions test Accuracy, not how often you are recommended.
+          </Note>
+          <div className="mt-3">
+            <Table
+              head={["AI tool", "Named you", "Answers"]}
+              right={[1, 2]}
+              rows={report.perEngine.map(row => [row.engine, row.cited, row.total])}
+            />
+          </div>
+        </Card>
+
+        <Card title="Work done this month" className={AVOID_BREAK}>
+          {report.activities.length === 0 ? (
+            <Note>No work was logged this month.</Note>
+          ) : (
+            <ul className="divide-y divide-line">
+              {report.activities.map((description, i) => (
+                <li key={i} className="py-2.5 text-[15px] text-ink">{description}</li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Next month" className={AVOID_BREAK}>
+          <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink-soft">
+            {practice.reportNotes?.trim() ? practice.reportNotes : "No notes yet."}
+          </p>
+        </Card>
+
+        {report.bestQuote && (
+          <Card title="Best thing AI said about you" className={AVOID_BREAK}>
+            <Quote>&ldquo;{report.bestQuote.snippet}&rdquo;</Quote>
+            <Note className="mt-3">{report.bestQuote.engine}, asked &ldquo;{report.bestQuote.prompt}&rdquo;</Note>
+          </Card>
         )}
-      </section>
-
-      {/* 3. Accuracy ledger */}
-      <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Accuracy ledger</h2>
-        <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Found</p>
-            <p className="text-xl font-semibold text-black dark:text-zinc-50">{report.accuracyLedger.found}</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Fixed</p>
-            <p className="text-xl font-semibold text-black dark:text-zinc-50">{report.accuracyLedger.fixed}</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Verified</p>
-            <p className="text-xl font-semibold text-black dark:text-zinc-50">{report.accuracyLedger.verified}</p>
-          </div>
-          <div>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Open</p>
-            <p className="text-xl font-semibold text-black dark:text-zinc-50">{report.accuracyLedger.open}</p>
-          </div>
-        </div>
-        {openFindings.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No open accuracy issues.</p>
-        ) : (
-          <ul className="space-y-1">
-            {openFindings.map(f => (
-              <li key={f.id} className="text-sm text-zinc-700 dark:text-zinc-300">
-                {f.claim}
-                {f.factValue ? `, should be: ${f.factValue}` : ""} ({f.severity})
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* 4. Per-engine table */}
-      <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Per-engine citation rate</h2>
-        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          Counts only questions that did not name you. Questions asking about you by name are
-          answered with your name every time, so they measure accuracy, not visibility.
-        </p>
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr className="border-b border-zinc-200 text-left text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-              <th className="py-2 pr-4 font-medium">Engine</th>
-              <th className="py-2 pr-4 font-medium">Cited</th>
-              <th className="py-2 font-medium">Total checks</th>
-            </tr>
-          </thead>
-          <tbody>
-            {report.perEngine.map(row => (
-              <tr key={row.engine} className="border-b border-zinc-100 dark:border-zinc-900">
-                <td className="py-2 pr-4 text-black dark:text-zinc-50">{row.engine}</td>
-                <td className="py-2 pr-4 text-black dark:text-zinc-50">{row.cited}</td>
-                <td className="py-2 text-black dark:text-zinc-50">{row.total}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* 5. Activity list */}
-      <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Activity this month</h2>
-        {report.activities.length === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No activity recorded this month.</p>
-        ) : (
-          <ul className="space-y-2">
-            {report.activities.map((description, i) => (
-              <li key={i} className="text-sm text-zinc-600 dark:text-zinc-400">
-                {description}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* 6. Practice notes */}
-      <section className="mb-10 break-inside-avoid">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Next month</h2>
-        <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-          {practice.reportNotes?.trim() ? practice.reportNotes : "No notes yet."}
-        </p>
-      </section>
-
-      {/* 7. Best quote */}
-      {report.bestQuote && (
-        <section className="mb-10 break-inside-avoid">
-          <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Best quote</h2>
-          <blockquote className="border-l-2 border-zinc-300 pl-4 text-sm text-zinc-700 italic dark:border-zinc-700 dark:text-zinc-300">
-            &ldquo;{report.bestQuote.snippet}&rdquo;
-            <footer className="mt-1 text-xs text-zinc-500 not-italic dark:text-zinc-400">
-              · {report.bestQuote.engine}, on &ldquo;{report.bestQuote.prompt}&rdquo;
-            </footer>
-          </blockquote>
-        </section>
-      )}
-    </div>
+      </div>
+    </PageBody>
   );
 }

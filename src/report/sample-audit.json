@@ -32,7 +32,7 @@
       {
         "id": "named_often",
         "label": "How often you’re named",
-        "definition": "How many buyer answers mention you at all.",
+        "definition": "How many answers mention you at all.",
         "weight": 41,
         "score": 13,
         "detail": "10 of 75"
@@ -444,7 +444,7 @@
       },
       {
         "domain": "realself.com",
-        "ask": "Complete your provider profile and invite patient reviews."
+        "ask": "Complete your business profile and invite customer reviews."
       }
     ],
     "ownSiteCitedPct": 9
@@ -630,7 +630,7 @@
       "id": "a1",
       "title": "Fix pricing on your site and Yelp",
       "why": "ChatGPT quotes $9 from an old blog. Show $13 per unit in plain text.",
-      "fixes": "wrong Botox price (p. 08)",
+      "fixes": "wrong Botox price",
       "effort": "low",
       "impact": "high",
       "track": "facts"
@@ -639,7 +639,7 @@
       "id": "a2",
       "title": "Get featured on medspascout.com and Yelp’s “best of” lists",
       "why": "These are the sites AI reads when Skin Bar LA wins.",
-      "fixes": "low visibility (p. 04, 06)",
+      "fixes": "low visibility",
       "effort": "medium",
       "impact": "high",
       "track": "visibility"
@@ -648,7 +648,7 @@
       "id": "a3",
       "title": "Add a plain facts page with prices, hours and services",
       "why": "One correct place for AI to read what you offer and when you’re open.",
-      "fixes": "missing facts page (p. 09), Sunday hours (p. 08)",
+      "fixes": "missing facts page, Sunday hours",
       "effort": "low",
       "impact": "high",
       "track": "facts"
@@ -657,7 +657,7 @@
       "id": "a4",
       "title": "Correct services and hours on Yelp and Google",
       "why": "Remove laser hair removal on Yelp. Mark Sundays closed everywhere.",
-      "fixes": "laser hair removal, Sunday hours (p. 08)",
+      "fixes": "laser hair removal, Sunday hours",
       "effort": "low",
       "impact": "medium",
       "track": "facts"
@@ -666,7 +666,7 @@
       "id": "a5",
       "title": "Label prices and FAQs for machines",
       "why": "Helps AI read your prices correctly instead of guessing.",
-      "fixes": "price labels (p. 09)",
+      "fixes": "price labels",
       "effort": "medium",
       "impact": "medium",
       "track": "facts"
@@ -675,7 +675,7 @@
       "id": "a6",
       "title": "Update your sitemap",
       "why": "Makes sure AI finds every page, including the new facts page.",
-      "fixes": "sitemap (p. 09)",
+      "fixes": "sitemap",
       "effort": "low",
       "impact": "low",
       "track": "facts"
@@ -684,7 +684,7 @@
       "id": "a7",
       "title": "Build the pages AI searches for: prices, reviews, hours",
       "why": "AI searched for these before naming anyone.",
-      "fixes": "pages AI looks for (p. 07)",
+      "fixes": "pages AI looks for",
       "effort": "low",
       "impact": "high",
       "track": "visibility"
@@ -693,7 +693,7 @@
       "id": "a8",
       "title": "Turn your closest wins into first-place answers",
       "why": "You’re already 2nd or 3rd on these questions.",
-      "fixes": "closest wins (p. 05)",
+      "fixes": "closest wins",
       "effort": "medium",
       "impact": "medium",
       "track": "visibility"

@@ -1,10 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { isValidElement, type ReactElement, type ReactNode } from "react";
+import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
-import { setDbForTests } from "@/db";
+import { setDbForTests, type Db } from "@/db";
+import { practices } from "@/db/schema";
 
 const session: { user: { id: string; role: string } } | null = { user: { id: "u1", role: "client" } };
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => session) }));
+// The viewer's saved choice of look, as the browser would send it.
+let themeCookie: string | undefined;
+vi.mock("next/headers", () => ({
+  cookies: vi.fn(async () => ({ get: (name: string) => (name === "mirror-theme" && themeCookie ? { value: themeCookie } : undefined) })),
+}));
 
 import DashboardLayout from "@/app/dashboard/[slug]/layout";
 import { AdminViewBanner } from "@/components/admin-view-banner";
@@ -20,21 +27,27 @@ function elements(node: ReactNode): ReactElement[] {
 
 describe("dashboard layout", () => {
   let slug: string;
+  let db: Db;
+  const classOf = async () => {
+    const out = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
+    return (elements(out)[0].props as { className?: string }).className ?? "";
+  };
   beforeEach(async () => {
-    const db = await makeTestDb();
+    themeCookie = undefined;
+    db = await makeTestDb();
     setDbForTests(db);
     await seedPractice(db, { name: "Glow MedSpa", slug: "glow" });
     await seedPractice(db, { name: "Skin Bar LA", slug: "skinbar" });
     slug = "glow";
   });
 
-  it("gives a customer the dark Fitness-style page, with no admin banner", async () => {
+  it("gives a customer the ivory app page, with no admin banner", async () => {
     session!.user.role = "client";
     const out = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
     const els = elements(out);
     expect(els).toContain(child);
     expect(els.some(e => e.type === AdminViewBanner)).toBe(false);
-    expect((els[0].props as { className?: string }).className).toMatch(/\bdark\b/);
+    expect((els[0].props as { className?: string }).className).toMatch(/\bapp\b/);
   });
 
   it("adds the admin banner, with every customer in the switcher, for an operator", async () => {
@@ -46,5 +59,21 @@ describe("dashboard layout", () => {
     expect(props.current.name).toBe("Glow MedSpa");
     expect(props.practices.map(p => p.slug).sort()).toEqual(["glow", "skinbar"]);
     expect(elements(out)).toContain(child);
+  });
+
+  it("gives a Partner the black look, and anyone else the ivory one", async () => {
+    expect(await classOf()).not.toMatch(/theme-dark/);
+    await db.update(practices).set({ plan: "pulse" }).where(eq(practices.slug, slug));
+    expect(await classOf()).not.toMatch(/theme-dark/);
+    await db.update(practices).set({ plan: "partner" }).where(eq(practices.slug, slug));
+    expect(await classOf()).toMatch(/\bapp\b.*\btheme-dark\b/);
+  });
+
+  it("keeps a Partner on ivory once they have switched back to it", async () => {
+    await db.update(practices).set({ plan: "partner" }).where(eq(practices.slug, slug));
+    themeCookie = "light";
+    expect(await classOf()).not.toMatch(/theme-dark/);
+    themeCookie = "dark";
+    expect(await classOf()).toMatch(/theme-dark/);
   });
 });

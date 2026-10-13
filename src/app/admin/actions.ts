@@ -8,6 +8,8 @@ import {
   practices, nameVariations, competitors, facts, prompts, findings,
   activities, factCategoryEnum, promptKindEnum, findingStatusEnum,
 } from "@/db/schema";
+import { cleanSection } from "@/core/fact-sections";
+import { FIX_STATE_LABEL, fixState, storedFor, type FixState } from "@/core/fix-list";
 import { requireOperator } from "@/lib/auth";
 import { grantClientLogin } from "@/services/client-access";
 import { runScan, SCAN_DEADLINE_MS, SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
@@ -21,6 +23,8 @@ import { fetchSitePages, draftFactsFromPages, saveDraftFacts } from "@/services/
 import { setSupportStatus } from "@/services/support";
 import { rateTone } from "@/services/tone-rater";
 import { runWebsiteCheck } from "@/services/website-check";
+import { fetchLogo } from "@/services/logo";
+import { isPlan } from "@/core/plan";
 import { aiOverviewCheck } from "@/services/ai-overviews";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
@@ -52,8 +56,45 @@ export async function createPractice(
     website: input.website || null,
     category: input.category?.trim().slice(0, 60) || null,
     location: input.location?.trim().slice(0, 80) || null,
+    // A site with no usable logo, or one that is down, must not stop the business being created.
+    logo: input.website ? await fetchLogo(input.website).catch(() => null) : null,
   });
   revalidatePath("/admin");
+}
+
+/**
+ * Operators only: reads the business's logo from its website again and saves
+ * it. A site with no usable logo leaves the saved one as it is.
+ */
+export async function refreshLogo(practiceId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [practice] = await db.select({ website: practices.website, slug: practices.slug })
+    .from(practices).where(eq(practices.id, practiceId));
+  if (!practice?.website) return;
+  const logo = await fetchLogo(practice.website).catch(() => null);
+  if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practiceId));
+  revalidatePath(`/admin/practices/${practiceId}`);
+  revalidatePath(`/dashboard/${practice.slug}`, "layout");
+}
+
+/** Operators only: puts the business on a plan, or on none. Billing is not connected, so this charges nothing. */
+export async function setPlan(practiceId: string, plan: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [practice] = await db.update(practices).set({ plan: isPlan(plan) ? plan : null })
+    .where(eq(practices.id, practiceId)).returning({ slug: practices.slug });
+  revalidatePath(`/admin/practices/${practiceId}`);
+  if (practice) revalidatePath(`/dashboard/${practice.slug}`, "layout");
+}
+
+/** Operators only: takes the logo off the business's dashboard. */
+export async function removeLogo(practiceId: string): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [practice] = await db.update(practices).set({ logo: null }).where(eq(practices.id, practiceId)).returning({ slug: practices.slug });
+  revalidatePath(`/admin/practices/${practiceId}`);
+  if (practice) revalidatePath(`/dashboard/${practice.slug}`, "layout");
 }
 
 /**
@@ -103,13 +144,16 @@ export async function approveAllDrafts(practiceId: string): Promise<void> {
 }
 
 /** Operators only: corrects a fact's value (a draft the client amended, or a price that changed). */
-export async function updateFactValue(factId: string, value: string): Promise<void> {
+export async function updateFactValue(factId: string, value: string, section?: string): Promise<void> {
   await requireOperator();
   const trimmed = value.trim();
   if (!trimmed) return;
   const db = getDb();
+  // The heading is only changed when the form sent one; a blank heading
+  // clears it, so the fact falls back to the default for its type.
+  const heading = section === undefined ? {} : { section: cleanSection(section) };
   const [fact] = await db.update(facts)
-    .set({ value: trimmed, updatedAt: new Date() })
+    .set({ value: trimmed, ...heading, updatedAt: new Date() })
     .where(eq(facts.id, factId))
     .returning();
   if (fact) revalidatePath(`/admin/practices/${fact.practiceId}`);
@@ -118,12 +162,12 @@ export async function updateFactValue(factId: string, value: string): Promise<vo
 /** Operators only: adds an active fact-sheet entry for a practice. */
 export async function addFact(
   practiceId: string,
-  input: { category: FactCategory; label: string; value: string },
+  input: { category: FactCategory; label: string; value: string; section?: string },
 ): Promise<void> {
   await requireOperator();
   const db = getDb();
   await db.insert(facts).values({
-    practiceId, category: input.category, label: input.label, value: input.value,
+    practiceId, category: input.category, section: cleanSection(input.section), label: input.label, value: input.value,
   });
   revalidatePath(`/admin/practices/${practiceId}`);
 }
@@ -381,6 +425,49 @@ export async function updateFindingStatus(findingId: string, status: FindingStat
   }
 
   revalidatePath(`/admin/practices/${finding.practiceId}`);
+}
+
+const MAX_FIX_NOTE_LENGTH = 300;
+
+/**
+ * Operators only: moves a wrong fact through the fix list and sets the note
+ * the customer sees beside it. "In progress" keeps the finding open (AI is
+ * still saying it, so it still costs points) and only records that work has
+ * started. The note is for the customer: a blank one clears it.
+ *
+ * The customer's work log gets a line when a fact is marked fixed, because
+ * that is work done for them; every other move is logged for us only.
+ */
+export async function updateFix(findingId: string, input: { state: FixState; note?: string }): Promise<void> {
+  await requireOperator();
+  const db = getDb();
+  const [finding] = await db.select().from(findings).where(eq(findings.id, findingId));
+  if (!finding) return;
+
+  const { status, started } = storedFor(input.state);
+  const before = fixState(finding);
+  const note = input.note === undefined ? undefined : input.note.trim().slice(0, MAX_FIX_NOTE_LENGTH) || null;
+  const noteChanged = note !== undefined && note !== finding.note;
+
+  await db.update(findings)
+    .set({
+      status,
+      // Keep the day it was first resolved or started when the state did not change.
+      resolvedAt: !RESOLVED_STATUSES.includes(status) ? null
+        : before === input.state && finding.resolvedAt ? finding.resolvedAt : new Date(),
+      workStartedAt: started ? finding.workStartedAt ?? new Date() : null,
+      ...(noteChanged ? { note, noteUpdatedAt: note ? new Date() : null } : {}),
+    })
+    .where(eq(findings.id, findingId));
+
+  if (before !== input.state) {
+    const [fact] = finding.factId ? await db.select({ label: facts.label }).from(facts).where(eq(facts.id, finding.factId)) : [];
+    const topic = fact?.label ?? finding.claim;
+    if (input.state === "fixed") await logActivity(db, finding.practiceId, `Fixed a wrong fact: ${topic}`, "client");
+    else await logActivity(db, finding.practiceId, `${FIX_STATE_LABEL[input.state]}: ${finding.claim}`);
+  }
+
+  await revalidateForPractice(db, finding.practiceId);
 }
 
 /** Operators only: marks a client help request answered, or reopens it. */

@@ -2,11 +2,12 @@ import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { nameVariations, practiceMembers, practices, scans, users } from "@/db/schema";
 import { getLatestScanAttempt, getChecksForScan, getOpenFindings } from "@/lib/queries";
-import { coverageLabel } from "@/core/coverage";
+import { coverageLabel, ENGINE_NAMES } from "@/core/coverage";
 import { loadEnv } from "@/lib/env";
 import { escapeHtml } from "@/lib/html";
 import { logActivity } from "@/services/activity";
 import { extractSnippet } from "@/core/mention";
+import { emailButton, emailLabel, emailNote, emailNumber, emailQuote, emailShell, emailText } from "@/services/email-shell";
 
 export interface PulseArgs {
   practiceName: string;
@@ -22,19 +23,6 @@ export interface PulseArgs {
   slug: string;
 }
 
-// Display names for the check `engine` enum, used in the verbatim-quote row.
-const ENGINE_DISPLAY_NAMES: Record<string, string> = {
-  openai: "ChatGPT",
-  anthropic: "Claude",
-  gemini: "Gemini",
-  perplexity: "Perplexity",
-  grok: "Grok",
-  google: "Google AI Mode",
-};
-
-const row = (content: string): string =>
-  `<tr><td style="padding:12px 0;border-bottom:1px solid #e5e5e5;font-family:sans-serif;font-size:15px;color:#111;">${content}</td></tr>`;
-
 // Every dynamic string interpolated into `composePulse`'s HTML output MUST
 // pass through escapeHtml. `bestQuote.snippet` in particular is raw
 // third-party LLM output, not trusted content, so it can contain arbitrary
@@ -42,10 +30,11 @@ const row = (content: string): string =>
 // audit-request.ts, which has the same requirement for visitor-typed input.
 
 /**
- * Pure composer for the weekly client "Pulse" email: an inline-styled HTML
- * table with at most 6 content rows (score/delta, cited-checks count,
- * verbatim quote, open-findings count, CTA). Kept pure (no DB/network) so
- * it's cheaply unit-testable. `sendPulse` below does the I/O.
+ * Pure composer for the weekly client "Pulse" email, in the shared Mirror
+ * email look (see email-shell.ts). At most 6 content rows: the Overall score
+ * and its change, the short-scan note, how often AI recommended them, one
+ * verbatim quote, the open accuracy count, and the one button. Kept pure (no
+ * DB/network) so it's cheaply unit-testable. `sendPulse` below does the I/O.
  */
 export function composePulse(args: PulseArgs): { subject: string; html: string } {
   const subject = `What AI told customers about ${args.practiceName} this week`;
@@ -53,37 +42,46 @@ export function composePulse(args: PulseArgs): { subject: string; html: string }
   const rows: string[] = [];
 
   const delta = args.prevScore === null ? null : args.score - args.prevScore;
-  const deltaText = delta === null || delta === 0 ? "" : ` (${delta > 0 ? "+" : ""}${delta})`;
-  rows.push(row(`<strong>Score: ${args.score}${deltaText}</strong>`));
-  if (args.coverageNote) rows.push(row(escapeHtml(args.coverageNote)));
+  const deltaText = delta === null || delta === 0 ? "" : `${delta > 0 ? "+" : ""}${delta} since your last scan`;
+  rows.push(
+    emailLabel("Overall") +
+    emailNumber(String(args.score), deltaText, delta !== null && delta > 0 ? "good" : "secondary") +
+    // The short-scan note sits right under the score it qualifies.
+    (args.coverageNote ? emailText(escapeHtml(args.coverageNote), "caption", 13) : ""),
+  );
 
   // Says what the denominator is. The count deliberately excludes questions
-  // that named the practice, since those are answered with the name every time
-  // and would overstate visibility.
-  rows.push(row(
-    `Named in ${args.cited} of ${args.total} answers to questions that didn't mention you by name.`,
-  ));
+  // that named the business, since those are answered with the name every time
+  // and would overstate how often AI recommends them.
+  rows.push(
+    emailLabel("Recommended by AI") +
+    emailText(`<strong>Named in ${args.cited} of ${args.total} answers</strong> to questions that didn't mention you by name.`),
+  );
 
   if (args.bestQuote) {
-    const engineName = ENGINE_DISPLAY_NAMES[args.bestQuote.engine] ?? escapeHtml(args.bestQuote.engine);
-    rows.push(row(`${engineName} said: <em>&ldquo;${escapeHtml(args.bestQuote.snippet)}&rdquo;</em>`));
+    const engineName = (ENGINE_NAMES as Record<string, string>)[args.bestQuote.engine] ?? escapeHtml(args.bestQuote.engine);
+    rows.push(
+      emailLabel("In AI's own words") +
+      emailQuote(`&ldquo;${escapeHtml(args.bestQuote.snippet)}&rdquo;`, `${engineName} said:`),
+    );
   }
 
   if (args.openFindings > 0) {
-    const plural = args.openFindings === 1 ? "issue" : "issues";
-    rows.push(row(`${args.openFindings} open accuracy ${plural}. We're on it.`));
+    const one = args.openFindings === 1;
+    rows.push(
+      emailLabel("Accuracy") +
+      emailNote(`<strong>${args.openFindings} open accuracy ${one ? "issue" : "issues"}.</strong> We're fixing ${one ? "it" : "them"}.`, "bad"),
+    );
   }
 
   const dashboardUrl = `${args.appUrl}/dashboard/${encodeURIComponent(args.slug)}`;
-  rows.push(row(
-    `<a href="${escapeHtml(dashboardUrl)}" style="color:#2563eb;text-decoration:none;font-weight:600;">Open your Mirror dashboard</a>`,
-  ));
+  rows.push(emailButton(dashboardUrl, "Open your dashboard"));
 
-  const html = `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f5;">` +
-    `<div style="max-width:560px;margin:0 auto 12px;font-family:sans-serif;font-size:13px;color:#666;">${escapeHtml(args.practiceName)} · Weekly Pulse</div>` +
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;margin:0 auto;background:#fff;padding:24px;border-radius:8px;">` +
-    rows.join("") +
-    `</table></body></html>`;
+  const html = emailShell({
+    eyebrowHtml: "Weekly Pulse",
+    titleHtml: escapeHtml(args.practiceName),
+    blocks: rows,
+  });
 
   return { subject, html };
 }

@@ -5,98 +5,91 @@ import { getDb } from "@/db";
 import { nameVariations } from "@/db/schema";
 import { getLatestScan, getChecksForScan } from "@/lib/queries";
 import { buildCompetitorReport, type CompetitorCell } from "@/lib/competitor-report";
-import { ENGINE_LABELS } from "@/core/types";
+import { buildSourcesReport, domainOf, SOURCE_KIND_LABELS } from "@/core/citations";
+import { brandDomains } from "@/core/brand-domain";
+import { nameKey } from "@/core/competitors";
+import { buildSearchReport } from "@/core/search-queries";
+import { ENGINES, type Engine } from "@/core/types";
+import { ENGINE_NAMES } from "@/core/coverage";
+import { KIND_FILL, TOOL } from "@/components/chart-keys";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { BarRow, BrandIcon, Card, Note, PageBody, SectionTitle, SiteIcon, SplitBar, Table } from "@/components/ui";
 
 // A real scan names 40 to 60 distinct businesses. The top of the list is the
 // story; the long tail of one-mention names is available but folded away.
-const LEADERBOARD_LIMIT = 15;
+const LEADERBOARD_LIMIT = 10;
+// The long tail of one-off websites is real but not the story.
+const SOURCE_LIMIT = 10;
+const GAP_LIMIT = 8;
+const SEARCH_LIMIT = 8;
 
-/** How each engine ordered the businesses it named for one question. */
-function Cell({ cell }: { cell: CompetitorCell | undefined }) {
-  if (!cell) {
-    return <span className="text-xs text-zinc-400 dark:text-zinc-500">No answer</span>;
-  }
-  if (cell.names.length === 0) {
-    return <span className="text-xs text-zinc-400 dark:text-zinc-500">No businesses named</span>;
-  }
+const FOLD = "cursor-pointer text-[14px] font-semibold text-muted hover:text-ink";
+
+/** Bar colours on the ranking: businesses named more than the customer, the customer, and the rest. */
+const AHEAD = "bg-ring-facts";
+const YOU = "bg-gold";
+const BEHIND = "bg-teal";
+
+const CHIP_FILLS = ["bg-teal", "bg-plum", "bg-ring-facts", "bg-ring-visibility", "bg-ring-overall", "bg-sun"];
+
+type Mark = { domain?: string; logo?: string | null };
+
+/** A big coloured number with a line under it. */
+function Tile({ value, label, color }: { value: string | number; label: string; color: string }) {
   return (
-    <ol className="space-y-1">
+    <div className="rounded-[20px] border border-line bg-paper px-5 py-4">
+      <span className={`block text-[34px] font-semibold leading-none tracking-tight ${color}`}>{value}</span>
+      <span className="mt-1.5 block text-[14px] text-muted">{label}</span>
+    </div>
+  );
+}
+
+/** The businesses one AI tool named for one question, in the order it named them. */
+function NamedList({ cell, markOf }: { cell: CompetitorCell | undefined; markOf: (name: string) => Mark }) {
+  if (!cell) return <p className="text-[14px] text-muted">No answer</p>;
+  if (cell.names.length === 0) return <p className="text-[14px] text-muted">No businesses named</p>;
+  return (
+    <ol className="space-y-1 text-[14px]">
       {cell.names.map((name, i) => (
-        <li
-          key={`${name}-${i}`}
-          className={
-            i === cell.practiceIndex
-              ? "rounded bg-indigo-100 px-1.5 py-0.5 font-medium text-black dark:bg-indigo-900/60 dark:text-zinc-50"
-              : "px-1.5 py-0.5 text-zinc-700 dark:text-zinc-300"
-          }
-        >
-          <span className="mr-1.5 tabular-nums text-zinc-400 dark:text-zinc-500">{i + 1}.</span>
-          {name}
+        <li key={`${name}-${i}`}
+          className={`flex items-center gap-2 px-1.5 py-0.5 ${i === cell.practiceIndex ? "rounded bg-gold-soft font-semibold text-ink" : "text-ink-soft"}`}>
+          <span className="w-4 shrink-0 tabular-nums text-muted">{i + 1}.</span>
+          <BrandIcon name={name} {...markOf(name)} size={16} />
+          <span className="min-w-0 truncate">{name}</span>
         </li>
       ))}
-      {cell.practiceIndex === -1 && (
-        <li className="px-1.5 py-0.5 text-xs italic text-rose-700 dark:text-rose-400">You were not named</li>
-      )}
+      {cell.practiceIndex === -1 && <li className="px-1.5 py-0.5 text-flag">You were not named</li>}
     </ol>
   );
 }
 
-function ShareRow({
-  row, rank, maxMentions, totalChecks,
-}: {
-  row: { name: string; mentions: number; isPractice: boolean };
-  rank: number;
-  maxMentions: number;
-  totalChecks: number;
-}) {
-  return (
-    <li className="flex items-center gap-3 text-sm">
-      <span className="w-6 shrink-0 tabular-nums text-zinc-400 dark:text-zinc-500">{rank}.</span>
-      <span
-        className={
-          row.isPractice
-            ? "w-48 shrink-0 truncate font-medium text-black dark:text-zinc-50"
-            : "w-48 shrink-0 truncate text-zinc-700 dark:text-zinc-300"
-        }
-      >
-        {row.name}
-        {row.isPractice && <span className="ml-1.5 text-xs font-normal text-zinc-500 dark:text-zinc-400">you</span>}
-      </span>
-      <span className="h-2 flex-1 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-900">
-        <span
-          className={row.isPractice ? "block h-full rounded-full bg-indigo-500" : "block h-full rounded-full bg-zinc-400 dark:bg-zinc-600"}
-          style={{ width: `${Math.round((row.mentions / maxMentions) * 100)}%` }}
-        />
-      </span>
-      <span className="w-20 shrink-0 text-right tabular-nums text-zinc-500 dark:text-zinc-400">
-        {row.mentions} of {totalChecks}
-      </span>
-    </li>
-  );
-}
-
+/**
+ * Competitors: who AI names most and who it named for each question, then
+ * the websites it read to decide. A prospect before their call gets the
+ * locked card and no data.
+ */
 export default async function CompetitorsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
   if (locked) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <DashboardHeader slug={slug} practiceName={practice.name} active="competitors" />
-        <LockedSection title="Competitors" what="Who AI recommends instead of you, question by question and tool by tool." />
-      </div>
+      <PageBody>
+        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
+        <LockedSection title="Competitors" what="Who AI recommends instead of you, question by question, and the websites it reads to decide." />
+      </PageBody>
     );
   }
   const db = getDb();
-
   const latestScan = await getLatestScan(db, practice.id);
 
   if (!latestScan) {
     return (
-      <div className="mx-auto max-w-5xl px-6 py-10">
-        <DashboardHeader slug={slug} practiceName={practice.name} active="competitors" />
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Your first scan is running. Check back soon.</p>
-      </div>
+      <PageBody>
+        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
+        <Card title="Competitors">
+          <Note>Your first scan is running. Your competitors show up here when it finishes.</Note>
+        </Card>
+      </PageBody>
     );
   }
 
@@ -104,77 +97,224 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
     db.select().from(nameVariations).where(eq(nameVariations.practiceId, practice.id)),
     getChecksForScan(db, latestScan.id),
   ]);
+  if (checks.length === 0) {
+    return (
+      <PageBody>
+        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
+        <Card title="Competitors">
+          <Note>The latest scan has no answers yet. Your competitors show up here when it finishes.</Note>
+        </Card>
+      </PageBody>
+    );
+  }
   const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
   const report = buildCompetitorReport(checks, practiceNames);
   const maxMentions = Math.max(1, ...report.shareOfVoice.map(s => s.mentions));
-  // Never fold the practice's own row away, even when it sits in the tail.
-  const practiceRank = report.shareOfVoice.findIndex(s => s.isPractice);
-  const visibleCount = Math.max(LEADERBOARD_LIMIT, practiceRank + 1);
+  // Never fold the business's own row away, even when it sits in the tail.
+  const ownRank = report.shareOfVoice.findIndex(s => s.isPractice);
+  const visibleCount = Math.max(LEADERBOARD_LIMIT, ownRank + 1);
   const leaders = report.shareOfVoice.slice(0, visibleCount);
   const tail = report.shareOfVoice.slice(visibleCount);
+  const nobodyNamed = report.shareOfVoice.length <= 1 && report.shareOfVoice[0]?.mentions === 0;
+
+  const sources = buildSourcesReport(checks, practice.website);
+  const searches = buildSearchReport(checks);
+
+  // A named business gets its logo from the website the same scan's answers read, when one carries its name.
+  const cited = new Map<string, number>();
+  for (const c of checks) for (const d of new Set(c.citations.map(domainOf).filter((x): x is string => x !== null))) cited.set(d, (cited.get(d) ?? 0) + 1);
+  const citedDomains = [...cited.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([d]) => d);
+  const everyName = [...new Set([...report.shareOfVoice.map(r => r.name), ...checks.flatMap(c => c.namedOrder)])];
+  const domainByName = brandDomains(everyName, citedDomains);
+  const practiceKeys = new Set(practiceNames.map(nameKey));
+  const markOf = (name: string): Mark =>
+    practiceKeys.has(nameKey(name)) && practice.logo ? { logo: practice.logo } : { domain: domainByName.get(name) };
+
+  const own = report.shareOfVoice[ownRank];
+  const ahead = report.shareOfVoice.filter(r => !r.isPractice && r.mentions > (own?.mentions ?? 0)).length;
+  const behind = report.shareOfVoice.filter(r => !r.isPractice && r.mentions < (own?.mentions ?? 0)).length;
+
+  const shareRow = (row: (typeof leaders)[number], rank: number) => (
+    <BarRow
+      key={row.name}
+      rank={rank}
+      highlight={row.isPractice}
+      icon={<BrandIcon name={row.name} {...markOf(row.name)} />}
+      fill={row.isPractice ? YOU : row.mentions > (own?.mentions ?? 0) ? AHEAD : BEHIND}
+      label={row.isPractice ? <>{row.name} <span className="text-[13px] font-normal text-muted">you</span></> : row.name}
+      fraction={row.mentions / maxMentions}
+      value={`${row.mentions} of ${report.totalChecks}`}
+    />
+  );
+
+  const siteRow = (site: (typeof sources.sources)[number], rank: number, count: number, max: number) => (
+    <BarRow
+      key={site.domain}
+      rank={rank}
+      icon={<SiteIcon domain={site.domain} />}
+      label={site.domain}
+      highlight={site.kind === "own_site"}
+      fill={KIND_FILL[site.kind]}
+      fraction={count / Math.max(1, max)}
+      value={`${count} answer${count === 1 ? "" : "s"}`}
+    />
+  );
+  const gaps = sources.gaps.slice(0, GAP_LIMIT);
+  const topSites = sources.sources.slice(0, SOURCE_LIMIT);
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
-      <DashboardHeader slug={slug} practiceName={practice.name} active="competitors" />
+    <PageBody>
+      <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
 
-      <p className="mb-8 text-sm text-zinc-600 dark:text-zinc-400">
-        Every business the AI engines recommended this week, discovered from their actual answers.
-        Counts are out of {report.totalChecks} answers.
-      </p>
+      <div className="space-y-4">
+        {!nobodyNamed && (
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <Tile value={`#${ownRank + 1}`} label={`your rank of ${report.shareOfVoice.length} named`} color="text-gold" />
+            <Tile value={ahead} label="named more than you" color="text-ring-facts" />
+            <Tile value={behind} label="named less than you" color="text-teal" />
+          </div>
+        )}
 
-      <section className="mb-10">
-        <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">Share of voice</h2>
-        {report.shareOfVoice.length <= 1 && report.shareOfVoice[0]?.mentions === 0 ? (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">No businesses were named in the latest scan.</p>
+        <Card title="Who AI names most" aside={<span className="text-[13px] text-muted">Out of {report.totalChecks} answers</span>}>
+          {nobodyNamed ? (
+            <Note>No businesses were named in the latest scan.</Note>
+          ) : (
+            <>
+              <ol className="space-y-3">{leaders.map((row, i) => shareRow(row, i + 1))}</ol>
+              {tail.length > 0 && (
+                <details className="mt-4">
+                  <summary className={FOLD}>{tail.length} more</summary>
+                  <ol className="mt-3 space-y-3">{tail.map((row, i) => shareRow(row, visibleCount + i + 1))}</ol>
+                </details>
+              )}
+            </>
+          )}
+        </Card>
+
+        {report.rows.length > 0 && (
+        <Card title="Question by question" aside={
+          <span className="flex items-center gap-3 text-[13px] text-muted">
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-ok" />Named you</span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-bone" />Left you out</span>
+          </span>
+        }>
+          <div className="divide-y divide-line">
+            {report.rows.map(row => (
+              <details key={row.promptText} className="py-3">
+                <summary className="cursor-pointer text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+                  <span className="ml-1 inline-flex w-[calc(100%-1.5rem)] items-center justify-between gap-x-4 align-top">
+                    <span className="min-w-0 text-[15px] font-semibold text-ink">{row.promptText}</span>
+                    <span className="flex shrink-0 items-center gap-2.5">
+                      {report.engines.filter(e => row.cells[e]).map(engine => {
+                        const named = (row.cells[engine]?.practiceIndex ?? -1) >= 0;
+                        return (
+                          <span key={engine} className="flex items-center gap-1" role="img"
+                            aria-label={`${ENGINE_NAMES[engine]} ${named ? "named you" : "left you out"}`}>
+                            <SiteIcon domain={TOOL[engine].site} size={16} />
+                            <span className={`h-3 w-3 rounded-full ${named ? "bg-ok" : "bg-bone"}`} />
+                          </span>
+                        );
+                      })}
+                    </span>
+                  </span>
+                </summary>
+                <div className="mt-4 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+                  {report.engines.map(engine => (
+                    <div key={engine}>
+                      <p className="mb-1.5 flex items-center gap-1.5 text-[13px] font-semibold text-ink-soft">
+                        <SiteIcon domain={TOOL[engine].site} size={16} />{ENGINE_NAMES[engine]}
+                      </p>
+                      <NamedList cell={row.cells[engine]} markOf={markOf} />
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ))}
+          </div>
+        </Card>
+        )}
+
+        {latestScan.aiOverviews && latestScan.aiOverviews.asked > 0 && (
+          <Card title="Google AI Overviews">
+            <Note>
+              Google showed an AI Overview for {latestScan.aiOverviews.shown} of {latestScan.aiOverviews.asked} customer
+              questions and named you in {latestScan.aiOverviews.namedIn}. This is not part of your score.
+            </Note>
+          </Card>
+        )}
+
+        <SectionTitle id="sources" title="Where AI gets its answers" />
+
+        {sources.answersWithSources === 0 ? (
+          <Card><Note>No answer in the latest scan listed a website.</Note></Card>
         ) : (
           <>
-            <ol className="space-y-2">
-              {leaders.map((row, i) => <ShareRow key={row.name} row={row} rank={i + 1} maxMentions={maxMentions} totalChecks={report.totalChecks} />)}
-            </ol>
-            {tail.length > 0 && (
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs text-zinc-500 dark:text-zinc-400">
-                  {tail.length} more named once or twice
-                </summary>
-                <ol className="mt-2 space-y-2">
-                  {tail.map((row, i) => <ShareRow key={row.name} row={row} rank={visibleCount + i + 1} maxMentions={maxMentions} totalChecks={report.totalChecks} />)}
-                </ol>
-              </details>
-            )}
+            <Card title="Kinds of website" aside={<span className="text-[13px] text-muted">{sources.answersWithSources} of {sources.totalAnswers} answers listed theirs</span>}>
+              <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
+                <div className="shrink-0">
+                  <span className="block text-[40px] font-semibold leading-none tracking-tight text-gold">{Math.round(sources.ownSiteRate * 100)}%</span>
+                  <span className="mt-1.5 block text-[14px] text-muted">read your website</span>
+                </div>
+                <div className="min-w-[240px] flex-1">
+                  <SplitBar
+                    label="Kinds of website AI read"
+                    unit="answers"
+                    parts={sources.kindMix.map(k => ({ key: k.kind, label: SOURCE_KIND_LABELS[k.kind], value: k.answers, fill: KIND_FILL[k.kind] }))}
+                  />
+                </div>
+              </div>
+            </Card>
+
+            <Card title="Where competitors are winning" aside={<span className="text-[13px] text-muted">Read when AI picked a competitor, not you</span>}>
+              {gaps.length === 0 ? (
+                <p className="text-[15px] font-semibold text-ok">None in this scan. Every time a competitor was recommended, you were too.</p>
+              ) : (
+                <ol className="space-y-3">{gaps.map((site, i) => siteRow(site, i + 1, site.competitorOnly, gaps[0].competitorOnly))}</ol>
+              )}
+            </Card>
+
+            <Card title="Most-read websites">
+              <ol className="space-y-3">{topSites.map((site, i) => siteRow(site, i + 1, site.answers, topSites[0].answers))}</ol>
+              {sources.sources.length > SOURCE_LIMIT && (
+                <details className="mt-4">
+                  <summary className={FOLD}>{sources.sources.length - SOURCE_LIMIT} more</summary>
+                  <ol className="mt-3 space-y-3">
+                    {sources.sources.slice(SOURCE_LIMIT).map((site, i) => siteRow(site, SOURCE_LIMIT + i + 1, site.answers, topSites[0].answers))}
+                  </ol>
+                </details>
+              )}
+            </Card>
           </>
         )}
-      </section>
 
-      <section>
-        <h2 className="mb-1 text-sm font-medium text-black dark:text-zinc-50">Head to head</h2>
-        <p className="mb-3 text-xs text-zinc-500 dark:text-zinc-400">
-          For each question, who each engine named and in what order. Your practice is highlighted.
-        </p>
-        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
-          <table className="w-full text-sm">
-            <thead className="bg-zinc-50 text-left text-xs font-medium uppercase tracking-wide text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              <tr>
-                <th className="px-3 py-2">Question</th>
-                {report.engines.map(engine => (
-                  <th key={engine} className="px-3 py-2">{ENGINE_LABELS[engine]}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
-              {report.rows.map(row => (
-                <tr key={row.promptText} className="align-top">
-                  <td className="min-w-48 px-3 py-3 text-zinc-700 dark:text-zinc-300">{row.promptText}</td>
-                  {report.engines.map(engine => (
-                    <td key={engine} className="min-w-44 px-3 py-3">
-                      <Cell cell={row.cells[engine]} />
-                    </td>
+        {searches.answersWithSearches > 0 && (
+          <Card title="What AI searched for" aside={<span className="text-[13px] text-muted">About {searches.searchesPerAnswer.toFixed(1)} searches per question</span>}>
+            {searches.addedWords.length > 0 && (
+              <>
+                <p className="mb-2 text-[13px] font-semibold uppercase tracking-[0.1em] text-muted">Words AI added most</p>
+                <ul className="mb-5 flex flex-wrap gap-2">
+                  {searches.addedWords.slice(0, 8).map((w, i) => (
+                    <li key={w.word} className={`rounded-full px-3 py-1 text-[14px] font-semibold text-paper ${CHIP_FILLS[i % CHIP_FILLS.length]}`}>{w.word}</li>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </div>
+                </ul>
+              </>
+            )}
+            <Table
+              head={["Search", "AI tools", "Answers"]}
+              right={[2]}
+              rows={searches.queries.slice(0, SEARCH_LIMIT).map(q => [
+                q.query,
+                <span key="tools" className="flex items-center gap-1.5">
+                  {q.engines.filter((e): e is Engine => (ENGINES as string[]).includes(e)).map(e => (
+                    <span key={e} title={ENGINE_NAMES[e]}><SiteIcon domain={TOOL[e].site} size={16} /></span>
+                  ))}
+                </span>,
+                q.answers,
+              ])}
+            />
+          </Card>
+        )}
+      </div>
+    </PageBody>
   );
 }

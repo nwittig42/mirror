@@ -1,88 +1,22 @@
+import { redirect } from "next/navigation";
 import { requirePracticeView } from "@/lib/auth";
 import { LockedSection } from "@/components/locked";
-import { getDb } from "@/db";
-import { getFindingsForPractice, getLatestScan, priceFirst } from "@/lib/queries";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { FindingCard, type FindingCardStatus } from "@/components/finding-card";
+import { PageBody } from "@/components/ui";
 
-const GROUP_LABELS: Record<FindingCardStatus, string> = {
-  open: "Open",
-  fixed: "Fixed",
-  verified: "Verified",
-};
-
+/**
+ * Accuracy used to be its own tab. The wrong facts now sit at the top of
+ * "What AI says", so this address sends a customer there. A prospect before
+ * their call still gets the locked card, and nothing is loaded for them.
+ */
 export default async function AccuracyPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
-  if (locked) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <DashboardHeader slug={slug} practiceName={practice.name} active="accuracy" />
-        <LockedSection title="Accuracy" what="What AI gets right and wrong about your prices, services and hours, and how to fix each one." />
-      </div>
-    );
-  }
-  const db = getDb();
-  const [allFindings, latestScan] = await Promise.all([
-    getFindingsForPractice(db, practice.id),
-    getLatestScan(db, practice.id),
-  ]);
-
-  const groups: { key: FindingCardStatus; findings: typeof allFindings }[] = (
-    ["open", "fixed", "verified"] as const
-  ).map(key => ({ key, findings: priceFirst(allFindings.filter(f => f.status === key)) }));
-  const dismissed = allFindings.filter(f => f.status === "dismissed");
-
+  if (!locked) redirect(`/dashboard/${slug}/answers#wrong-facts`);
   return (
-    <div className="mx-auto max-w-4xl px-6 py-10">
-      <DashboardHeader slug={slug} practiceName={practice.name} active="accuracy" />
-
-      {allFindings.length === 0 ? (
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          No accuracy issues found. Your fact sheet and AI answers agree.
-        </p>
-      ) : (
-        <div className="space-y-10">
-          {groups
-            .filter(group => group.findings.length > 0)
-            .map(group => (
-              <section key={group.key}>
-                <h2 className="mb-3 text-sm font-medium text-black dark:text-zinc-50">
-                  {GROUP_LABELS[group.key]} ({group.findings.length})
-                </h2>
-                <div className="space-y-4">
-                  {group.findings.map(f => (
-                    <FindingCard
-                      key={f.id}
-                      claim={f.claim}
-                      factValue={f.factValue}
-                      severity={f.severity}
-                      status={group.key}
-                      engine={f.engine}
-                      createdAt={f.createdAt}
-                      resolvedAt={f.resolvedAt}
-                      sources={f.citations}
-                      isPrice={f.factCategory === "pricing"}
-                      notSeenLately={group.key === "open" && !!latestScan && f.lastSeenScanId !== latestScan.id}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-
-          {dismissed.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-sm font-medium text-zinc-500 dark:text-zinc-400">
-                Dismissed ({dismissed.length})
-              </h2>
-            </section>
-          )}
-        </div>
-      )}
-
-      <footer className="mt-10 border-t border-zinc-200 pt-6 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
-        A serious wrong fact seen in the latest scan holds your overall score at 70. Issues marked “not seen in latest scan” don’t cost points right now.
-      </footer>
-    </div>
+    <PageBody>
+      <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="accuracy" />
+      <LockedSection title="Accuracy" what="What AI gets right and wrong about your prices, services and hours, and how to fix each one." />
+    </PageBody>
   );
 }

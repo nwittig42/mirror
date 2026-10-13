@@ -13,7 +13,8 @@ import { getToken } from "next-auth/jwt";
 // "/book" is the audit-request form the marketing page's CTAs point at. Every
 // visitor who reaches it is by definition signed out, so omitting it here would
 // redirect the entire inbound funnel to /login.
-const PUBLIC_PATHS = ["/login", "/book"];
+// "/how-it-works" and "/pricing" are the other two marketing pages.
+const PUBLIC_PATHS = ["/login", "/book", "/how-it-works", "/pricing"];
 const PUBLIC_EXACT = ["/"];
 
 // Files in /public are served straight off the path, e.g. /mirror-wordmark.png,

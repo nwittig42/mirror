@@ -8,6 +8,7 @@ import { judgeAnswer } from "@/services/hallucination-judge";
 import { extractCompetitors } from "@/services/competitor-extractor";
 import { rateTone } from "@/services/tone-rater";
 import { runWebsiteCheck } from "@/services/website-check";
+import { fetchLogo } from "@/services/logo";
 import { aiOverviewCheck } from "@/services/ai-overviews";
 import { runScan, SCAN_DEADLINE_MS } from "@/services/scan-runner";
 import { sendProspectAlert } from "@/services/alert-email";
@@ -24,6 +25,7 @@ export function startProspectSetup(leadId: string): void {
     const env = loadEnv();
     await prepareProspect(getDb(), leadId, {
       fetchPages: website => fetchSitePages(website),
+      fetchLogo: website => fetchLogo(website),
       draftFacts: args => draftFactsFromPages(args),
       draftQuestions: args => draftQuestionsFromPages(args),
       scan: (db, practiceId) => runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors, {

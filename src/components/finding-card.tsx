@@ -1,19 +1,20 @@
 import type { Engine, Severity } from "@/core/types";
 import { ENGINE_LABELS } from "@/components/answer-card";
 import { isSafeHttpUrl } from "@/lib/url";
+import { Tag, type Tone } from "@/components/ui";
 
 export type FindingCardStatus = "open" | "fixed" | "verified";
 
-const STATUS_ACCENTS: Record<FindingCardStatus, string> = {
-  open: "border-red-300 dark:border-red-900",
-  fixed: "border-amber-300 dark:border-amber-900",
-  verified: "border-emerald-300 dark:border-emerald-900",
+const STATUS_EDGE: Record<FindingCardStatus, string> = {
+  open: "border-l-flag",
+  fixed: "border-l-gold",
+  verified: "border-l-ok",
 };
 
-const SEVERITY_STYLES: Record<Severity, string> = {
-  critical: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300",
-  major: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
-  minor: "bg-zinc-100 text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400",
+const SEVERITY_TAGS: Record<Severity, { label: string; tone: Tone }> = {
+  critical: { label: "Serious", tone: "flag" },
+  major: { label: "Important", tone: "gold" },
+  minor: { label: "Minor", tone: "neutral" },
 };
 
 export interface FindingCardProps {
@@ -32,6 +33,7 @@ export interface FindingCardProps {
 }
 
 const MAX_SOURCES = 4;
+const LABEL = "text-[12px] font-semibold uppercase tracking-[0.1em] text-muted";
 
 function hostOf(url: string): string {
   try {
@@ -42,68 +44,55 @@ function hostOf(url: string): string {
 }
 
 function formatDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
 }
 
-/** One accuracy-ledger card: what the AI claimed vs. what the fact sheet says, side by side. */
+/** One wrong fact: what AI said next to the truth from the Fact Sheet, which AI tool said it and how much it matters. */
 export function FindingCard({
   claim, factValue, severity, status, engine, createdAt, resolvedAt, sources = [], isPrice = false, notSeenLately = false,
 }: FindingCardProps) {
   // Engine output is untrusted: only plain web links become clickable.
-  const links = sources.filter(isSafeHttpUrl);
+  // An AI tool can list the same page several times; show it once.
+  const links = [...new Set(sources.filter(isSafeHttpUrl))];
+  const sev = SEVERITY_TAGS[severity];
   return (
-    <article className={`rounded-lg border-2 p-5 ${STATUS_ACCENTS[status]}`}>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${SEVERITY_STYLES[severity]}`}>
-          {severity}
-        </span>
-        <span className="rounded-full border border-zinc-200 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:border-zinc-700 dark:text-zinc-400">
-          {ENGINE_LABELS[engine]}
-        </span>
-        {isPrice && (
-          <span className="rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800 dark:bg-rose-950 dark:text-rose-300">
-            price
-          </span>
-        )}
-        {notSeenLately && (
-          <span className="rounded-full bg-zinc-100 px-2.5 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400">
-            not seen in latest scan
-          </span>
-        )}
+    <article className={`rounded-[20px] border border-l-4 border-line bg-paper p-5 ${STATUS_EDGE[status]}`}>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Tag tone={sev.tone}>{sev.label}</Tag>
+        <Tag>{ENGINE_LABELS[engine]}</Tag>
+        {isPrice && <Tag tone="flag">Price</Tag>}
+        {status === "fixed" && <Tag tone="gold">Fixed, waiting for the next scan</Tag>}
+        {status === "verified" && <Tag tone="ok">Fixed and confirmed</Tag>}
+        {notSeenLately && <Tag>Not seen in the latest scan</Tag>}
       </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">AI claimed</p>
-          <p className="mt-1 text-sm text-black dark:text-zinc-50">{claim}</p>
+          <p className={LABEL}>AI said</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-ink">{claim}</p>
         </div>
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Fact sheet says</p>
-          <p className="mt-1 text-sm text-black dark:text-zinc-50">{factValue ?? "N/A"}</p>
+          <p className={LABEL}>The truth, from your Fact Sheet</p>
+          <p className="mt-1 text-[15px] leading-relaxed text-ink">{factValue ?? "N/A"}</p>
         </div>
       </div>
       {links.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Pages the AI read for this answer
-          </p>
-          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+          <p className={LABEL}>Pages the AI tool read for this answer</p>
+          <ul className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
             {links.slice(0, MAX_SOURCES).map(url => (
               <li key={url}>
-                <a href={url} target="_blank" rel="noopener noreferrer"
-                  className="text-indigo-700 underline-offset-2 hover:underline dark:text-indigo-400">
+                <a href={url} target="_blank" rel="noopener noreferrer" className="text-gold underline-offset-2 hover:underline">
                   {hostOf(url)}
                 </a>
               </li>
             ))}
-            {links.length > MAX_SOURCES && (
-              <li className="text-zinc-500 dark:text-zinc-400">+{links.length - MAX_SOURCES} more</li>
-            )}
+            {links.length > MAX_SOURCES && <li className="text-muted">+{links.length - MAX_SOURCES} more</li>}
           </ul>
         </div>
       )}
-      <p className="mt-4 text-xs text-zinc-500 dark:text-zinc-400">
+      <p className="mt-4 text-[13px] text-muted">
         Found {formatDate(createdAt)}
-        {resolvedAt ? ` · Resolved ${formatDate(resolvedAt)}` : ""}
+        {resolvedAt ? ` · Fixed ${formatDate(resolvedAt)}` : ""}
       </p>
     </article>
   );

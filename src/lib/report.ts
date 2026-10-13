@@ -4,6 +4,7 @@ import { activities, checks, findings, nameVariations, practices, prompts, scans
 import { getChecksForScan } from "@/lib/queries";
 import { extractSnippet } from "@/core/mention";
 import { ENGINES, ENGINE_LABELS } from "@/core/types";
+import { displayScores } from "@/core/scoring";
 
 export interface ReportData {
   verdict: string;
@@ -16,9 +17,40 @@ export interface ReportData {
   accuracyLedger: { found: number; fixed: number; verified: number; open: number };
   activities: string[];
   bestQuote: { engine: string; prompt: string; snippet: string } | null;
+  /** The last six months, oldest first, each with the scores of its last scan (nulls when it had none). */
+  months: MonthPoint[];
+  /** This month's numbers next to last month's, for the "improved / got worse" summary. */
+  changes: MonthChange[];
 }
 
-const ACTIVITY_CAP = 30;
+export interface MonthPoint { month: string; label: string; overall: number | null; visibility: number | null; facts: number | null }
+
+/** One number this month and last. Every one of them is better when higher. */
+export interface MonthChange { key: "overall" | "visibility" | "facts" | "named"; label: string; now: number | null; before: number | null; unit: "" | "%" }
+
+/** How many months the progress graph goes back, the report's month included. */
+export const HISTORY_MONTHS = 6;
+
+/**
+ * Sorts the month's changes into what improved, what got worse and what held,
+ * each as one plain sentence. A number missing on either side (no scan that
+ * month, or nothing fact-checked) is left out: there is nothing to compare.
+ */
+export function reviewChanges(changes: MonthChange[]): { improved: string[]; worse: string[]; same: string[] } {
+  const out = { improved: [] as string[], worse: [] as string[], same: [] as string[] };
+  for (const c of changes) {
+    if (c.now === null || c.before === null) continue;
+    const from = `${c.before}${c.unit}`;
+    const to = `${c.now}${c.unit}`;
+    if (c.now > c.before) out.improved.push(`${c.label} rose from ${from} to ${to}`);
+    else if (c.now < c.before) out.worse.push(`${c.label} fell from ${from} to ${to}`);
+    else out.same.push(`${c.label} held at ${to}`);
+  }
+  return out;
+}
+
+// Every piece of work in the month is listed; the cap only guards a runaway log.
+const ACTIVITY_CAP = 200;
 const MONTH_ISO_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 function currentMonthISO(): string {
@@ -98,7 +130,8 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
   const variationRows = await db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId));
   const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
 
-  const [inMonthScans, prevMonthScans, findingRows, activityRows] = await Promise.all([
+  const historyStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - (HISTORY_MONTHS - 1), 1));
+  const [inMonthScans, prevMonthScans, findingRows, activityRows, historyScans] = await Promise.all([
     db.select().from(scans).where(and(
       eq(scans.practiceId, practiceId), eq(scans.status, "complete"),
       gte(scans.startedAt, start), lt(scans.startedAt, end),
@@ -114,7 +147,24 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
       eq(activities.practiceId, practiceId), eq(activities.visibility, "client"),
       gte(activities.createdAt, start), lt(activities.createdAt, end),
     )).orderBy(desc(activities.createdAt)).limit(ACTIVITY_CAP),
+    db.select().from(scans).where(and(
+      eq(scans.practiceId, practiceId), eq(scans.status, "complete"),
+      gte(scans.startedAt, historyStart), lt(scans.startedAt, end),
+    )).orderBy(asc(scans.startedAt)),
   ]);
+
+  // One point per month: the scores of that month's last scan.
+  const months: MonthPoint[] = Array.from({ length: HISTORY_MONTHS }, (_, i) => {
+    const from = new Date(Date.UTC(historyStart.getUTCFullYear(), historyStart.getUTCMonth() + i, 1));
+    const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
+    const last = historyScans.filter(sc => inRange(sc.startedAt, from, to)).pop();
+    const shown = last ? displayScores(last) : null;
+    return {
+      month: `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, "0")}`,
+      label: from.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
+      overall: shown?.overall ?? null, visibility: shown?.visibility ?? null, facts: shown?.facts ?? null,
+    };
+  });
 
   const trend = inMonthScans.map(s => ({ date: s.startedAt.toISOString(), score: s.score ?? 0 }));
   const latestInMonthScan = inMonthScans.length > 0 ? inMonthScans[inMonthScans.length - 1] : null;
@@ -185,7 +235,18 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     }
   }
 
+  const thisMonth = months[months.length - 1];
+  const lastMonth = months[months.length - 2];
+  const changes: MonthChange[] = [
+    { key: "overall", label: "Overall", now: thisMonth.overall, before: lastMonth.overall, unit: "" },
+    { key: "visibility", label: "Recommended by AI", now: thisMonth.visibility, before: lastMonth.visibility, unit: "" },
+    { key: "facts", label: "Accuracy", now: thisMonth.facts, before: lastMonth.facts, unit: "" },
+    { key: "named", label: "Answers that named you", now: totalChecks > 0 ? pct : null, before: prevTotalChecks > 0 ? prevPct : null, unit: "%" },
+  ];
+
   return {
+    months,
+    changes,
     verdict,
     score,
     prevMonthScore,

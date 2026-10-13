@@ -88,7 +88,7 @@ export async function createSupportRequest(
   const inbox = env.SUPPORT_EMAIL ?? env.OPERATOR_EMAIL;
   const notice = composeSupportNotice({
     practiceName: practice?.name ?? "Unknown business", email: input.email, topic: input.topic,
-    message: input.message, adminUrl: `${env.APP_URL}/admin#support`,
+    message: input.message, adminUrl: `${env.APP_URL}/admin/support`,
   });
   const receipt = composeSupportReceipt({ appName: env.NEXT_PUBLIC_APP_NAME, topic: input.topic, message: input.message });
 

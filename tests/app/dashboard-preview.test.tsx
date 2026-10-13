@@ -70,7 +70,7 @@ describe("a prospect's dashboard before their call", () => {
 
   it("shows the ranking, the top competitor and one answer they were left out of, and asks for the call", async () => {
     const page = await html(DashboardPage({ params }));
-    expect(page).toContain("Your ranking");
+    expect(page).toContain("Recommended by AI");
     expect(page).toContain("1/2");
     expect(page).toContain("Rose City Plumbing");
     expect(page).toContain("An answer you were left out of");
@@ -82,7 +82,8 @@ describe("a prospect's dashboard before their call", () => {
 
   it("keeps the unconfirmed fact check out of the summary", async () => {
     const page = await html(DashboardPage({ params }));
-    expect(page).not.toContain("Wrong facts");
+    // The "Wrong facts" tab is in the header for everyone; the count card under it is what must stay out.
+    expect(page).not.toContain("What AI got wrong in the latest scan");
     expect(page).not.toContain("$49");
     expect(page).not.toContain("Trends");
   });
@@ -119,7 +120,19 @@ describe("a prospect's dashboard before their call", () => {
     const summary = await html(DashboardPage({ params }));
     expect(summary).toContain("Wrong facts");
     expect(summary).not.toContain("Unlocks after your call");
-    expect(await html(AccuracyPage({ params }))).not.toContain("Unlocks after your call");
+    // Accuracy and Sources are no longer tabs: once unlocked, each address
+    // sends the customer to the tab that now holds it.
+    await expect(AccuracyPage({ params })).rejects.toMatchObject({ digest: expect.stringContaining("/dashboard/harbor/answers#wrong-facts") });
+    await expect(SourcesPage({ params })).rejects.toMatchObject({ digest: expect.stringContaining("/dashboard/harbor/competitors#sources") });
+    const answers = await html(AnswersPage({ params }));
+    expect(answers).not.toContain("Unlocks after your call");
+    expect(answers).toContain('id="wrong-facts"');
+    expect(answers).toContain("Harbor Plumbing charges $49");
+    expect(answers).toContain("$89");
+    const competitors = await html(CompetitorsPage({ params }));
+    expect(competitors).toContain("Rose City Plumbing");
+    expect(competitors).toContain('id="sources"');
+    expect(competitors).toContain("secret-source.example");
     expect(await html(ReportsPage({ params }))).toContain("variant=master");
     expect((await pdf("master")).status).toBe(200);
   });
@@ -127,6 +140,6 @@ describe("a prospect's dashboard before their call", () => {
   it("never locks an operator out", async () => {
     role = "operator";
     expect(await html(DashboardPage({ params }))).toContain("Wrong facts");
-    expect((await pdf("factcheck")).status).toBe(200);
+    expect((await pdf("master")).status).toBe(200);
   });
 });

@@ -8,6 +8,9 @@ import type { AuditReport } from "@/report/types";
 import { joinNames } from "@/report/pages/one-page-summary";
 import { renderReportPdf } from "@/services/report-pdf";
 import { grantClientLogin, type ClientLogin } from "@/services/client-access";
+import {
+  EMAIL_COLORS, emailButton, emailLabel, emailLink, emailNote, emailQuote, emailRule, emailShell, emailText,
+} from "@/services/email-shell";
 
 /**
  * The email a prospect gets when their first scan finishes: a plain summary
@@ -61,48 +64,59 @@ export function composeProspectReportEmail(
     : `How AI answers when people look for a ${category} like ${r.business.name}`;
   const fixes = actionsFor("visibility", r).slice(0, 3);
   const q = r.missedQuote;
-  const p = (html: string, style = "") =>
-    `<p style="margin:0 0 16px;font-size:16px;line-height:1.55;color:#1d1d1f;${style}">${html}</p>`;
   const login = opts.login;
-  const loginBlock = login
-    ? `<div style="background:#f5f5f7;border-radius:14px;padding:16px 18px;margin:0 0 20px;">` +
-      `<div style="font-size:16px;font-weight:600;color:#1d1d1f;margin-bottom:6px;">Your dashboard is ready</div>` +
-      `<div style="font-size:15px;line-height:1.5;color:#1d1d1f;margin-bottom:10px;">It shows your ranking and this summary today. The fact check, every AI answer and your fix plan open after your call.</div>` +
-      `<div style="font-size:15px;line-height:1.6;color:#1d1d1f;">Email: <strong>${e(login.email)}</strong><br>` +
-      (login.password
-        ? `Temporary password: <strong style="font-family:Menlo,Consolas,monospace;">${e(login.password)}</strong><br>` +
-          `<span style="color:#6e6e73;">You'll choose your own the first time you sign in.</span>`
-        : `<span style="color:#6e6e73;">Sign in with the password you already use.</span>`) +
-      `</div>` +
-      `<div style="margin-top:12px;"><a href="${e(login.url)}" style="font-size:15px;font-weight:600;color:#0071e3;text-decoration:none;">Open your dashboard →</a></div></div>`
+
+  // The quote is a competitor being recommended, never a claim about the
+  // prospect's own facts.
+  const quoteBlock = q
+    ? emailQuote(`&ldquo;${e(q.text)}&rdquo;`, `We asked ${e(toolMeta[q.tool].name)}: &ldquo;${e(q.question)}&rdquo;`) +
+      `<div style="padding-top:10px;">${emailText(`<strong>${e(r.business.name)} wasn't mentioned.</strong>`, "bad", 14)}</div>`
     : "";
 
-  const html =
-    `<!doctype html><html><body style="margin:0;padding:24px;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,sans-serif;">` +
-    `<div style="max-width:580px;margin:0 auto;background:#fff;border-radius:18px;padding:32px;">` +
-    p(`Hi ${e(firstName(opts.contactName))},`) +
-    p(e(summaryParagraph(r))) +
-    (q
-      ? `<div style="background:#f5f5f7;border-radius:14px;padding:16px 18px;margin:0 0 16px;">` +
-        `<div style="font-size:13px;color:#6e6e73;margin-bottom:6px;">We asked ${e(toolMeta[q.tool].name)}: "${e(q.question)}"</div>` +
-        `<div style="font-size:16px;line-height:1.5;color:#1d1d1f;font-style:italic;">"${e(q.text)}"</div>` +
-        `<div style="font-size:14px;font-weight:600;color:#c4161c;margin-top:8px;">${e(r.business.name)} wasn't mentioned.</div></div>`
-      : "") +
-    p("<strong>Why this matters:</strong> more people now ask an AI assistant instead of searching Google. If it doesn't name you, those customers never see you.") +
-    (fixes.length
-      ? p("<strong>The good news: this is fixable.</strong> The changes that would help most:", "margin-bottom:8px;") +
-        `<ol style="margin:0 0 16px;padding-left:22px;font-size:16px;line-height:1.5;color:#1d1d1f;">` +
-        fixes.map(f => `<li style="margin-bottom:6px;"><strong>${e(f.title)}.</strong> ${e(f.why)}</li>`).join("") + `</ol>`
-      : "") +
-    p("Your one-page report is attached. It shows how you compare and what to change first.") +
-    p("We also checked what AI says about your prices, services and hours. Before we show you, we'd like to set up your fact sheet with you, so we're checking AI against the truth, not a guess. It takes about 30 minutes.") +
-    (r.contact.bookingUrl
-      ? `<div style="margin:8px 0 20px;"><a href="${e(r.contact.bookingUrl)}" style="display:inline-block;background:#0071e3;color:#fff;border-radius:999px;padding:12px 22px;font-size:16px;font-weight:600;text-decoration:none;">Book a call to set up your fact sheet</a></div>`
-      : "") +
-    loginBlock +
-    p(`${e(r.contact.name)}${r.contact.email ? `<br><span style="color:#6e6e73;">${e(r.contact.email)}</span>` : ""}`, "margin:0;") +
-    `</div><div style="max-width:580px;margin:12px auto 0;font-size:12px;color:#86868b;text-align:center;">${e(opts.appName)} · AI search audit for ${e(r.business.name)}</div>` +
-    `</body></html>`;
+  const fixesBlock = fixes.length
+    ? emailLabel("What would help most") +
+      emailText("This is fixable. The changes that would help most:") +
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">` +
+      fixes.map((f, i) =>
+        `<tr><td width="26" valign="top" style="padding-top:10px;">${emailText(`<strong>${i + 1}.</strong>`, "gold")}</td>` +
+        `<td valign="top" style="padding-top:10px;">${emailText(`<strong>${e(f.title)}.</strong> ${e(f.why)}`)}</td></tr>`).join("") +
+      `</table>`
+    : "";
+
+  const loginBlock = login
+    ? emailRule() +
+      `<div style="padding-top:22px;">` +
+      emailLabel("Your login") +
+      emailText("<strong>Your dashboard is ready</strong>") +
+      emailText("It shows how often AI recommends you and this summary today. Your Accuracy score, every AI answer and your fix plan open after your call.", "secondary", 14) +
+      `</div><div style="padding-top:12px;">` +
+      emailNote(
+        `Email: <strong>${e(login.email)}</strong><br>` +
+        (login.password
+          ? `Temporary password: <strong style="font-family:Menlo,Consolas,monospace;">${e(login.password)}</strong><br>` +
+            `<span style="color:${EMAIL_COLORS.caption};">You'll choose your own the first time you sign in.</span>`
+          : `<span style="color:${EMAIL_COLORS.caption};">Sign in with the password you already use.</span>`),
+      ) +
+      `</div><div style="padding-top:12px;">${emailLink(login.url, "Open your dashboard")}</div>`
+    : "";
+
+  const html = emailShell({
+    brand: opts.appName,
+    blocks: [
+      emailText(`Hi ${e(firstName(opts.contactName))},`),
+      emailText(e(summaryParagraph(r))),
+      quoteBlock,
+      emailLabel("Why this matters") +
+        emailText("More people now ask AI instead of searching Google. If AI doesn't name you, those customers never see you."),
+      fixesBlock,
+      emailText("Your one-page report is attached. It shows how you compare and what to change first."),
+      emailText("We also checked what AI says about your prices, services and hours. Before we show you, we'd like to set up your fact sheet with you, so we check AI against the truth and not a guess. The call takes about 30 minutes."),
+      r.contact.bookingUrl ? emailButton(r.contact.bookingUrl, "Book a call to set up your fact sheet") : "",
+      loginBlock,
+      emailText(`${e(r.contact.name)}${r.contact.email ? `<br><span style="font-size:14px;color:${EMAIL_COLORS.caption};">${e(r.contact.email)}</span>` : ""}`),
+    ],
+    footerHtml: `${e(opts.appName)} &middot; AI search audit for ${e(r.business.name)}`,
+  });
   return { subject, html };
 }
 

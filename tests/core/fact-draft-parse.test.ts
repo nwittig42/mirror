@@ -27,6 +27,19 @@ describe("parseDraftFacts", () => {
     ]);
   });
 
+  it("keeps the heading the drafter chose, tidied, with one spelling per section", () => {
+    const raw = JSON.stringify([
+      { section: " Custom   cakes ", category: "services", label: "Wedding cakes", value: "Made to order, two weeks notice" },
+      { section: "custom cakes", category: "pricing", label: "Tasting fee", value: "$40" },
+      { section: "", category: "logistics", label: "Sunday hours", value: "Closed" },
+    ]);
+    expect(parseDraftFacts(raw, pages)).toEqual([
+      { section: "Custom cakes", category: "services", label: "Wedding cakes", value: "Made to order, two weeks notice", sourceUrl: null },
+      { section: "Custom cakes", category: "pricing", label: "Tasting fee", value: "$40", sourceUrl: null },
+      { category: "logistics", label: "Sunday hours", value: "Closed", sourceUrl: null },
+    ]);
+  });
+
   it("throws when there is no array at all", () => {
     expect(() => parseDraftFacts("I could not read the site.", pages)).toThrow(/No fact array/);
   });

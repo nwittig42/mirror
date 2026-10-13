@@ -1,19 +1,18 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { competitors, facts, practices, prompts } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
-import { setPracticeActive } from "@/app/admin/actions";
+import { setDashboardUnlocked, setPracticeActive } from "@/app/admin/actions";
 import { getChecksForScan, getFindingsForPractice, getLatestScan } from "@/lib/queries";
 import { getPracticeLogins, getScanHistory, getSupportForPractice, getWorkLog } from "@/lib/admin-queries";
 import type { Engine } from "@/core/types";
 import { displayScores } from "@/core/scoring";
-import { ACCENT, ACCENT_TEXT, BackToAdmin, Pill, PrimaryLink, SecondaryLink } from "@/app/admin/ui";
-import {
-  AccountTab, AnswersTab, EmailsTab, LogTab, ReportsTab, ScoresTab, SetupTab, SupportTab, WrongFactsTab,
-  type FactFilter,
-} from "./sections";
+import { PageBody } from "@/components/ui";
+import { Button, PrimaryLink, SecondaryLink, Tabs } from "@/app/admin/ui";
+import { BusinessHeader } from "../business-header";
+import { AccountTab, EmailsTab, LogTab, ReportsTab, ScoresTab, SetupTab, SupportTab } from "./sections";
+import { AnswersTab, WrongFactsTab, type FactFilter } from "./answers";
 
 const TABS = [
   { key: "account", label: "Account" },
@@ -33,7 +32,7 @@ const FILTERS: FactFilter[] = ["open", "not_seen", "fixed", "dismissed", "all"];
 /**
  * Everything about one customer on one page, for the operator: what they see
  * (scores, reports, answers, wrong facts) and what only we see (every scan
- * attempt, diagnostics, logins). Read-only; editing stays on the practice page.
+ * attempt, diagnostics, logins). Read-only; editing stays on the business page.
  */
 export default async function CustomerOverviewPage({
   params, searchParams,
@@ -100,71 +99,50 @@ export default async function CustomerOverviewPage({
   const base = `/admin/practices/${id}/overview`;
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="mx-auto max-w-[1000px] px-5 pb-20 pt-10">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2 text-sm text-zinc-500">
-          <div>
-            <Link href="/admin" className="hover:text-black" style={{ color: ACCENT_TEXT }}>Admin</Link>
-            <span className="mx-1.5">/</span><span className="text-black">{practice.name}</span>
-          </div>
-          <BackToAdmin />
-        </div>
-
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2.5">
-              <h1 className="text-[26px] font-bold tracking-tight text-black">{practice.name}</h1>
-              {practice.active ? <Pill tone="green">Active</Pill> : <Pill tone="gray">Paused</Pill>}
-            </div>
-            <div className="mt-1 text-sm text-zinc-600">
-              {[practice.category, practice.location, practice.website].filter(Boolean).join(" · ") || "No details yet"}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {/* A paused business is a prospect: its owner sees the summary only.
-                Unlocking opens their whole dashboard and starts the weekly scan. */}
-            <form action={setPracticeActive.bind(null, id, !practice.active)}>
-              <button type="submit" className="rounded-md border border-[#e4e4e7] bg-white px-3 py-1.5 text-sm font-medium text-black hover:bg-zinc-50">
-                {practice.active ? "Pause and lock dashboard" : "Unlock full dashboard"}
-              </button>
+    <PageBody wide>
+      <BusinessHeader
+        name={practice.name}
+        active={practice.active}
+        details={[practice.category, practice.location, practice.website].filter(Boolean).join(" · ") || "No details yet"}
+        actions={<>
+          {/* Two separate switches. Weekly scans cost money every week; the
+              dashboard lock decides what the owner can see. A business on
+              weekly scans always has the whole dashboard, so the lock switch
+              only shows while scans are off (a prospect, before or after
+              their call). */}
+          {!practice.active && (
+            <form action={setDashboardUnlocked.bind(null, id, !practice.dashboardUnlocked)}>
+              <Button variant="outline" size="sm">{practice.dashboardUnlocked ? "Lock dashboard to summary" : "Unlock full dashboard"}</Button>
             </form>
-            <PrimaryLink href={`/dashboard/${practice.slug}`}>View as customer</PrimaryLink>
-            <SecondaryLink href={`/admin/practices/${id}`}>Edit setup ↗</SecondaryLink>
-          </div>
-        </div>
+          )}
+          <form action={setPracticeActive.bind(null, id, !practice.active)}>
+            <Button variant="outline" size="sm">{practice.active ? "Stop weekly scans" : "Start weekly scans"}</Button>
+          </form>
+          <PrimaryLink href={`/dashboard/${practice.slug}`}>View as customer</PrimaryLink>
+          <SecondaryLink href={`/admin/practices/${id}`}>Edit setup</SecondaryLink>
+        </>}
+      >
+        <Tabs label="Customer overview sections" current={tab}
+          items={TABS.map(t => ({ ...t, href: `${base}?tab=${t.key}`, count: counts[t.key] }))} />
+      </BusinessHeader>
 
-        <nav className="mb-7 flex overflow-x-auto border-b border-[#e4e4e7]">
-          {TABS.map(t => {
-            const active = t.key === tab;
-            return (
-              <Link key={t.key} href={`${base}?tab=${t.key}`}
-                className={`-mb-px whitespace-nowrap border-b-2 px-3 py-2.5 text-sm ${active ? "font-semibold" : "border-transparent text-[#555] hover:text-black"}`}
-                style={active ? { borderColor: ACCENT, color: ACCENT_TEXT } : undefined}>
-                {t.label}
-                {counts[t.key] !== undefined && <span className="ml-1.5 text-xs text-zinc-400">{counts[t.key]}</span>}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {tab === "account" && (
-          <AccountTab practice={practice} openWrongFacts={openWrong} openSupport={openSupport} logins={logins}
-            latest={latest ? { startedAt: latest.startedAt, coverage: latest.coverage, shown: displayScores(latest) } : null} />
-        )}
-        {tab === "scores" && <ScoresTab scans={history.map(s => ({ ...s, shown: displayScores(s) }))} />}
-        {tab === "reports" && <ReportsTab slug={practice.slug} latestDate={latest?.startedAt ?? null} />}
-        {tab === "answers" && <AnswersTab date={latest?.startedAt ?? null} questions={questions} />}
-        {tab === "facts" && <WrongFactsTab base={base} filter={filter} findings={wrongFacts} practiceId={id} />}
-        {tab === "setup" && (
-          <SetupTab practiceId={id}
-            facts={factRows.filter(f => f.status === "active").map(f => ({ label: f.label, value: f.value }))}
-            questions={promptRows.map(p => p.text)}
-            competitors={competitorRows.map(c => c.name)} />
-        )}
-        {tab === "emails" && <EmailsTab />}
-        {tab === "support" && <SupportTab requests={support} />}
-        {tab === "log" && <LogTab workLog={workLog} diagnostics={diagnostics} />}
-      </div>
-    </div>
+      {tab === "account" && (
+        <AccountTab practice={practice} openWrongFacts={openWrong} openSupport={openSupport} logins={logins}
+          latest={latest ? { startedAt: latest.startedAt, coverage: latest.coverage, shown: displayScores(latest) } : null} />
+      )}
+      {tab === "scores" && <ScoresTab scans={history.map(s => ({ ...s, shown: displayScores(s) }))} />}
+      {tab === "reports" && <ReportsTab slug={practice.slug} latestDate={latest?.startedAt ?? null} />}
+      {tab === "answers" && <AnswersTab date={latest?.startedAt ?? null} questions={questions} />}
+      {tab === "facts" && <WrongFactsTab base={base} filter={filter} findings={wrongFacts} practiceId={id} />}
+      {tab === "setup" && (
+        <SetupTab practiceId={id}
+          facts={factRows.filter(f => f.status === "active").map(f => ({ label: f.label, value: f.value }))}
+          questions={promptRows.map(p => p.text)}
+          competitors={competitorRows.map(c => c.name)} />
+      )}
+      {tab === "emails" && <EmailsTab />}
+      {tab === "support" && <SupportTab requests={support} />}
+      {tab === "log" && <LogTab workLog={workLog} diagnostics={diagnostics} />}
+    </PageBody>
   );
 }

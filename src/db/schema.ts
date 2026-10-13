@@ -84,6 +84,12 @@ export const practices = pgTable("practices", {
   // Santa Monica...". Optional; the report falls back to neutral phrasing.
   category: text("category"),
   location: text("location"),
+  // The business's own logo, read from its website and kept as a `data:`
+  // address (src/services/logo.ts). Shown beside its name on the dashboard.
+  logo: text("logo"),
+  // The paid plan (src/core/plan.ts): 'pulse' | 'partner'. Null = no plan
+  // yet. Set by the operator until billing is connected.
+  plan: text("plan").$type<import("@/core/plan").Plan>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -115,7 +121,12 @@ export const competitors = pgTable("competitors", {
 export const facts = pgTable("facts", {
   id: uuid("id").defaultRandom().primaryKey(),
   practiceId: uuid("practice_id").notNull().references(() => practices.id),
+  // The internal type scoring and the judge rely on. Never shown to a customer.
   category: factCategoryEnum("category").notNull(),
+  // The heading this fact sits under on the fact sheet, chosen for this one
+  // business (see src/core/fact-sections.ts). Null on facts saved before
+  // sections existed; those fall back to a default heading for their category.
+  section: text("section"),
   label: text("label").notNull(),
   value: text("value").notNull(),
   // 'draft' = pre-filled from the website and not yet confirmed. Drafts are
@@ -213,6 +224,14 @@ export const findings = pgTable("findings", {
   lastSeenScanId: uuid("last_seen_scan_id").references(() => scans.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
+  // The fix list (src/core/fix-list.ts). Set when someone starts on an open
+  // finding, which shows it as "In progress"; the status stays "open" because
+  // AI is still saying it.
+  workStartedAt: timestamp("work_started_at"),
+  // A short note from us about the fix, shown to the customer ("Emailed Yelp
+  // on Oct 14"). Never anything internal.
+  note: text("note"),
+  noteUpdatedAt: timestamp("note_updated_at"),
 });
 
 export const activities = pgTable("activities", {

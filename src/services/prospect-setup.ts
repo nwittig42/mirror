@@ -13,6 +13,8 @@ import { logActivity } from "@/services/activity";
 
 export interface ProspectDeps {
   fetchPages: (website: string) => Promise<SitePage[]>;
+  /** The business's logo from its website, as a `data:` address. Optional: without it the dashboard shows the name alone. */
+  fetchLogo?: (website: string) => Promise<string | null>;
   draftFacts: (args: { businessName: string; pages: SitePage[] }) => Promise<DraftFact[]>;
   draftQuestions: (args: DraftQuestionsInput) => Promise<DraftQuestions>;
   scan: (db: Db, practiceId: string) => Promise<ScanResult>;
@@ -110,6 +112,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     practiceId = practice.id;
     await db.insert(nameVariations).values({ practiceId: practice.id, text: lead.practiceName });
     await db.update(leads).set({ practiceId: practice.id }).where(eq(leads.id, leadId));
+
+    const logo = await deps.fetchLogo?.(website).catch(() => null);
+    if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
 
     const pages = await deps.fetchPages(website).catch(() => [] as SitePage[]);
     if (pages.length === 0) notes.push("Their website couldn't be read, so the fact sheet is empty and nothing was fact-checked.");

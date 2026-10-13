@@ -3,8 +3,9 @@ import type { Db } from "@/db";
 import { facts as factsTable, nameVariations, practices, scans } from "@/db/schema";
 import { getChecksForScan, getFindingsForPractice, getLatestScan, priceFirst } from "@/lib/queries";
 import { buildCompetitorReport } from "@/lib/competitor-report";
-import { buildSourcesReport, classifyDomain, domainOf, type SourceKind } from "@/core/citations";
+import { buildSourcesReport, type SourceKind } from "@/core/citations";
 import { buildSearchReport } from "@/core/search-queries";
+import { fixAdvice } from "@/core/fix-list";
 import { computeVisibility, displayScores, explainOverall } from "@/core/scoring";
 import { coverageLabel } from "@/core/coverage";
 import { extractSnippet } from "@/core/mention";
@@ -245,24 +246,19 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
 
   // Facts: only what AI said about them this scan. Wrong = open findings this
   // scan repeated; right = facts the judge confirmed and nobody got wrong.
-  const ownDomain = domainOf(practice.website?.includes("://") ? practice.website : `https://${practice.website ?? ""}`);
   const open = priceFirst(findingRows.filter(f => f.status === "open" && f.lastSeenScanId === scan.id));
   const wrongFactIds = new Set(open.map(f => f.factId).filter(Boolean));
   const confirmed = new Set(checks.flatMap(c => c.factsConfirmed));
   const facts: FactCheck[] = [
     ...open.map((f): FactCheck => {
-      const doms = [...new Set(f.citations.map(domainOf).filter((d): d is string => !!d))].slice(0, 3);
-      const onOwnSite = !!ownDomain && doms.some(d => classifyDomain(d, ownDomain) === "own_site");
+      const fix = fixAdvice(f.citations, practice.website);
       const label = factRows.find(r => r.id === f.factId)?.label;
       return {
         id: f.id, topic: label ?? "Other claim", isTrue: false,
         truth: f.factValue ?? "Your fact sheet doesn't back this up.",
         aiSaid: f.claim, tool: TOOL_OF[f.engine], severity: f.severity, isPrice: f.factCategory === "pricing",
-        sources: doms,
-        fix: onOwnSite
-          ? "Correct this on your own website first; AI read it there."
-          : doms[0] ? `Ask ${doms[0]} to correct it, and state the right version on your site.`
-          : "State the correct version plainly on your website so AI has it.",
+        sources: fix.sources,
+        fix: fix.advice,
       };
     }),
     ...factRows.filter(r => confirmed.has(r.id) && !wrongFactIds.has(r.id)).map((r): FactCheck => ({
@@ -372,7 +368,7 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
       visibility: visibilityScore,
       factAccuracy: factScore,
       components: [
-        { id: "named_often", label: "How often you're named", definition: "How many buyer answers mention you at all.",
+        { id: "named_often", label: "How often you're named", definition: "How many answers mention you at all.",
           weight: w.named, score: scan.citationRate ?? 0, detail: `${clientCount} of ${earnedTotal}` },
         { id: "rank_high", label: "How high you rank", definition: "When you're named, how close to the top of the answer.",
           weight: w.rank, score: scan.positionScore ?? 0, detail: "Across category questions" },
@@ -425,7 +421,13 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
       ] },
     ],
     missedQuote,
-    prospect: !practice.active,
+    // The same rule as isPreviewOnly in @/lib/auth: paused and not yet unlocked
+    // by the operator. Written out here because tests that mock @/lib/auth
+    // replace the whole module, and the report builder must not depend on it.
+    prospect: !practice.active && !practice.dashboardUnlocked,
+    aiOverviews: scan.aiOverviews
+      ? { asked: scan.aiOverviews.asked, shown: scan.aiOverviews.shown, namedIn: scan.aiOverviews.namedIn }
+      : null,
     contact: {
       name: process.env.CONTACT_NAME || `The ${process.env.NEXT_PUBLIC_APP_NAME || "Mirror"} team`,
       email: process.env.LEADS_EMAIL || process.env.OPERATOR_EMAIL || "",

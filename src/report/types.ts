@@ -214,8 +214,15 @@ export interface AuditReport {
   /** A real buyer answer that named competitors and not the client: the proof that lands with an owner. */
   missedQuote?: { question: string; text: string; tool: ToolId; named: string[] };
   /**
-   * Not a live customer yet (paused account): its facts were read off its
-   * website and not reviewed, so fact scores and fact claims stay hidden.
+   * Still on the preview (paused account, dashboard not unlocked yet): its
+   * facts were read off its website and not reviewed, so fact scores and
+   * fact claims stay hidden.
    */
   prospect: boolean;
+  /**
+   * Google's AI Overviews for the customer questions: how many were searched,
+   * how many got an overview, and how many of those name the business. Not
+   * part of any score. Null or missing on older scans or when not set up.
+   */
+  aiOverviews?: { asked: number; shown: number; namedIn: number } | null;
 }
