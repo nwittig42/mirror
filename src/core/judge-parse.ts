@@ -8,12 +8,19 @@ export class JudgeParseError extends Error {
   }
 }
 
-export interface JudgeFinding { claim: string; factLabel: string | null; severity: Severity }
+export interface JudgeFinding {
+  claim: string;
+  factLabel: string | null;
+  severity: Severity;
+  /** The judge's one-sentence reason: what the fact says against what the answer says. */
+  why?: string;
+}
 
 const findingSchema = z.array(z.object({
   claim: z.string().min(1),
   factLabel: z.string().nullable(),
   severity: z.enum(["critical", "major", "minor"]),
+  why: z.string().optional(),
 }));
 
 /**
@@ -134,3 +141,18 @@ export function parseJudgeOutput(raw: string): JudgeVerdict {
   if (!parsed.success) throw new JudgeParseError(parsed.error.message);
   return { wrong: parsed.data, right: [] };
 }
+
+const verdictListSchema = z.array(z.enum(["conflict", "compatible"]));
+
+/**
+ * Reads the second-opinion reply: one "conflict" or "compatible" per flagged
+ * claim, in order. Null when the reply isn't such a list of exactly `count`
+ * verdicts, so the caller can tell "no answer" from "all compatible".
+ */
+export function parseVerdictList(raw: string, count: number): ("conflict" | "compatible")[] | null {
+  const json = extractJsonArray(raw, verdictListSchema);
+  if (!json) return null;
+  const list = verdictListSchema.parse(JSON.parse(json));
+  return list.length === count ? list : null;
+}
+

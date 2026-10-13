@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseJudgeOutput, JudgeParseError } from "@/core/judge-parse";
+import { parseJudgeOutput, JudgeParseError, parseVerdictList } from "@/core/judge-parse";
 
 describe("parseJudgeOutput", () => {
   it("parses a clean JSON array", () => {
@@ -61,5 +61,21 @@ describe("parseJudgeOutput verdict object", () => {
   it("still finds the wrong list when prose breaks the object", () => {
     const raw = `Note {draft} then {"wrong":[{"claim":"y","factLabel":null,"severity":"major"}],"right":[]}`;
     expect(parseJudgeOutput(raw).wrong).toHaveLength(1);
+  });
+});
+
+describe("parseVerdictList", () => {
+  it("reads one verdict per flagged claim, fenced or bare", () => {
+    expect(parseVerdictList(`["conflict","compatible"]`, 2)).toEqual(["conflict", "compatible"]);
+    expect(parseVerdictList("```json\n[\"compatible\"]\n```", 1)).toEqual(["compatible"]);
+  });
+  it("is null for anything that is not exactly that list, so nothing is dropped on a bad reply", () => {
+    expect(parseVerdictList(`["conflict"]`, 2)).toBeNull();
+    expect(parseVerdictList(`["conflict","maybe"]`, 2)).toBeNull();
+    expect(parseVerdictList("The first pair conflicts.", 1)).toBeNull();
+  });
+  it("keeps the reason the judge gave for a finding", () => {
+    const raw = `{"wrong":[{"claim":"x","factLabel":"Botox price","why":"$13 against $9","severity":"major"}],"right":[]}`;
+    expect(parseJudgeOutput(raw).wrong[0].why).toBe("$13 against $9");
   });
 });
