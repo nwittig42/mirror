@@ -57,8 +57,11 @@ export interface ScanOptions {
    */
   runs?: number;
   /**
-   * Engine requests in flight at once. Default 4. Reading an answer once it
-   * is back (extractor, judge, tone rater) does not count against this.
+   * Engine requests in flight at once. Default: one per engine, and never
+   * fewer than 4, so a scan that asks a sixth engine takes no longer than one
+   * that asks four while each engine sees about the load it always did.
+   * Reading an answer once it is back (extractor, judge, tone rater) does not
+   * count against this.
    */
   concurrency?: number;
   /** Backoff before each retry of a rate-limited or flaky engine call. */
@@ -158,6 +161,9 @@ function limiter(limit: number) {
   };
 }
 
+/** Engine requests in flight at once, however few engines a scan asks. */
+const MIN_CONCURRENCY = 4;
+
 /**
  * Answers being read (extractor, judge, tone rater) at once. These calls go
  * to the judge model, not to the engines being measured, so they have their
@@ -222,7 +228,7 @@ export async function runScan(
   options: ScanOptions = {},
 ): Promise<ScanResult> {
   const runs = Math.max(1, Math.floor(options.runs ?? 1));
-  const concurrency = options.concurrency ?? 4;
+  const concurrency = options.concurrency ?? Math.max(MIN_CONCURRENCY, adapters.length);
   const retryDelays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const [scan] = await db.insert(scans).values({ practiceId, runs }).returning();
 

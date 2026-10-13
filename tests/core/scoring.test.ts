@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores } from "@/core/scoring";
+import { computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores, shareOfVoice } from "@/core/scoring";
 import type { ScoreInput } from "@/core/scoring";
 
 const check = (engine: string, kind: string, mentioned: boolean, position: string) =>
@@ -131,5 +131,35 @@ describe("displayScores", () => {
   });
   it("keeps the never-named rule for older scans", () => {
     expect(displayScores({ score: 0, visibilityScore: null, factScore: null, citationRate: 0, positionScore: 0, breadthScore: 0, accuracyScore: 33 }).visibility).toBe(0);
+  });
+});
+
+describe("shareOfVoice", () => {
+  const check = (mentioned: boolean, competitorsMentioned: string[] | null, promptKind: "category" | "branded" | "informational" = "category") =>
+    ({ promptKind, mentioned, competitorsMentioned });
+
+  it("is the business's part of every mention of any business", () => {
+    const checks = [
+      check(true, ["Rose City Plumbing", "Roto-Rooter"]),
+      check(false, ["Rose City Plumbing"]),
+      check(true, []),
+      check(false, ["Roto-Rooter", "Mr. Rooter"]),
+    ];
+    // Named in 2 of 4 answers, but 2 of 7 mentions.
+    expect(shareOfVoice(checks)).toEqual({ share: 29, yours: 2, total: 7 });
+  });
+
+  it("counts a business once per answer and leaves branded prompts out", () => {
+    expect(shareOfVoice([
+      check(true, ["Roto-Rooter", "Roto-Rooter"]),
+      check(true, ["Roto-Rooter"], "branded"),
+      check(false, null, "informational"),
+    ])).toEqual({ share: 50, yours: 1, total: 2 });
+  });
+
+  it("is the whole voice when nobody else is named, and nothing when nobody is", () => {
+    expect(shareOfVoice([check(true, [])])).toEqual({ share: 100, yours: 1, total: 1 });
+    expect(shareOfVoice([check(false, [])])).toEqual({ share: null, yours: 0, total: 0 });
+    expect(shareOfVoice([])).toEqual({ share: null, yours: 0, total: 0 });
   });
 });

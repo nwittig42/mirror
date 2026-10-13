@@ -994,6 +994,33 @@ describe("runScan pacing", () => {
     expect(await db.query.checks.findMany()).toHaveLength(2);
   });
 
+  it("asks one engine request per engine at once, and never fewer than four", async () => {
+    const peak = async (engines: number, concurrency?: number) => {
+      const db = await makeTestDb();
+      const { practiceId } = await seedPractice(db, {
+        name: "Glow MedSpa",
+        prompts: Array.from({ length: 4 }, (_, i) => ({ text: `Best med spa in Santa Monica ${i}`, kind: "category" as const })),
+      });
+      let inFlight = 0;
+      let most = 0;
+      const names = ["openai", "anthropic", "gemini", "perplexity", "grok", "google"] as EngineAdapter["name"][];
+      const adapters = names.slice(0, engines).map(name => ({
+        name,
+        run: async () => {
+          most = Math.max(most, ++inFlight);
+          await new Promise(resolve => setTimeout(resolve, 15));
+          inFlight--;
+          return { answer: "Glow MedSpa is best.", citations: [] };
+        },
+      }));
+      await runScan(db, practiceId, adapters, clean, async () => [], { concurrency });
+      return most;
+    };
+    expect(await peak(6)).toBe(6);
+    expect(await peak(2)).toBe(4);
+    expect(await peak(6, 2)).toBe(2);
+  });
+
   it("gives the competitor extractor a second try before giving up on an answer", async () => {
     const db = await makeTestDb();
     const { practiceId } = await seedPractice(db, {

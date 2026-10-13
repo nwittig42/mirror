@@ -1,4 +1,4 @@
-import type { CheckResult, Position, Severity } from "@/core/types";
+import type { CheckResult, Position, PromptKind, Severity } from "@/core/types";
 
 export interface ScoreInput {
   checks: Pick<CheckResult, "engine" | "promptKind" | "mentioned" | "position">[];
@@ -35,6 +35,34 @@ export function computeVisibility(checks: ScoreInput["checks"], engineCount?: nu
   const p = computeVisibilityParts(checks, engineCount);
   if (p.citationRate === 0) return 0;
   return Math.round(100 * (0.5 * p.citationRate + 0.2 * p.positionQuality + 0.15 * p.engineBreadth) / 0.85);
+}
+
+export interface ShareOfVoice {
+  /** The business's part of every mention of any business, 0 to 100. Null when no answer named anyone. */
+  share: number | null;
+  /** Answers that named the business. */
+  yours: number;
+  /** Mentions of any business: the business's own plus every competitor's. */
+  total: number;
+}
+
+/**
+ * Share of voice: of every time an answer named a business, how many were
+ * this one. A business counts once per answer, however often the answer
+ * repeats its name. Branded prompts are left out, as in every visibility
+ * measure: they name the business in the question.
+ *
+ * It answers a different question from the named rate. Named in 6 of 10
+ * answers is a 60% rate; if those same answers named four competitors 34
+ * times between them, the share of voice is 6 of 40, or 15%.
+ */
+export function shareOfVoice(
+  checks: { promptKind: PromptKind; mentioned: boolean; competitorsMentioned: string[] | null }[],
+): ShareOfVoice {
+  const earned = checks.filter(c => c.promptKind !== "branded");
+  const yours = earned.filter(c => c.mentioned).length;
+  const total = yours + earned.reduce((sum, c) => sum + new Set(c.competitorsMentioned ?? []).size, 0);
+  return { share: total === 0 ? null : Math.round((yours / total) * 100), yours, total };
 }
 
 export const OVERALL_WEIGHTS = { visibility: 0.7, facts: 0.3 } as const;
