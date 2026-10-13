@@ -8,6 +8,11 @@ const schema = z.object({
   PERPLEXITY_API_KEY: z.string().min(1),
   // Optional: Grok joins the scan as a fifth engine only when this is set.
   XAI_API_KEY: z.string().optional(),
+  // Optional: Google AI Mode joins the scan only when both are set. They are
+  // the API login and API password from app.dataforseo.com/api-access (not
+  // the account password), since Google has no API of its own for AI Mode.
+  DATAFORSEO_LOGIN: z.string().optional(),
+  DATAFORSEO_PASSWORD: z.string().optional(),
   RESEND_API_KEY: z.string().min(1),
   CRON_SECRET: z.string().min(1),
   // Set by Vercel when Protection Bypass for Automation is on; lets the weekly

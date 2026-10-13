@@ -5,6 +5,7 @@ export const MIN_COVERAGE = 0.75;
 
 export const ENGINE_NAMES: Record<Engine, string> = {
   openai: "ChatGPT", anthropic: "Claude", gemini: "Gemini", grok: "Grok", perplexity: "Perplexity",
+  google: "Google AI Mode",
 };
 
 export interface Coverage {

@@ -26,8 +26,9 @@ import type {
 
 const TOOL_OF: Record<Engine, ToolId> = {
   openai: "chatgpt", anthropic: "claude", gemini: "gemini", grok: "grok", perplexity: "perplexity",
+  google: "google",
 };
-const TOOL_ORDER: ToolId[] = ["chatgpt", "claude", "gemini", "grok", "perplexity"];
+const TOOL_ORDER: ToolId[] = ["chatgpt", "claude", "gemini", "grok", "perplexity", "google"];
 
 const SOURCE_TYPE: Record<SourceKind, SourceType> = {
   own_site: "own_website", reviews: "reviews_directories", social: "reddit_social",

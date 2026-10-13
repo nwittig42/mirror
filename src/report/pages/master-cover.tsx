@@ -57,12 +57,12 @@ export function CoverPage({ r, ctx }: PageProps) {
         </div>
       </div>
 
-      <div style={{ marginTop: 40, display: "grid", gridTemplateColumns: "1fr 220px", gap: 20 }}>
+      <div style={{ marginTop: 40, display: "grid", gridTemplateColumns: "minmax(0, 1fr) 220px", gap: 20 }}>
         <div style={{ background: "#F8FAFC", border: "1px solid #E2E8F0", borderRadius: 20, padding: "24px 26px", display: "flex", flexDirection: "column", gap: 18 }}>
           <span style={text.label}>We asked these {tools.length} AI assistants</span>
           <div style={{ display: "flex", justifyContent: tools.length < 5 ? "space-around" : "space-between" }}>
             {tools.map((t) => (
-              <div key={t.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: 76 }}>
+              <div key={t.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, width: tools.length > 5 ? 62 : 76 }}>
                 <span style={{ width: 52, height: 52, borderRadius: 16, background: t.color, color: "#FFFFFF", fontSize: 19, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" }}>{t.short}</span>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>{t.name}</span>
               </div>

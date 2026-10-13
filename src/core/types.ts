@@ -1,5 +1,5 @@
-export type Engine = "openai" | "anthropic" | "gemini" | "perplexity" | "grok";
-export const ENGINES: Engine[] = ["openai", "anthropic", "gemini", "perplexity", "grok"];
+export type Engine = "openai" | "anthropic" | "gemini" | "perplexity" | "grok" | "google";
+export const ENGINES: Engine[] = ["openai", "anthropic", "gemini", "perplexity", "grok", "google"];
 // Display names for the check `engine` enum, shown anywhere a customer-facing
 // UI or report names the engine (answer cards, findings, the monthly report).
 export const ENGINE_LABELS: Record<Engine, string> = {
@@ -8,6 +8,7 @@ export const ENGINE_LABELS: Record<Engine, string> = {
   gemini: "Gemini",
   perplexity: "Perplexity",
   grok: "Grok",
+  google: "Google AI Mode",
 };
 export type PromptKind = "category" | "branded" | "informational";
 export type Position = "first" | "top3" | "mentioned" | "absent";
@@ -19,7 +20,7 @@ export interface EngineAnswer {
   /**
    * The web searches the engine ran before answering, in order. The words it
    * adds ("near me", "reviews", "2026") show what content it goes looking for.
-   * Absent for engines that don't report them (Perplexity).
+   * Absent for engines that don't report them (Perplexity, Google AI Mode).
    */
   searchQueries?: string[];
 }

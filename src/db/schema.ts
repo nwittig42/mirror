@@ -5,7 +5,7 @@ export const roleEnum = pgEnum("role", ["operator", "client"]);
 export const factCategoryEnum = pgEnum("fact_category",
   ["identity", "providers", "services", "not_offered", "pricing", "logistics", "compliance"]);
 export const promptKindEnum = pgEnum("prompt_kind", ["category", "branded", "informational"]);
-export const engineEnum = pgEnum("engine", ["openai", "anthropic", "gemini", "perplexity", "grok"]);
+export const engineEnum = pgEnum("engine", ["openai", "anthropic", "gemini", "perplexity", "grok", "google"]);
 export const positionEnum = pgEnum("position", ["first", "top3", "mentioned", "absent"]);
 export const severityEnum = pgEnum("severity", ["critical", "major", "minor"]);
 export const findingStatusEnum = pgEnum("finding_status", ["open", "fixed", "verified", "dismissed"]);

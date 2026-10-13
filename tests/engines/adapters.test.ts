@@ -269,7 +269,100 @@ describe("grok adapter", () => {
   });
 });
 
+describe("google adapter", () => {
+  const ok = (items: unknown[] | null) => new Response(JSON.stringify({
+    status_code: 20000, status_message: "Ok.",
+    tasks: [{ status_code: 20000, status_message: "Ok.", result: [{ type: "ai_mode", items }] }],
+  }), { status: 200 });
+  const overview = {
+    type: "ai_overview",
+    markdown: "For a water heater, **Harbor Plumbing** is well reviewed.[[1]](https://yelp.com/biz/harbor)[[2]](https://harbor.example/about)\n\n"
+      + "![Harbor van](https://api.dataforseo.com/cdn/i/1) See [Rose City Plumbing](https://rosecity.example) too.",
+    references: [{ url: "https://yelp.com/biz/harbor#:~:text=well%20reviewed" }, { url: null }],
+    items: [
+      { type: "ai_overview_element", references: [{ url: "https://harbor.example/about" }, { url: "https://yelp.com/biz/harbor" }] },
+      { type: "ai_overview_element", references: null },
+      { type: "ai_overview_expanded_element", components: [{ references: [{ url: "https://angi.com/harbor" }] }] },
+    ],
+  };
+  beforeEach(() => {
+    process.env.DATAFORSEO_LOGIN = "login";
+    process.env.DATAFORSEO_PASSWORD = "secret";
+  });
+  afterEach(() => {
+    delete process.env.DATAFORSEO_LOGIN;
+    delete process.env.DATAFORSEO_PASSWORD;
+  });
+
+  it("asks AI Mode one question with the API login, and escapes what DataForSEO would decode", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok([overview]));
+    vi.stubGlobal("fetch", fetchMock);
+    const { googleAdapter } = await import("@/engines/google");
+    await googleAdapter.run("Best plumber in Portland for 100% upfront pricing + weekends?");
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("https://api.dataforseo.com/v3/serp/google/ai_mode/live/advanced");
+    expect(init.headers.Authorization).toBe(`Basic ${Buffer.from("login:secret").toString("base64")}`);
+    expect(JSON.parse(init.body)).toEqual([{
+      keyword: "Best plumber in Portland for 100%25 upfront pricing %2B weekends?", location_code: 2840, language_code: "en",
+    }]);
+  });
+
+  it("reads the answer as text and every source once, from the panel, the paragraphs and the expanded parts", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ok([overview])));
+    const { googleAdapter } = await import("@/engines/google");
+    expect(await googleAdapter.run("x")).toEqual({
+      answer: "For a water heater, **Harbor Plumbing** is well reviewed.\n\nSee Rose City Plumbing too.",
+      citations: ["https://yelp.com/biz/harbor", "https://harbor.example/about", "https://angi.com/harbor"],
+    });
+  });
+
+  it("fails, to be retried, when Google gave no AI Mode answer", async () => {
+    const { googleAdapter } = await import("@/engines/google");
+    for (const items of [null, [], [{ type: "ai_overview", markdown: "" }]]) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(ok(items)));
+      await expect(googleAdapter.run("x")).rejects.toThrow(/google 502: no AI Mode answer/);
+    }
+  });
+
+  it.each([
+    [40202, 429], [40209, 429], [40101, 503], [50401, 408], [50000, 503], [40100, 401], [40210, 402], [40501, 400],
+  ])("turns DataForSEO status %i into EngineError %i, at the request or the task level", async (code, status) => {
+    const { googleAdapter } = await import("@/engines/google");
+    const { EngineError } = await import("@/engines/types");
+    const bodies = [
+      { status_code: code, status_message: "nope", tasks: [] },
+      { status_code: 20000, tasks: [{ status_code: code, status_message: "nope", result: null }] },
+    ];
+    for (const body of bodies) {
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(body), { status: 200 })));
+      const err = await googleAdapter.run("x").catch(e => e);
+      expect(err).toBeInstanceOf(EngineError);
+      expect(err.status).toBe(status);
+      expect(err.message).toContain(String(code));
+    }
+  });
+
+  it("throws EngineError on an HTTP failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("Unauthorized", { status: 401 })));
+    const { googleAdapter } = await import("@/engines/google");
+    await expect(googleAdapter.run("x")).rejects.toThrow(/google 401/);
+  });
+});
+
 describe("getAdapters", () => {
+  it("adds Google AI Mode only when both DataForSEO credentials are set", async () => {
+    const { getAdapters } = await import("@/engines");
+    delete process.env.DATAFORSEO_LOGIN;
+    delete process.env.DATAFORSEO_PASSWORD;
+    expect(getAdapters().map(a => a.name)).not.toContain("google");
+    process.env.DATAFORSEO_LOGIN = "login";
+    expect(getAdapters().map(a => a.name)).not.toContain("google");
+    process.env.DATAFORSEO_PASSWORD = "secret";
+    expect(getAdapters().map(a => a.name)).toContain("google");
+    delete process.env.DATAFORSEO_LOGIN;
+    delete process.env.DATAFORSEO_PASSWORD;
+  });
+
   it("adds Grok only when its key is set", async () => {
     const { getAdapters } = await import("@/engines");
     delete process.env.XAI_API_KEY;

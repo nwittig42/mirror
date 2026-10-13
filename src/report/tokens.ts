@@ -50,6 +50,8 @@ export const toolMeta: Record<ToolId, { name: string; short: string; color: stri
   gemini:     { name: 'Gemini',     short: 'Ge', color: '#4F46E5' },
   grok:       { name: 'Grok',       short: 'Gr', color: '#111827' },
   perplexity: { name: 'Perplexity', short: 'Pe', color: '#7C3AED' },
+  // A non-breaking space, so the name stays on one line in a narrow card.
+  google:     { name: 'Google\u00A0AI', short: 'Go', color: '#1D4ED8' },
 };
 
 /** Source-type donut. Order and colors validated for color-blind separation. */

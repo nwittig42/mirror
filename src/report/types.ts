@@ -7,7 +7,7 @@
  * derived by the functions in `scoring.ts`, never stored.
  */
 
-export type ToolId = 'chatgpt' | 'claude' | 'gemini' | 'grok' | 'perplexity';
+export type ToolId = 'chatgpt' | 'claude' | 'gemini' | 'grok' | 'perplexity' | 'google';
 
 export type Level = 'low' | 'medium' | 'high';
 export type Severity = 'critical' | 'major' | 'minor';

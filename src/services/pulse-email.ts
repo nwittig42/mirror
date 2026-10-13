@@ -28,6 +28,8 @@ const ENGINE_DISPLAY_NAMES: Record<string, string> = {
   anthropic: "Claude",
   gemini: "Gemini",
   perplexity: "Perplexity",
+  grok: "Grok",
+  google: "Google AI Mode",
 };
 
 const row = (content: string): string =>
