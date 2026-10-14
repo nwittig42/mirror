@@ -9,6 +9,7 @@ import { extractCompetitors } from "@/services/competitor-extractor";
 import { rateTone } from "@/services/tone-rater";
 import { runWebsiteCheck } from "@/services/website-check";
 import { fetchLogo } from "@/services/logo";
+import { draftForecastSetup } from "@/services/forecast";
 import { aiOverviewCheck } from "@/services/ai-overviews";
 import { runScan, SCAN_DEADLINE_MS } from "@/services/scan-runner";
 import { sendProspectAlert } from "@/services/alert-email";
@@ -28,6 +29,7 @@ export function startProspectSetup(leadId: string): void {
       fetchLogo: website => fetchLogo(website),
       draftFacts: args => draftFactsFromPages(args),
       draftQuestions: args => draftQuestionsFromPages(args),
+      draftForecast: (db, practiceId) => draftForecastSetup(db, practiceId),
       scan: (db, practiceId) => runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors, {
         runs: env.SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, checkAiOverviews: aiOverviewCheck(), deadline: Date.now() + SCAN_DEADLINE_MS,
       }),

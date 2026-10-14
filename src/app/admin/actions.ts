@@ -26,6 +26,7 @@ import { runWebsiteCheck } from "@/services/website-check";
 import { fetchLogo } from "@/services/logo";
 import { isPlan } from "@/core/plan";
 import { aiOverviewCheck } from "@/services/ai-overviews";
+import { draftForecastSetup } from "@/services/forecast";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
 type PromptKind = (typeof promptKindEnum.enumValues)[number];
@@ -113,6 +114,8 @@ export async function draftFactsFromWebsite(practiceId: string): Promise<{ added
     const drafts = await draftFactsFromPages({ businessName: practice.name, pages });
     const added = await saveDraftFacts(db, practiceId, drafts);
     await logActivity(db, practiceId, `fact drafter: ${added} draft facts from ${pages.length} pages of ${practice.website}`);
+    // The same read also drafts the forecast setup, unless the operator has already written one.
+    if (!practice.forecast?.keywords.length) await draftForecastSetup(db, practiceId).catch(() => false);
     revalidatePath(`/admin/practices/${practiceId}`);
     return { added };
   } catch (err) {

@@ -131,7 +131,7 @@ const RING_DOT: Record<RingKey, string> = {
   facts: "bg-ring-facts",
 };
 
-export interface RingScore { key: RingKey; label: string; value: number | null; note?: string }
+export interface RingScore { key: RingKey; label: string; value: number | null; note?: string; /** Where the row in the key leads, when it leads anywhere. */ href?: string }
 
 /**
  * Up to three scores as nested rings, outermost first, each on a faint track
@@ -166,25 +166,32 @@ export function ScoreRings({ rings, size = 184 }: { rings: RingScore[]; size?: n
   );
 }
 
-/** The numbers beside `ScoreRings`: one row per ring, in the ring's colour. */
+/** The numbers beside `ScoreRings`: one row per ring, in the ring's colour. A row with an `href` is a link to that score's page. */
 export function RingLegend({ rings }: { rings: RingScore[] }) {
   return (
-    <div className="space-y-4">
-      {rings.map(ring => (
-        <div key={ring.key} className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${RING_DOT[ring.key]}`} aria-hidden="true" />
-              <span className="text-[15px] font-semibold text-ink">{ring.label}</span>
+    <div className="space-y-1">
+      {rings.map(ring => {
+        const row = (
+          <>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${RING_DOT[ring.key]}`} aria-hidden="true" />
+                <span className="text-[15px] font-semibold text-ink">{ring.label}</span>
+                {ring.href && <span className="text-[15px] text-muted group-hover:text-gold" aria-hidden="true">→</span>}
+              </div>
+              {ring.note && <Note className="mt-0.5 pl-[18px]">{ring.note}</Note>}
             </div>
-            {ring.note && <Note className="mt-0.5 pl-[18px]">{ring.note}</Note>}
-          </div>
-          <div className="shrink-0 whitespace-nowrap">
-            <span className={`text-[30px] font-semibold leading-none tracking-tight ${ring.value === null ? "text-muted" : RING_TEXT[ring.key]}`}>{ring.value ?? "N/A"}</span>
-            {ring.value !== null && <span className="text-[15px] text-muted">/100</span>}
-          </div>
-        </div>
-      ))}
+            <div className="shrink-0 whitespace-nowrap">
+              <span className={`text-[30px] font-semibold leading-none tracking-tight ${ring.value === null ? "text-muted" : RING_TEXT[ring.key]}`}>{ring.value ?? "N/A"}</span>
+              {ring.value !== null && <span className="text-[15px] text-muted">/100</span>}
+            </div>
+          </>
+        );
+        const box = "-mx-2 flex items-center justify-between gap-4 rounded-xl px-2 py-1.5";
+        return ring.href
+          ? <Link key={ring.key} href={ring.href} className={`group ${box} hover:bg-bone ${FOCUS}`}>{row}</Link>
+          : <div key={ring.key} className={box}>{row}</div>;
+      })}
     </div>
   );
 }
@@ -356,17 +363,17 @@ export interface LineSeries { key: string; label: string; stroke: string; dot: s
 /**
  * Scores from 0 to 100 over time as one line each, with a key under the
  * chart. `labels` name the steps along the bottom. A step with no score
- * leaves a gap; a lone score shows as a dot. `stroke` and `dot` are the
+ * has no dot and the line passes over it; a lone score shows as a dot. `stroke` and `dot` are the
  * series' colour as a stroke class and a background class from the theme.
  */
 export function LineChart({ series, labels, label }: { series: LineSeries[]; labels: string[]; label: string }) {
   const W = 640, H = 220, left = 34, right = 14, top = 12, bottom = 28;
   const x = (i: number) => left + (labels.length <= 1 ? (W - left - right) / 2 : (i * (W - left - right)) / (labels.length - 1));
   const y = (v: number) => top + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - top - bottom);
-  // Break each line wherever a step has no score, so a missing month is a gap, not a guess.
+  // A step with no score gets no dot; the line runs straight on to the next one that has.
   const path = (points: (number | null)[]) => points
-    .map((v, i) => (v === null ? null : `${i === 0 || points[i - 1] === null ? "M" : "L"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`))
-    .filter(Boolean).join(" ");
+    .map((v, i) => (v === null ? null : `${x(i).toFixed(1)} ${y(v).toFixed(1)}`))
+    .filter(Boolean).map((xy, n) => `${n === 0 ? "M" : "L"}${xy}`).join(" ");
   return (
     <div>
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img"

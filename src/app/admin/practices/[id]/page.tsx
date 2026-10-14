@@ -12,6 +12,7 @@ import { Questions } from "./questions";
 import { Competitors } from "./competitors";
 import { NameVariations } from "./name-variations";
 import { ReportDetails } from "./report-details";
+import { ForecastSetupSection } from "./forecast";
 import { Scan } from "./scan";
 import { Diagnostics } from "./diagnostics";
 import { Findings } from "./findings";
@@ -26,7 +27,8 @@ import { Access } from "./access";
 // stuck `running` forever. Mirrors the identical setting on the cron route
 // (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
 // plan (see README ship checklist).
-export const maxDuration = 800;
+// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+export const maxDuration = 300;
 
 /**
  * Where the operator edits one business. One URL, four tabs chosen by `?tab=`:
@@ -39,7 +41,7 @@ export default async function PracticeDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; scanStarted?: string; drafted?: string; draftError?: string }>;
+  searchParams: Promise<{ tab?: string; scanStarted?: string; drafted?: string; draftError?: string; forecastError?: string }>;
 }) {
   await requireOperator();
   const { id: practiceId } = await params;
@@ -73,6 +75,7 @@ export default async function PracticeDetailPage({
           <Competitors practiceId={practiceId} />
           <NameVariations practiceId={practiceId} />
           <ReportDetails practiceId={practiceId} category={practice.category} location={practice.location} logo={practice.logo} hasWebsite={!!practice.website} plan={practice.plan} />
+          <ForecastSetupSection practiceId={practiceId} slug={practice.slug} error={sp.forecastError} />
         </>}
         {tab === "scans" && <>
           <Scan practiceId={practiceId} slug={practice.slug} scanStarted={!!sp.scanStarted} />

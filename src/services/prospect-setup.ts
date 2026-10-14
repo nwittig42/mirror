@@ -17,6 +17,8 @@ export interface ProspectDeps {
   fetchLogo?: (website: string) => Promise<string | null>;
   draftFacts: (args: { businessName: string; pages: SitePage[] }) => Promise<DraftFact[]>;
   draftQuestions: (args: DraftQuestionsInput) => Promise<DraftQuestions>;
+  /** Drafts the forecast setup (kind of business, area, searches) from the facts and questions just saved. Optional. */
+  draftForecast?: (db: Db, practiceId: string) => Promise<unknown>;
   scan: (db: Db, practiceId: string) => Promise<ScanResult>;
   notify: (args: { practiceName: string; practiceId: string | null; status: "ready" | "needs_attention"; note: string | null }) => Promise<void>;
   /** Emails the prospect their summary report (PDF attached, no fact check) from the finished scan. */
@@ -159,6 +161,7 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     }
     await db.insert(prompts).values(questions.map(x => ({ practiceId: practice.id, text: x.text, kind: x.kind })));
     await logActivity(db, practice.id, `set up from the booking form: ${factRows.length} facts, ${questionsLine}`);
+    await deps.draftForecast?.(db, practice.id).catch(() => undefined);
 
     try {
       const result = await deps.scan(db, practice.id);

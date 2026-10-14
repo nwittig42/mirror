@@ -1913,21 +1913,29 @@
   padding: 28px var(--lp-gut);
   border-bottom: 1px solid var(--line);
 }
-/* Stand-ins for real product screenshots, one per step. Each names the
-   screenshot that belongs there; swap the div for an <Image> when it exists. */
+/* A real product screenshot, one per step: the picture in a rounded frame
+   with a soft shadow, and a line under it saying what it shows. */
 .lp-shot {
-  aspect-ratio: 16 / 10;
-  border: 1.5px dashed var(--muted);
-  border-radius: 20px;
-  color: var(--muted);
-  text-align: center;
   flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  gap: 6px;
+  gap: 14px;
   width: 100%;
   margin: 0;
-  padding: 24px;
+  display: flex;
+}
+.lp-shot img {
+  border: 1px solid var(--line);
+  background: var(--paper);
+  border-radius: 20px;
+  width: 100%;
+  height: auto;
+  display: block;
+  box-shadow: 0 18px 40px -18px rgb(26 26 24 / 0.28), 0 2px 6px rgb(26 26 24 / 0.06);
+}
+.lp-shot figcaption {
+  color: var(--muted);
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
   font-size: 14px;
   line-height: 1.5;
   display: flex;
@@ -1937,8 +1945,11 @@
   font-size: 15px;
   font-weight: 600;
 }
-.lp-section.ink .lp-shot {
+.lp-section.ink .lp-shot img {
   border-color: var(--ink-soft);
+  box-shadow: 0 18px 50px -18px rgb(0 0 0 / 0.7);
+}
+.lp-section.ink .lp-shot figcaption {
   color: var(--line);
 }
 .lp-section.ink .lp-shot strong {
@@ -1962,4 +1973,475 @@
   .lp-shots {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- why invest in GEO ---------- */
+/* The one page with a full chart palette. The six tones are the dashboard's
+   chart colours (see @theme in globals.css), so the site and the product match. */
+.lp-why {
+  --t-gold: var(--gold);
+  --t-orange: var(--color-ring-visibility);
+  --t-pink: var(--color-ring-facts);
+  --t-teal: var(--color-teal);
+  --t-plum: var(--color-plum);
+  --t-sun: var(--color-sun);
+}
+.lp-why .gold { --tone: var(--t-gold); }
+.lp-why .orange { --tone: var(--t-orange); }
+.lp-why .pink { --tone: var(--t-pink); }
+.lp-why .teal { --tone: var(--t-teal); }
+.lp-why .plum { --tone: var(--t-plum); }
+.lp-why .sun { --tone: var(--t-sun); }
+
+/* A link to a study, as a pill in the colour of the chart it sits under. */
+.lp-why-study {
+  border: 1.5px solid var(--tone, var(--gold));
+  color: var(--tone, var(--gold));
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background-color .15s, color .15s;
+  display: inline-block;
+}
+.lp-why-study:hover {
+  background: var(--tone, var(--gold));
+  color: var(--paper);
+}
+.lp-section.ink .lp-why-study:hover {
+  color: var(--ink);
+}
+
+/* The four coloured jump links under the page title. */
+.lp-why-jump {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  display: flex;
+}
+.lp-why-jump a {
+  background: var(--tone);
+  color: var(--paper);
+  border-radius: 999px;
+  padding: 9px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.lp-why-jump a:hover {
+  filter: brightness(1.1);
+}
+
+.lp-why-tiles,
+.lp-why-cases,
+.lp-why-trio {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  display: grid;
+}
+.lp-why-pair {
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  display: grid;
+}
+
+/* A tile washed in its tone, with a chart on top. */
+.lp-why-tile {
+  background: color-mix(in srgb, var(--tone) 10%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--paper));
+  border-radius: 24px;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 28px;
+  display: flex;
+}
+.lp-why-tile h3,
+.lp-why-trio h3 {
+  letter-spacing: -.015em;
+  margin: 22px 0 0;
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.lp-why-tile h3 { color: var(--ink); }
+.lp-why-tile p {
+  color: var(--ink-soft);
+  margin: 6px 0 18px;
+  font-size: 15px;
+}
+.lp-why-tile .lp-why-study { margin-top: auto; }
+
+/* Two columns side by side: before and after. */
+.lp-why-cols {
+  align-items: flex-end;
+  gap: 14px;
+  height: 120px;
+  display: flex;
+}
+.lp-why-cols span {
+  background: var(--tone);
+  border-radius: 12px 12px 4px 4px;
+  width: 64px;
+  min-height: 16px;
+  position: relative;
+}
+.lp-why-cols span:first-child { opacity: .45; }
+.lp-why-cols b {
+  color: var(--ink);
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  right: 0;
+}
+
+/* A ring filled to --pct, drawn with a conic gradient. */
+.lp-why-donut {
+  background: conic-gradient(var(--tone) calc(var(--pct) * 1%), color-mix(in srgb, var(--tone) 22%, transparent) 0);
+  border-radius: 50%;
+  flex: none;
+  justify-content: center;
+  align-items: center;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  position: relative;
+}
+.lp-why-donut::before {
+  content: "";
+  background: var(--hole, var(--paper));
+  border-radius: 50%;
+  position: absolute;
+  inset: 15px;
+}
+.lp-why-donut span {
+  color: var(--tone);
+  font-size: 26px;
+  font-weight: 700;
+  position: relative;
+}
+.lp-why-tile .lp-why-donut { --hole: color-mix(in srgb, var(--tone) 10%, var(--paper)); }
+.lp-section.ink .lp-why-donut { --hole: var(--ink); }
+
+/* A white panel holding a chart. */
+.lp-why-panel {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  flex-direction: column;
+  padding: 30px;
+  display: flex;
+}
+.lp-why-panel h3 {
+  letter-spacing: -.01em;
+  color: var(--ink);
+  margin: 0;
+  font-size: 21px;
+  font-weight: 600;
+}
+.lp-why-panel .sub {
+  color: var(--muted);
+  margin: 4px 0 20px;
+  font-size: 14px;
+}
+.lp-why-panel .foot,
+.lp-why-case .foot {
+  color: var(--muted);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-top: auto;
+  padding-top: 20px;
+  font-size: 13px;
+  display: flex;
+}
+/* The same panel filled with ink (or a tone), for one big number. */
+.lp-why-panel.feature {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.lp-why-panel.feature.teal {
+  background: var(--t-teal);
+  border-color: var(--t-teal);
+}
+.lp-why-panel.feature .huge {
+  font-family: var(--font-display), Georgia, serif;
+  color: var(--t-sun);
+  font-size: 88px;
+  line-height: 1;
+}
+.lp-why-panel.feature h3 {
+  color: var(--ivory);
+  margin-top: 14px;
+  font-size: 24px;
+}
+.lp-why-panel.feature .sub {
+  color: var(--goldsoft);
+  margin-bottom: 0;
+  font-size: 15px;
+}
+
+.lp-why-bar + .lp-why-bar { margin-top: 16px; }
+.lp-why-bar .top {
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 15px;
+  display: flex;
+}
+.lp-why-bar .top span { color: var(--ink-soft); }
+.lp-why-bar .top small {
+  color: var(--muted);
+  margin-left: 8px;
+  font-size: 12px;
+}
+.lp-why-bar .top strong {
+  color: var(--ink);
+  font-size: 18px;
+  font-weight: 700;
+}
+.lp-why-bar .track {
+  background: var(--bone);
+  border-radius: 999px;
+  height: 14px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.lp-why-bar .track span {
+  background: var(--tone);
+  border-radius: 999px;
+  height: 100%;
+  display: block;
+}
+
+/* A company result: a band of its tone across the top, then its number. */
+.lp-why-case {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-top: 8px solid var(--tone);
+  border-radius: 20px;
+  flex-direction: column;
+  padding: 24px 26px 26px;
+  display: flex;
+}
+.lp-why-case .who {
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.lp-why-case .n {
+  font-family: var(--font-display), Georgia, serif;
+  color: var(--tone);
+  margin-top: 12px;
+  font-size: 48px;
+  line-height: 1.05;
+}
+.lp-why-case p {
+  color: var(--ink-soft);
+  margin: 12px 0 0;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.lp-why-trio { gap: 48px; }
+.lp-why-trio > div {
+  flex-direction: column;
+  align-items: flex-start;
+  display: flex;
+}
+.lp-why-trio h3 { color: var(--ivory); }
+.lp-why-trio p {
+  color: var(--line);
+  margin: 6px 0 18px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.lp-section.ink .lp-why-donut span { color: var(--ivory); }
+
+/* The rise of ChatGPT's weekly users. */
+.lp-why-growth {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.lp-why-growth .axis {
+  stroke: var(--line);
+  stroke-width: 1.5px;
+}
+.lp-why-growth .area {
+  fill: color-mix(in srgb, var(--t-teal) 16%, transparent);
+}
+.lp-why-growth .line {
+  fill: none;
+  stroke: var(--t-teal);
+  stroke-width: 4px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lp-why-growth .dot {
+  fill: var(--paper);
+  stroke: var(--t-teal);
+  stroke-width: 4px;
+}
+.lp-why-growth .val {
+  fill: var(--ink);
+  font-size: 17px;
+  font-weight: 700;
+}
+.lp-why-growth .when {
+  fill: var(--muted);
+  font-size: 13px;
+}
+/* Several tools on one chart: each line takes its tone, and the key under it names them. */
+.lp-why-growth .grid {
+  stroke: var(--line);
+  stroke-width: 1px;
+  stroke-dasharray: 2 5;
+}
+.lp-why-growth .sun .line, .lp-why-growth .sun .dot { stroke: var(--t-sun); }
+.lp-why-growth .orange .line, .lp-why-growth .orange .dot { stroke: var(--t-orange); }
+.lp-why-growth .teal .line, .lp-why-growth .teal .dot { stroke: var(--t-teal); }
+.lp-why-growth .plum .line, .lp-why-growth .plum .dot { stroke: var(--t-plum); }
+.lp-why-growth .pink .line, .lp-why-growth .pink .dot { stroke: var(--t-pink); }
+.lp-why-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-why-key li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+.lp-why-key i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  align-self: center;
+}
+.lp-why-key i.teal { background: var(--t-teal); }
+.lp-why-key i.sun { background: var(--t-sun); }
+.lp-why-key i.orange { background: var(--t-orange); }
+.lp-why-growth .search .line { stroke: var(--ink); stroke-dasharray: 2 9; }
+.lp-why-growth .search .dot { stroke: var(--ink); }
+.lp-why-growth .search .val { font-size: 14px; }
+.lp-why-key i.search { background: var(--ink); }
+.lp-why-key i.plum { background: var(--t-plum); }
+.lp-why-key i.pink { background: var(--t-pink); }
+/* A plain sentence under the charts that says what they do not show. */
+.lp-why-note {
+  margin: 28px 0;
+  max-width: 820px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.lp-why-note .lp-why-study { margin-left: 6px; }
+.lp-why-key strong {
+  color: var(--ink);
+  font-size: 17px;
+}
+.lp-why-key small {
+  color: var(--muted);
+  font-size: 13px;
+}
+.lp-why-panel .foot .light {
+  color: var(--goldsoft);
+}
+
+/* One bar cut into shares, with its key. */
+.lp-why-split {
+  border-radius: 999px;
+  gap: 3px;
+  height: 22px;
+  display: flex;
+  overflow: hidden;
+}
+.lp-why-split span { background: var(--tone); }
+.lp-why-split .rest { background: var(--bone); }
+.lp-why-key {
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 20px;
+  margin: 18px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+}
+.lp-why-key li {
+  color: var(--ink-soft);
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  display: flex;
+}
+.lp-why-key i {
+  background: var(--tone);
+  border-radius: 50%;
+  flex: none;
+  width: 11px;
+  height: 11px;
+}
+.lp-why-key b {
+  color: var(--ink);
+  margin-left: auto;
+}
+
+.lp-why-links {
+  flex-wrap: wrap;
+  gap: 8px;
+  display: flex;
+}
+.lp-why-sources {
+  color: var(--muted);
+  columns: 2;
+  column-gap: 48px;
+  margin: 0;
+  padding-left: 22px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.lp-why-sources li {
+  break-inside: avoid;
+  padding: 6px 0;
+}
+.lp-why-sources {
+  list-style: decimal;
+}
+.lp-why-sources a {
+  color: var(--ink-soft);
+  text-underline-offset: 3px;
+  text-decoration: underline;
+  text-decoration-color: var(--gold);
+}
+.lp-why-sources a:hover { color: var(--gold); }
+
+/* These grids sit inside an .lp-section, whose stacked-children rule would
+   otherwise push every cell but the first down. */
+.lp-section .lp-why-pair > * + *,
+.lp-section .lp-why-tiles > * + *,
+.lp-section .lp-why-cases > * + *,
+.lp-section .lp-why-trio > * + * {
+  margin-top: 0;
+}
+@media (max-width: 900px) {
+  .lp-why-pair,
+  .lp-why-tiles,
+  .lp-why-cases,
+  .lp-why-trio {
+    grid-template-columns: 1fr;
+  }
+  .lp-why-trio { gap: 36px; }
+  .lp-why-sources { columns: 1; }
+  .lp-why-panel.feature .huge { font-size: 64px; }
 }

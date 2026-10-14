@@ -19,13 +19,15 @@ export interface ReportData {
   bestQuote: { engine: string; prompt: string; snippet: string } | null;
   /** The last six months, oldest first, each with the scores of its last scan (nulls when it had none). */
   months: MonthPoint[];
-  /** This month's numbers next to last month's, for the "improved / got worse" summary. */
+  /** This month's numbers next to the last month that had a scan, for the "improved / got worse" summary. */
   changes: MonthChange[];
+  /** The month the scores are compared with ("Aug"), or null when no earlier month in the history had a scan. */
+  comparedTo: string | null;
 }
 
 export interface MonthPoint { month: string; label: string; overall: number | null; visibility: number | null; facts: number | null }
 
-/** One number this month and last. Every one of them is better when higher. */
+/** One number this month and in the month it is compared with. Every one of them is better when higher. */
 export interface MonthChange { key: "overall" | "visibility" | "facts" | "named"; label: string; now: number | null; before: number | null; unit: "" | "%" }
 
 /** How many months the progress graph goes back, the report's month included. */
@@ -235,18 +237,21 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     }
   }
 
+  // Compare with the last earlier month that had a scan, so a skipped month doesn't blank the comparison.
   const thisMonth = months[months.length - 1];
-  const lastMonth = months[months.length - 2];
+  const earlier = months.slice(0, -1).reverse().find(m => m.overall !== null) ?? null;
+  const namedBefore = earlier && earlier === months[months.length - 2] && prevTotalChecks > 0 ? prevPct : null;
   const changes: MonthChange[] = [
-    { key: "overall", label: "Overall", now: thisMonth.overall, before: lastMonth.overall, unit: "" },
-    { key: "visibility", label: "Recommended by AI", now: thisMonth.visibility, before: lastMonth.visibility, unit: "" },
-    { key: "facts", label: "Accuracy", now: thisMonth.facts, before: lastMonth.facts, unit: "" },
-    { key: "named", label: "Answers that named you", now: totalChecks > 0 ? pct : null, before: prevTotalChecks > 0 ? prevPct : null, unit: "%" },
+    { key: "overall", label: "Overall", now: thisMonth.overall, before: earlier?.overall ?? null, unit: "" },
+    { key: "visibility", label: "Recommended by AI", now: thisMonth.visibility, before: earlier?.visibility ?? null, unit: "" },
+    { key: "facts", label: "Accuracy", now: thisMonth.facts, before: earlier?.facts ?? null, unit: "" },
+    { key: "named", label: "Answers that named you", now: totalChecks > 0 ? pct : null, before: namedBefore, unit: "%" },
   ];
 
   return {
     months,
     changes,
+    comparedTo: earlier?.label ?? null,
     verdict,
     score,
     prevMonthScore,

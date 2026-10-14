@@ -17,7 +17,8 @@ import { aiOverviewCheck } from "@/services/ai-overviews";
 // once and runs the scan in after(), inside this function's own time budget
 // (800s needs a paid Vercel plan), so each practice gets the full budget
 // instead of sharing one with every other practice.
-export const maxDuration = 800;
+// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {

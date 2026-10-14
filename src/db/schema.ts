@@ -90,6 +90,10 @@ export const practices = pgTable("practices", {
   // The paid plan (src/core/plan.ts): 'pulse' | 'partner'. Null = no plan
   // yet. Set by the operator until billing is connected.
   plan: text("plan").$type<import("@/core/plan").Plan>(),
+  // What the forecast needs beyond a scan (src/services/forecast.ts): the
+  // area and search terms the operator set, the search numbers bought for
+  // them, and the owner's own conversion rates. Null = not set up.
+  forecast: jsonb("forecast").$type<import("@/services/forecast").ForecastSetup>(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -261,6 +265,20 @@ export const leadStatusEnum = pgEnum("lead_status", ["preparing", "ready", "need
  * so a lead survives a failed send. Submitting also sets up a draft practice
  * and runs its first scan in the background; `status` tracks that.
  */
+// Every forecast shown, kept so it can later be held against what happened.
+// One row per scan and per change of inputs, never edited afterwards.
+export const forecastSnapshots = pgTable("forecast_snapshots", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  practiceId: uuid("practice_id").notNull().references(() => practices.id),
+  scanId: uuid("scan_id").references(() => scans.id),
+  modelVersion: text("model_version").notNull(),
+  // Everything the sums were given, so a later model can be re-run on it.
+  input: jsonb("input").$type<import("@/core/forecast").ForecastInput>().notNull(),
+  // Extra per year: { leads, customers, visits }, each low / likely / high.
+  result: jsonb("result").$type<Pick<import("@/core/forecast").Forecast, "visits" | "leads" | "customers" | "revenue">>().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const leads = pgTable("leads", {
   id: uuid("id").defaultRandom().primaryKey(),
   practiceName: text("practice_name").notNull(),

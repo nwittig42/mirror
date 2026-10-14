@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { buildReportData, resolveMonthParam } from "@/lib/report";
+import { buildReportData, resolveMonthParam, reviewChanges } from "@/lib/report";
 
 function currentMonthISO(): string {
   const now = new Date();
@@ -285,5 +285,53 @@ describe("buildReportData", () => {
     const report = await buildReportData(db, practiceId, "2026-07");
 
     expect(report.activities).toEqual(["Claimed the Bing Places listing"]);
+  });
+});
+
+describe("the month-by-month history and the review", () => {
+  it("gives one point per month for six months, from each month's last scan, and compares the last two", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", slug: "glow-history" });
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 4, 10)), 20);
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 5, 3)), 25);
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 5, 24)), 31);
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 6, 8)), 28);
+
+    const r = await buildReportData(db, practiceId, "2026-07");
+    expect(r.months.map(m => m.month)).toEqual(["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"]);
+    expect(r.months.map(m => m.label)).toEqual(["Feb", "Mar", "Apr", "May", "Jun", "Jul"]);
+    expect(r.months.map(m => m.overall)).toEqual([null, null, null, 20, 31, 28]);
+    const overall = r.changes.find(c => c.key === "overall")!;
+    expect([overall.before, overall.now]).toEqual([31, 28]);
+    expect(r.comparedTo).toBe("Jun");
+  });
+
+  it("compares with the last month that had a scan when the month before had none", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", slug: "glow-gap" });
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 4, 10)), 35);
+    await insertScan(db, practiceId, new Date(Date.UTC(2026, 6, 8)), 8);
+
+    const r = await buildReportData(db, practiceId, "2026-07");
+    const overall = r.changes.find(c => c.key === "overall")!;
+    expect([overall.before, overall.now, r.comparedTo]).toEqual([35, 8, "May"]);
+    // The share of answers is only compared with the month right before.
+    expect(r.changes.find(c => c.key === "named")!.before).toBeNull();
+
+    const first = await buildReportData(db, practiceId, "2026-05");
+    expect(first.comparedTo).toBeNull();
+    expect(first.changes.every(c => c.before === null)).toBe(true);
+  });
+
+  it("sorts changes into improved, worse and held, and skips what can't be compared", () => {
+    const review = reviewChanges([
+      { key: "overall", label: "Overall", now: 28, before: 31, unit: "" },
+      { key: "visibility", label: "Recommended by AI", now: 40, before: 35, unit: "" },
+      { key: "facts", label: "Accuracy", now: null, before: 70, unit: "" },
+      { key: "named", label: "Answers that named you", now: 12, before: 12, unit: "%" },
+    ]);
+    expect(review.improved).toEqual(["Recommended by AI rose from 35 to 40"]);
+    expect(review.worse).toEqual(["Overall fell from 31 to 28"]);
+    expect(review.same).toEqual(["Answers that named you held at 12%"]);
   });
 });

@@ -1,0 +1,11 @@
+# Never upload local secrets or working notes to Vercel. Vercel's own defaults
+# skip .env.local but not .env or .env.save.
+.env
+.env.*
+!.env.example
+reports/
+research_notes/
+.superpowers/
+.gstack/
+.claude/
+coverage/

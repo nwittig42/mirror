@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import "../landing.css";
 import { ENGINES, LandingCta, LandingFooter, LandingNav } from "@/components/landing/chrome";
 
@@ -12,9 +13,10 @@ import { ENGINES, LandingCta, LandingFooter, LandingNav } from "@/components/lan
  * reader can see which plan a step belongs to. The page narrows as it goes:
  * the first stages are for everyone, the last is Partner only.
  *
- * Each stage shows a real screenshot of that step in the product. The
- * dashboard design is not finished, so every screenshot is a <Shot>
- * placeholder for now; replace each with an <Image> as the screens land.
+ * Each stage shows a real screenshot of that step in the product: Offerloop's
+ * own account, used with its permission (public/landing/shots, all 1390 by
+ * 868). They show the scan of 13 October 2026; retake them when the screens
+ * change. None shows a person's name or a login.
  */
 
 export const metadata: Metadata = {
@@ -42,13 +44,16 @@ function StageHead({ num, when, plans }: { num: string; when: string; plans: Pla
   );
 }
 
-/** Placeholder for a product screenshot that does not exist yet. */
-function Shot({ title, note }: { title: string; note: string }) {
+/** A real screenshot of the product, framed like a window, with what it shows underneath. */
+function Shot({ file, title, note }: { file: string; title: string; note: string }) {
   return (
-    <div className="lp-shot" role="img" aria-label={`Screenshot to come: ${title}`}>
-      <strong>{title}</strong>
-      <span>{note}</span>
-    </div>
+    <figure className="lp-shot">
+      <Image src={`/landing/shots/${file}.jpg`} alt={`${title}: ${note}`} width={1390} height={868} sizes="(max-width: 900px) 100vw, 600px" />
+      <figcaption>
+        <strong>{title}</strong>
+        <span>{note}</span>
+      </figcaption>
+    </figure>
   );
 }
 
@@ -108,7 +113,7 @@ export default function HowItWorksPage() {
                   30-minute call: who AI recommends, where you appear, and what it gets wrong.
                 </p>
               </div>
-              <Shot title="Your audit report" note="Screenshot of a real audit" />
+              <Shot file="audit" title="Your audit report" note="How your score is built, point by point" />
             </div>
           </div>
         </section>
@@ -129,8 +134,8 @@ export default function HowItWorksPage() {
               </p>
             </header>
             <div className="lp-shots">
-              <Shot title="The Fact Sheet call" note="Screenshot of the screen call" />
-              <Shot title="Your Fact Sheet" note="Screenshot of a finished Fact Sheet" />
+              <Shot file="fact-check" title="Every answer checked against it" note="What AI said, next to the truth" />
+              <Shot file="fact-sheet" title="Your Fact Sheet" note="The true version of your business" />
             </div>
           </div>
         </section>
@@ -149,7 +154,7 @@ export default function HowItWorksPage() {
                   choose how it gets fixed.
                 </p>
               </div>
-              <Shot title="Wrong facts and their sources" note="Screenshot of the Wrong facts page" />
+              <Shot file="wrong-facts" title="Wrong facts and their sources" note="Where AI read each one, and what to change" />
             </div>
             <div className="lp-options">
               {OPTIONS.map((o) => (
@@ -181,11 +186,11 @@ export default function HowItWorksPage() {
                   <strong>Every plan gets a monthly report</strong> and a dashboard with every answer, word for word.
                 </p>
               </div>
-              <Shot title="Your dashboard" note="Screenshot of recommendations over time" />
+              <Shot file="overview" title="Your dashboard" note="Your three scores and where they are heading" />
             </div>
             <div className="lp-shots">
-              <Shot title="Your monthly report" note="Screenshot of a monthly report" />
-              <Shot title="You versus competitors" note="Screenshot of the competitor view" />
+              <Shot file="monthly-report" title="Your monthly report" note="The work done and what to do next" />
+              <Shot file="competitors" title="You versus competitors" note="Who AI names more than you, and less" />
             </div>
           </div>
         </section>
@@ -204,7 +209,7 @@ export default function HowItWorksPage() {
                   competitor AI could name instead. Call us whenever.
                 </p>
               </div>
-              <Shot title="Customers from AI" note="Screenshot of the AI traffic dashboard, in development" />
+              <Shot file="forecast" title="Your 12-month forecast" note="Where your scores could be, in the Partner look" />
             </div>
           </div>
         </section>

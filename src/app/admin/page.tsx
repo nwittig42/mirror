@@ -26,7 +26,8 @@ const LEAD_STATUS: Record<string, { label: string; tone: Tone }> = {
 // Mirrors the cron route's identical setting
 // (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
 // plan (see README ship checklist).
-export const maxDuration = 800;
+// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+export const maxDuration = 300;
 
 async function handleCreatePractice(formData: FormData): Promise<void> {
   "use server";

@@ -21,7 +21,8 @@ import { BookingForm } from "./booking-form";
 // Submitting the form sets up the prospect and runs their first scan in the
 // background (after()), inside this page's time budget. 800s needs a paid
 // Vercel plan, like the scan routes.
-export const maxDuration = 800;
+// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+export const maxDuration = 300;
 
 export const metadata: Metadata = {
   title: "Book your audit · Mirror",

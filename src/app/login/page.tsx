@@ -1,7 +1,9 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 import { AuthError } from "next-auth";
 import { redirect } from "next/navigation";
 import { signIn } from "@/lib/auth";
+import { PasswordInput } from "@/components/password-input";
 
 const appName = process.env.NEXT_PUBLIC_APP_NAME || "Mirror";
 
@@ -52,6 +54,7 @@ export default async function LoginPage({
   return (
     <div className="app flex flex-1 items-center justify-center px-4 py-16">
       <div className="w-full max-w-sm space-y-8">
+        <Link href="/" className="inline-block text-[14px] font-medium text-muted hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">← Back to Mirror</Link>
         <div className="text-center">
           <h1 className="display text-[40px] leading-none text-ink">{appName}</h1>
           <p className="mt-3 text-[15px] leading-relaxed text-muted">Get recommended by AI. Fix what it gets wrong.</p>
@@ -87,10 +90,9 @@ export default async function LoginPage({
             <label className="sr-only" htmlFor="password">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               required
               autoComplete="current-password"
               placeholder="Password"

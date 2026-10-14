@@ -9,6 +9,7 @@ import { displayScores, explainOverall, scoreTrend, shareOfVoice } from "@/core/
 import { ENGINE_NAMES, coverageLabel } from "@/core/coverage";
 import { BookCallButton } from "@/components/locked";
 import { PreviewSummary } from "./preview-summary";
+import { ForecastCard } from "./forecast-card";
 
 function WorkLog({ activities }: { activities: { id: string; description: string; createdAt: Date }[] }) {
   if (activities.length === 0) {
@@ -104,10 +105,13 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const coverage = coverageLabel(latestScan.coverage ?? null);
   const rings: RingScore[] = [
     { key: "overall", label: "Overall", value: shown.overall, note: "Your two scores combined" },
-    { key: "visibility", label: "Recommended by AI", value: shown.visibility, note: "How often and how high AI names you" },
-    { key: "facts", label: "Accuracy", value: shown.facts, note: "How much of what AI says about you is true" },
+    { key: "visibility", label: "Recommended by AI", value: shown.visibility, note: "How often and how high AI names you", href: `/dashboard/${slug}/competitors` },
+    { key: "facts", label: "Accuracy", value: shown.facts, note: "How much of what AI says about you is true", href: `/dashboard/${slug}/fixes` },
   ];
   const scanDate = latestScan.startedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+
+  // Loaded here, not as a component of its own, so the page renders in one pass.
+  const forecastCard = await ForecastCard({ slug, practice });
 
   return (
     <PageBody>
@@ -124,6 +128,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           {explanation && <Note className="mt-5">{explanation}</Note>}
           {coverage && <p className="mt-1 text-[14px] font-semibold text-flag">{coverage}</p>}
         </Card>
+
+        {forecastCard}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Card title="Named by AI" href={`/dashboard/${slug}/answers`}>

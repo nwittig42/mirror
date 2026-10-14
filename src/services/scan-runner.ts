@@ -17,6 +17,7 @@ import type { judgeAnswer } from "@/services/hallucination-judge";
 import type { extractCompetitors } from "@/services/competitor-extractor";
 import { canonicalName, reconcileCompetitors } from "@/core/competitors";
 import { logActivity } from "@/services/activity";
+import { saveForecastSnapshot } from "@/services/forecast";
 import type { rateTone } from "@/services/tone-rater";
 import type { runWebsiteCheck } from "@/services/website-check";
 import type { checkAiOverviews } from "@/services/ai-overviews";
@@ -615,6 +616,10 @@ export async function runScan(
       `Weekly scan complete: score ${score} (${mentionedCount}/${scoringChecks.length} checks cited${range})`,
       "client",
     );
+
+    // Keep the forecast this scan produces, so it can be checked against real
+    // results later. Never worth failing a finished scan over.
+    await saveForecastSnapshot(db, practiceId).catch(() => false);
 
     return { scanId: scan.id, score, newFindings, blocked: false, coverage };
   } catch (err) {

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 // node:crypto and cannot be pulled into a client bundle.
 import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
 import { changePassword, type ChangePasswordState } from "./actions";
+import { PasswordInput } from "@/components/password-input";
 
 const inputClass =
   "w-full rounded-xl border border-line bg-paper px-4 py-3 text-[15px] text-ink outline-none placeholder:text-muted focus:border-gold";
@@ -23,10 +24,9 @@ export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean
       {requireCurrent && (
         <>
           <label className="sr-only" htmlFor="current-password">Current password</label>
-          <input
+          <PasswordInput
             id="current-password"
             name="currentPassword"
-            type="password"
             required
             autoComplete="current-password"
             placeholder="Current password"
@@ -36,10 +36,9 @@ export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean
       )}
 
       <label className="sr-only" htmlFor="new-password">New password</label>
-      <input
+      <PasswordInput
         id="new-password"
         name="newPassword"
-        type="password"
         required
         minLength={MIN_PASSWORD_LENGTH}
         autoComplete="new-password"
@@ -48,10 +47,9 @@ export function ChangePasswordForm({ requireCurrent }: { requireCurrent: boolean
       />
 
       <label className="sr-only" htmlFor="confirm-password">Confirm new password</label>
-      <input
+      <PasswordInput
         id="confirm-password"
         name="confirmPassword"
-        type="password"
         required
         minLength={MIN_PASSWORD_LENGTH}
         autoComplete="new-password"

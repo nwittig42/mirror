@@ -3,7 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 /**
- * Shared chrome for the marketing pages ("/", "/how-it-works", "/pricing"):
+ * Shared chrome for the marketing pages ("/", "/how-it-works", "/why-geo", "/pricing"):
  * the announcement bar, the sticky nav, the footer, and the mock assistant
  * window the home and how-it-works pages both use.
  *
@@ -36,6 +36,7 @@ export function LandingNav() {
           <nav className="lp-nav-links">
             <Link href="/">Home</Link>
             <Link href="/how-it-works">How it works</Link>
+            <Link href="/why-geo">Why GEO</Link>
             <Link href="/pricing">Pricing</Link>
           </nav>
           <div className="lp-nav-actions">
@@ -66,6 +67,7 @@ export function LandingFooter() {
               <span className="head">Product</span>
               <Link href="/how-it-works">How it works</Link>
               <Link href="/how-it-works#catch">What we catch</Link>
+              <Link href="/why-geo">Why invest in GEO</Link>
               <Link href="/pricing">Pricing</Link>
             </div>
             <div className="col">

@@ -63,6 +63,9 @@
   color: var(--color-ink);
   font-family: var(--font-body), system-ui, sans-serif;
   min-height: 100vh;
+  /* The dashboard header is as wide as the window; where a scrollbar takes
+     room, that is a few pixels wider than the page, which must not scroll sideways. */
+  overflow-x: clip;
 }
 .app .display {
   font-family: var(--font-display), Georgia, serif;
@@ -99,10 +102,83 @@
   --color-plum: #b88dc4;
   --color-sun: #ebb640;
 }
-/* The header's switch names the look it changes to. */
-.theme-toggle .to-light { display: none; }
-.theme-dark .theme-toggle .to-light { display: inline; }
-.theme-dark .theme-toggle .to-dark { display: none; }
+/* The header's dark/light switch: a pill with a sun at one end, a moon at the
+   other and a knob that slides to whichever look is on. */
+.theme-switch {
+  position: relative;
+  display: block;
+  width: 58px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: var(--color-bone);
+  cursor: pointer;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
+}
+.theme-switch:hover { border-color: var(--color-muted); }
+.theme-switch:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+.theme-switch svg {
+  position: absolute;
+  top: 6px;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--color-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.theme-switch-sun { left: 7px; }
+.theme-switch-moon { right: 7px; }
+.theme-switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--color-gold);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.35);
+  transition: transform 0.25s ease;
+}
+/* Light look: the knob covers the sun. Dark look: it slides over the moon. */
+.theme-dark .theme-switch-knob { transform: translateX(28px); }
+
+/* The Partner badge: brushed gold with a slow glint passing over it. */
+.partner-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  padding: 5px 14px 5px 11px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #2a1c08;
+  background: linear-gradient(135deg, #f6e3b4 0%, #d9a94f 28%, #f3d68d 50%, #b9822f 76%, #e9c877 100%);
+  border: 1px solid #f3dca4;
+  box-shadow: 0 0 0 1px rgb(120 80 20 / 0.35), 0 2px 10px rgb(201 150 60 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.55);
+}
+.partner-pill svg { width: 12px; height: 12px; fill: #2a1c08; }
+.partner-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 35%, rgb(255 255 255 / 0.75) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: partner-glint 4.5s ease-in-out infinite;
+}
+@keyframes partner-glint {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .partner-pill::after { animation: none; }
+  .theme-switch, .theme-switch-knob { transition: none; }
+}
 @media print {
   /* Paper is white whatever the screen looked like. */
   .app.theme-dark {
