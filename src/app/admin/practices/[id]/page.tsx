@@ -21,13 +21,11 @@ import { WorkLog } from "./work-log";
 import { Access } from "./access";
 
 // The Scans tab's "Run scan now" form invokes the `triggerScan` server action,
-// which kicks off a ~2-minute scan via `after()`. `after()` work counts
+// which kicks off a scan via `after()`. `after()` work counts
 // toward the *invoking route's* maxDuration, so without this export Vercel
 // kills the scan mid-run on the default limit, leaving the `scans` row
-// stuck `running` forever. Mirrors the identical setting on the cron route
-// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
-// plan (see README ship checklist).
-// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+// stuck `running`. That after() runs the scan's first step; later steps run
+// in /api/cron/scan-step, each with its own 300s (the Hobby plan's most).
 export const maxDuration = 300;
 
 /**

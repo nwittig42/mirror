@@ -207,6 +207,17 @@ describe("GET /api/cron/weekly-scan", () => {
     expect(res.status).toBe(404);
   });
 
+  it("scan-step rejects a bad token and an unknown scan", async () => {
+    const { setDbForTests } = await import("@/db");
+    setDbForTests(await makeTestDb());
+    const { GET } = await import("@/app/api/cron/scan-step/route");
+    expect((await GET(new Request("http://localhost/api/cron/scan-step?scan=x&step=2"))).status).toBe(401);
+    const res = await GET(new Request("http://localhost/api/cron/scan-step?scan=00000000-0000-0000-0000-000000000000&step=2", {
+      headers: { authorization: "Bearer the-secret" },
+    }));
+    expect(res.status).toBe(404);
+  });
+
   it("sends the blocked alert, not the findings alert, when a scan is blocked", async () => {
     const db = await makeTestDb();
     await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });
@@ -257,6 +268,6 @@ describe("makeScanTrigger", () => {
   it("spreads starts out but keeps every scan inside its time budget", () => {
     expect(staggerSeconds(0)).toBe(0);
     expect(staggerSeconds(1)).toBeGreaterThan(0);
-    expect(Math.max(...Array.from({ length: 50 }, (_, i) => staggerSeconds(i)))).toBeLessThanOrEqual(300);
+    expect(Math.max(...Array.from({ length: 50 }, (_, i) => staggerSeconds(i)))).toBeLessThanOrEqual(60);
   });
 });

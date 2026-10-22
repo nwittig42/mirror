@@ -18,10 +18,10 @@ import { BookingForm } from "./booking-form";
  * (section 8): "business", "customers", "team" or "people", "services".
  */
 
-// Submitting the form sets up the prospect and runs their first scan in the
-// background (after()), inside this page's time budget. 800s needs a paid
-// Vercel plan, like the scan routes.
-// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+// Submitting the form sets up the prospect and runs the first step of their
+// first scan in the background (after()), inside this page's time budget.
+// Later steps run in /api/cron/scan-step, each with its own 300s (the Hobby
+// plan's most).
 export const maxDuration = 300;
 
 export const metadata: Metadata = {

@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { facts, leads, nameVariations, practices, prompts } from "@/db/schema";
 import { uniqueSlug } from "@/core/slug";
@@ -19,7 +19,11 @@ export interface ProspectDeps {
   draftQuestions: (args: DraftQuestionsInput) => Promise<DraftQuestions>;
   /** Drafts the forecast setup (kind of business, area, searches) from the facts and questions just saved. Optional. */
   draftForecast?: (db: Db, practiceId: string) => Promise<unknown>;
-  scan: (db: Db, practiceId: string) => Promise<ScanResult>;
+  /**
+   * Runs the first scan, or starts it as a chain of steps and returns
+   * "started"; the chain then calls `finishProspect` when the scan is done.
+   */
+  scan: (db: Db, practiceId: string) => Promise<ScanResult | "started">;
   notify: (args: { practiceName: string; practiceId: string | null; status: "ready" | "needs_attention"; note: string | null }) => Promise<void>;
   /** Emails the prospect their summary report (PDF attached, no fact check) from the finished scan. */
   sendAudit: (db: Db, practiceId: string, lead: { email: string; contactName: string }) => Promise<void>;
@@ -163,25 +167,17 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     await logActivity(db, practice.id, `set up from the booking form: ${factRows.length} facts, ${questionsLine}`);
     await deps.draftForecast?.(db, practice.id).catch(() => undefined);
 
+    // Saved before the scan starts, since a scan run in steps finishes in
+    // another function call, which reads them from here.
+    await db.update(leads).set({ note: notes.length ? notes.join(" ") : null }).where(eq(leads.id, leadId));
+    let outcome: ScanResult | "started" | { error: string };
     try {
-      const result = await deps.scan(db, practice.id);
-      if (result.blocked) {
-        notes.push(`The first scan was blocked. ${blockedReason(result.coverage)}`);
-        return finish("needs_attention", practice.id);
-      }
+      outcome = await deps.scan(db, practice.id);
     } catch (err) {
-      notes.push(`The first scan failed: ${errorText(err)}`);
-      return finish("needs_attention", practice.id);
+      outcome = { error: errorText(err) };
     }
-    // The prospect's report: no fact check, since the facts it would check
-    // against haven't been reviewed. A failed send is noted, not fatal.
-    try {
-      await deps.sendAudit(db, practice.id, { email: lead.email, contactName: lead.contactName });
-      await db.update(leads).set({ auditEmailedAt: new Date() }).where(eq(leads.id, leadId));
-    } catch {
-      notes.push("Their report email couldn't be sent. Send them the summary report yourself.");
-    }
-    return finish("ready", practice.id);
+    if (outcome === "started") return;
+    return finishProspect(db, practice.id, outcome, deps);
   };
 
   try {
@@ -193,4 +189,46 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     notes.push(`Setup failed: ${errorText(err)}. Check the business page and finish the setup by hand.`);
     await finish("needs_attention", practiceId);
   }
+}
+
+/**
+ * The rest of a lead's setup once its first scan is done: a blocked or failed
+ * scan leaves the lead needing a look; otherwise the prospect is emailed
+ * their summary report and the lead is ready. The operator is told either
+ * way. Only a lead still preparing is touched, so a scan's completion
+ * delivered twice emails the prospect once.
+ */
+export async function finishProspect(
+  db: Db,
+  practiceId: string,
+  outcome: ScanResult | { error: string },
+  deps: Pick<ProspectDeps, "notify" | "sendAudit">,
+): Promise<void> {
+  const [lead] = await db.select().from(leads)
+    .where(and(eq(leads.practiceId, practiceId), eq(leads.status, "preparing")));
+  if (!lead) return;
+  const notes = lead.note ? [lead.note] : [];
+  const finish = async (status: "ready" | "needs_attention") => {
+    const note = notes.length ? notes.join(" ") : null;
+    await db.update(leads).set({ status, note }).where(eq(leads.id, lead.id));
+    await deps.notify({ practiceName: lead.practiceName, practiceId, status, note }).catch(() => undefined);
+  };
+
+  if ("error" in outcome) {
+    notes.push(`The first scan failed: ${outcome.error}`);
+    return finish("needs_attention");
+  }
+  if (outcome.blocked) {
+    notes.push(`The first scan was blocked. ${blockedReason(outcome.coverage)}`);
+    return finish("needs_attention");
+  }
+  // The prospect's report: no fact check, since the facts it would check
+  // against haven't been reviewed. A failed send is noted, not fatal.
+  try {
+    await deps.sendAudit(db, practiceId, { email: lead.email, contactName: lead.contactName });
+    await db.update(leads).set({ auditEmailedAt: new Date() }).where(eq(leads.id, lead.id));
+  } catch {
+    notes.push("Their report email couldn't be sent. Send them the summary report yourself.");
+  }
+  return finish("ready");
 }

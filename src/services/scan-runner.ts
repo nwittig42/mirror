@@ -1,7 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
 import {
-  scans, checks, findings, prompts, nameVariations, competitors, facts, practices,
+  scans, scanAnswers, checks, findings, prompts, nameVariations, competitors, facts, practices,
 } from "@/db/schema";
 import { findMatches, mentionKind, type MentionKind } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
@@ -98,16 +98,20 @@ export interface ScanOptions {
 
 /**
  * How long a scan may keep starting engine calls, measured from when it
- * starts. Leaves ~150s of the 800s function budget to finish in-flight calls
- * and write the results, so the platform never kills a scan mid-write.
+ * starts. Leaves ~150s of the Hobby plan's 300s function budget to finish
+ * in-flight calls (an engine call times out at 120s) and write the results,
+ * so the platform never kills a scan mid-write.
  */
-export const SCAN_DEADLINE_MS = 650_000;
-/** A scan still "running" after this was killed and will never finish. */
-export const SCAN_STUCK_AFTER_MS = 15 * 60_000;
+export const SCAN_DEADLINE_MS = 150_000;
+/**
+ * A scan still "running" with no progress for this long was killed and will
+ * never finish. Every step marks progress, and no step runs past 300s.
+ */
+export const SCAN_STUCK_AFTER_MS = 10 * 60_000;
 
-/** Whether a scan still marked running has outlived any function that could finish it. */
-export function scanLooksStuck(startedAt: Date, now: number = Date.now()): boolean {
-  return now - startedAt.getTime() > SCAN_STUCK_AFTER_MS;
+/** Whether a scan still marked running has gone longer without progress than any step could take. */
+export function scanLooksStuck(updatedAt: Date, now: number = Date.now()): boolean {
+  return now - updatedAt.getTime() > SCAN_STUCK_AFTER_MS;
 }
 
 const RETRIABLE_STATUS = new Set([408, 429, 500, 502, 503, 504, 529]);
@@ -126,12 +130,12 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  * tier in particular answers 429 on bursts, and before this every one of
  * those was a lost answer and a lower score.
  */
-async function withRetry<T>(fn: () => Promise<T>, delays: number[]): Promise<T> {
+async function withRetry<T>(fn: () => Promise<T>, delays: number[], canRetry: () => boolean = () => true): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (err) {
-      if (attempt >= delays.length || !isRetriable(err)) throw err;
+      if (attempt >= delays.length || !isRetriable(err) || !canRetry()) throw err;
       await sleep(delays[attempt]);
     }
   }
@@ -182,82 +186,120 @@ const REVIEW_CONCURRENCY = 6;
 
 type PromptRow = typeof prompts.$inferSelect;
 type JudgeResult = Awaited<ReturnType<Judge>>;
+type EngineName = EngineAdapter["name"];
 
 /** Everything the network half of a scan learns about one (prompt, run, engine). */
 type Gathered =
-  | { prompt: PromptRow; run: number; adapter: EngineAdapter; ok: false; retriable: boolean }
+  | { prompt: PromptRow; run: number; adapter: { name: EngineName }; ok: false; retriable: boolean }
   | {
-      prompt: PromptRow; run: number; adapter: EngineAdapter; ok: true;
+      prompt: PromptRow; run: number; adapter: { name: EngineName }; ok: true;
       answer: string; citations: string[]; searchQueries: string[];
       tone: ToneRating | null;
       discovered: string[] | null;
       judged: JudgeResult | null | undefined; // undefined = not judged
     };
 
+/** What a scan is for, which decides what happens once its last step finishes. */
+export type ScanPurpose = "manual" | "weekly" | "prospect";
+
+export interface StepOptions extends ScanOptions {
+  /** Epoch ms after which this step starts no new engine call or retry. */
+  startBy: number;
+  /** Epoch ms at which this step stops waiting for calls still running. */
+  stopBy: number;
+  /** The clock, for tests. */
+  now?: () => number;
+  /**
+   * Calls not started by `startBy` count as failed, so the scan settles now
+   * instead of leaving them for a later step.
+   */
+  lastChance?: boolean;
+}
+
+/** Opens a scan row. The scan then runs through `gatherStep` and `finishScan`. */
+export async function startScan(
+  db: Db, practiceId: string, opts: { runs: number; purpose: ScanPurpose },
+): Promise<string> {
+  const [scan] = await db.insert(scans)
+    // Progress is stamped from this clock everywhere, so the stuck sweep
+    // never compares it with the database's own idea of now.
+    .values({ practiceId, runs: Math.max(1, Math.floor(opts.runs)), purpose: opts.purpose, updatedAt: new Date() })
+    .returning();
+  return scan.id;
+}
+
+async function loadScanContext(db: Db, practiceId: string) {
+  const [[practice], promptRows, variationRows, competitorRows, factRows] = await Promise.all([
+    db.select().from(practices).where(eq(practices.id, practiceId)),
+    db.select().from(prompts).where(and(eq(prompts.practiceId, practiceId), eq(prompts.active, true))),
+    db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
+    db.select().from(competitors).where(eq(competitors.practiceId, practiceId)),
+    db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "active"))),
+  ]);
+  const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
+  return { practice, promptRows, competitorRows, factRows, practiceNames };
+}
+
+/** Every (prompt, run, engine) a scan asks, in the fixed order the record phase walks. */
+function buildTasks<A extends { name: EngineName }>(promptRows: PromptRow[], runs: number, adapters: A[]) {
+  return promptRows.flatMap(prompt =>
+    Array.from({ length: runs }, (_, r) => adapters.map(adapter => ({ prompt, run: r + 1, adapter }))).flat(),
+  );
+}
+
+const taskKey = (promptId: string, run: number, engine: string) => `${promptId}|${run}|${engine}`;
+
+/** Waits for `work`, but no later than `stopBy`. True when the work finished. */
+async function settleBy(work: Promise<unknown>, stopBy: number, now: () => number): Promise<boolean> {
+  if (!Number.isFinite(stopBy)) {
+    await work;
+    return true;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const stopped = new Promise<false>(resolve => { timer = setTimeout(() => resolve(false), Math.max(0, stopBy - now())); });
+  try {
+    return await Promise.race([work.then(() => true as const), stopped]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
- * Runs one full monitoring scan for a practice: asks every active prompt of
- * every adapter `runs` times, records checks, fact-checks every answer that
- * names the practice via the judge, computes the scores, and closes out the scan.
+ * The network half of a scan, one step of it. Asks every (prompt, run,
+ * engine) not yet saved for this scan, reads each answer (extractor, judge,
+ * tone rater) as soon as it is back, and saves it to `scan_answers` straight
+ * away, so a step that runs out of time loses only the calls still in flight.
  *
- * Two phases. The network phase fires every engine call through a small
- * pool, since a scan is a few hundred slow requests and running them one
- * prompt at a time took minutes. Each answer is read (extractor, judge, tone
- * rater) as soon as it is back, outside that pool, so the next engine request
- * starts without waiting for the reading of the last one. The record phase
- * then walks the results in a fixed order and does
- * every database write and competitor reconciliation sequentially, so the
- * outcome doesn't depend on which request happened to finish first.
+ * Engine calls go through a small pool, since a scan is a few hundred slow
+ * requests. Reading an answer happens outside that pool, so the next engine
+ * request starts without waiting for the reading of the last one.
  *
- * One name analysis drives everything the record phase stores: `mentioned`
- * is `position !== "absent"` from `classifyPosition`, so a check can never
- * say named with position absent. The network phase only pre-filters the
- * judge and the rater on the cheaper `mentionKind`; a judge result for an
- * answer the record phase then finds absent (or vetoes as a namesake, see
- * `namesakeVeto`) is discarded: not counted as judged, no findings opened.
+ * Once every task has an answer, anything that failed on a rate limit or a
+ * flaky connection gets one more try, after a pause. A bad key or a bad
+ * request won't fix itself, so those aren't retried.
  *
- * Before ranking, each answer goes through the competitor extractor so the
- * practice is ranked against every business the engine actually recommended,
- * not only the ones the operator typed in. Newly discovered names are saved to
- * the practice's competitor list (source 'discovered').
- *
- * A failing engine, judge, or extractor call is logged as an activity warning
- * and the scan continues, because a partial scan is still a scan. Any *unexpected*
- * error marks the scan `failed` before rethrowing.
- *
- * Also returns the findings this scan newly opened, so the weekly cron can
- * send the internal accuracy alert without re-deriving "new" from the full
- * open-findings list.
+ * No new call starts after `startBy`; at `stopBy` the step stops waiting.
+ * Returns `done: true` when nothing is left to ask, so the scan can finish.
+ * The website check and Google's AI Overviews run alongside the first step
+ * and are written to the scan row; a failure only loses the check.
  */
-export async function runScan(
+export async function gatherStep(
   db: Db,
-  practiceId: string,
+  scanId: string,
   adapters: EngineAdapter[],
   judge: Judge,
   extractor: Extractor,
-  options: ScanOptions = {},
-): Promise<ScanResult> {
-  const runs = Math.max(1, Math.floor(options.runs ?? 1));
+  options: StepOptions,
+): Promise<{ done: boolean }> {
+  const now = options.now ?? Date.now;
   const concurrency = options.concurrency ?? Math.max(MIN_CONCURRENCY, adapters.length);
   const retryDelays = options.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
-  const [scan] = await db.insert(scans).values({ practiceId, runs }).returning();
+  const [scan] = await db.select().from(scans).where(eq(scans.id, scanId));
 
   try {
-    const [[practice], promptRows, variationRows, competitorRows, factRows] = await Promise.all([
-      db.select().from(practices).where(eq(practices.id, practiceId)),
-      db.select().from(prompts).where(and(eq(prompts.practiceId, practiceId), eq(prompts.active, true))),
-      db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
-      db.select().from(competitors).where(eq(competitors.practiceId, practiceId)),
-      db.select().from(facts).where(and(eq(facts.practiceId, practiceId), eq(facts.status, "active"))),
-    ]);
-
-    const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
-    // Grows during the record phase as discoveries are reconciled, so a
-    // competitor found in one answer is matched by plain name detection in
-    // every later one.
-    let competitorNames = competitorRows.filter(c => c.status === "active").map(c => c.name);
-    const ignoredNames = competitorRows.filter(c => c.status === "ignored").map(c => c.name);
+    const { practice, promptRows, competitorRows, factRows, practiceNames } = await loadScanContext(db, scan.practiceId);
+    const knownAtStart = competitorRows.filter(c => c.status === "active").map(c => c.name);
     const judgeFacts = factRows.map(f => ({ label: f.label, value: f.value, category: f.category }));
-    const knownAtStart = [...competitorNames];
     // Any answer that really names the business can state a wrong fact about
     // it, not just the ones where the question named it. A branded answer
     // that only echoes the name back ("I couldn't find anything about X")
@@ -269,29 +311,38 @@ export async function runScan(
     // What the rater is told about the business, so it can tell this one
     // from a namesake in another city or trade.
     const context = { category: practice.category, location: practice.location, website: practice.website };
-
-    // Independent of the engines, so it runs while they answer. A failure
-    // only loses the check, never the scan.
-    const websiteCheck = options.checkWebsite && practice.website
-      ? options.checkWebsite(practice.website, undefined, { names: practiceNames }).catch(() => null)
-      : Promise.resolve(null);
-
-    // Also independent of the engines. Buyer questions only: a question that
-    // names the business is not how anyone finds it. Uses the competitors
-    // known when the scan starts.
-    const buyerQuestions = promptRows.filter(p => p.kind !== "branded").map(p => p.text);
-    const aiOverviews = options.checkAiOverviews && buyerQuestions.length > 0
-      ? options.checkAiOverviews({ questions: buyerQuestions, practiceNames, competitorNames: knownAtStart }).catch(() => null)
-      : Promise.resolve(null);
-
-    // --- Network phase -------------------------------------------------
-    const tasks = promptRows.flatMap(prompt =>
-      Array.from({ length: runs }, (_, r) => adapters.map(adapter => ({ prompt, run: r + 1, adapter }))).flat(),
-    );
-
-    const pastDeadline = () => options.deadline !== undefined && Date.now() > options.deadline;
+    const tasks = buildTasks(promptRows, scan.runs, adapters);
     type Task = (typeof tasks)[number];
     type Answer = Awaited<ReturnType<EngineAdapter["run"]>>;
+    const loadSaved = async () => new Map(
+      (await db.select().from(scanAnswers).where(eq(scanAnswers.scanId, scanId)))
+        .map(a => [taskKey(a.promptId, a.run, a.engine), a]),
+    );
+    let saved = await loadSaved();
+
+    // Independent of the engines, so they run while the engines answer, in
+    // any step that still has questions to ask and no result for them yet.
+    // Buyer questions only for the overviews: a question that names the
+    // business is not how anyone finds it. Uses the competitors known when
+    // the scan starts.
+    const buyerQuestions = promptRows.filter(p => p.kind !== "branded").map(p => p.text);
+    const asking = tasks.some(t => !saved.has(taskKey(t.prompt.id, t.run, t.adapter.name)));
+    const sideChecks = Promise.all([
+      asking && scan.websiteCheck === null && options.checkWebsite && practice.website
+        ? options.checkWebsite(practice.website, undefined, { names: practiceNames })
+            .then(websiteCheck => websiteCheck && db.update(scans).set({ websiteCheck }).where(eq(scans.id, scanId)))
+        : null,
+      asking && scan.aiOverviews === null && options.checkAiOverviews && buyerQuestions.length > 0
+        ? options.checkAiOverviews({ questions: buyerQuestions, practiceNames, competitorNames: knownAtStart })
+            .then(aiOverviews => aiOverviews && db.update(scans).set({ aiOverviews }).where(eq(scans.id, scanId)))
+        : null,
+    ]).catch(() => undefined);
+    const wrapUp = async (done: boolean) => {
+      await settleBy(sideChecks, options.stopBy, now);
+      await db.update(scans).set({ updatedAt: new Date() }).where(eq(scans.id, scanId));
+      return { done };
+    };
+
     const review = limiter(REVIEW_CONCURRENCY);
 
     // Reads one answer. Never throws: each call that can fail settles to
@@ -322,33 +373,134 @@ export async function runScan(
       return { prompt, run, adapter, ok: true, answer, citations, searchQueries, tone, discovered, judged };
     };
 
-    // Asks the engine, inside the pool, and hands back the reading of its
-    // answer still in progress so the pool's lane is free for the next ask.
-    const ask = async (task: Task): Promise<{ read: Promise<Gathered> }> => {
-      const failed = (retriable: boolean) => ({ read: Promise.resolve<Gathered>({ ...task, ok: false, retriable }) });
-      if (pastDeadline()) return failed(false);
-      try {
-        const result = await withRetry(() => task.adapter.run(task.prompt.text), retryDelays);
-        return { read: review(() => read(task, result)) };
-      } catch (err) {
-        return failed(isRetriable(err));
-      }
-    };
-    const gatherAll = async (list: Task[]): Promise<Gathered[]> =>
-      Promise.all((await mapPool(list, concurrency, ask)).map(asked => asked.read));
-    const gathered = await gatherAll(tasks);
+    for (;;) {
+      const pending = tasks.filter(t => !saved.has(taskKey(t.prompt.id, t.run, t.adapter.name)));
+      const retrying = pending.length === 0;
+      const list = retrying
+        ? tasks.filter(t => {
+            const s = saved.get(taskKey(t.prompt.id, t.run, t.adapter.name))!;
+            return !s.ok && s.retriable && s.attempts < 2;
+          })
+        : pending;
+      if (list.length === 0) return await wrapUp(true);
 
-    // One more try for anything that failed on a rate limit or a flaky
-    // connection, now that the burst of the scan is over. A bad key or a bad
-    // request won't fix itself, so those aren't retried.
-    const failed = gathered.map((g, i) => (!g.ok && g.retriable ? i : -1)).filter(i => i >= 0);
-    if (failed.length > 0) {
-      // Longer than a rate-limit window, with jitter so practices scanning at
-      // the same time don't all come back at the same second.
-      await sleep(options.finalRetryDelayMs ?? 30_000 + Math.random() * 30_000);
-      const retried = await gatherAll(failed.map(i => tasks[i]));
-      failed.forEach((i, k) => { gathered[i] = retried[k]; });
+      if (retrying) {
+        // Longer than a rate-limit window, with jitter so practices scanning
+        // at the same time don't all come back at the same second. A step
+        // without time for the pause leaves the retries to the next one.
+        const pause = options.finalRetryDelayMs ?? 30_000 + Math.random() * 30_000;
+        // On the last chance there is no later step, so retries without time
+        // for the pause are dropped and the scan settles on what came back.
+        if (now() + pause > options.startBy) return await wrapUp(!!options.lastChance);
+        await sleep(pause);
+      } else if (!options.lastChance && now() > options.startBy) {
+        return await wrapUp(false);
+      }
+
+      const save = async ({ prompt, run, adapter }: Task, g: Gathered) => {
+        const row = g.ok
+          ? {
+              ok: true, retriable: false, answer: g.answer, citations: g.citations, searchQueries: g.searchQueries,
+              tone: g.tone, discovered: g.discovered, judged: g.judged === undefined ? null : { result: g.judged },
+            }
+          : { ok: false, retriable: g.retriable };
+        if (retrying) {
+          await db.update(scanAnswers).set({ ...row, attempts: 2 }).where(and(
+            eq(scanAnswers.scanId, scanId), eq(scanAnswers.promptId, prompt.id),
+            eq(scanAnswers.run, run), eq(scanAnswers.engine, adapter.name),
+          ));
+        } else {
+          // A late write from a call an earlier step gave up on is a no-op.
+          await db.insert(scanAnswers)
+            .values({ scanId, promptId: prompt.id, run, engine: adapter.name, ...row })
+            .onConflictDoNothing();
+        }
+      };
+
+      // Asks the engine, inside the pool, and hands back the reading and
+      // saving of its answer still in progress so the lane is free for the
+      // next ask. A call not started in time is left for a later step, or
+      // counts as failed on the last chance.
+      const pastStart = () => now() > options.startBy;
+      const ask = async (task: Task): Promise<{ read: Promise<void> }> => {
+        const failed = (retriable: boolean) => ({ read: save(task, { ...task, ok: false, retriable }) });
+        if (pastStart()) return options.lastChance ? failed(false) : { read: Promise.resolve() };
+        try {
+          const result = await withRetry(() => task.adapter.run(task.prompt.text), retryDelays, () => !pastStart());
+          return { read: review(() => read(task, result)).then(g => save(task, g)) };
+        } catch (err) {
+          return failed(isRetriable(err));
+        }
+      };
+      const work = mapPool(list, concurrency, ask).then(asked => Promise.all(asked.map(a => a.read)));
+      if (!(await settleBy(work, options.stopBy, now))) return await wrapUp(false);
+      saved = await loadSaved();
     }
+  } catch (err) {
+    await db.update(scans).set({ status: "failed" }).where(eq(scans.id, scanId));
+    throw err;
+  }
+}
+
+/**
+ * The record half of a scan, once `gatherStep` says it is done: rebuilds
+ * every answer from `scan_answers` and records checks, findings and scores.
+ *
+ * It walks the answers in a fixed order and does every database write and
+ * competitor reconciliation sequentially, so the outcome doesn't depend on
+ * which request happened to finish first.
+ *
+ * One name analysis drives everything stored: `mentioned` is
+ * `position !== "absent"` from `classifyPosition`, so a check can never say
+ * named with position absent. The gather step only pre-filters the judge and
+ * the rater on the cheaper `mentionKind`; a judge result for an answer this
+ * phase then finds absent (or vetoes as a namesake, see `namesakeVeto`) is
+ * discarded: not counted as judged, no findings opened.
+ *
+ * Each answer went through the competitor extractor, so the practice is
+ * ranked against every business the engine actually recommended, not only
+ * the ones the operator typed in. Newly discovered names are saved to the
+ * practice's competitor list (source 'discovered').
+ *
+ * A failing engine, judge, or extractor call is logged as an activity warning
+ * and the scan continues, because a partial scan is still a scan. Any
+ * *unexpected* error marks the scan `failed` before rethrowing.
+ *
+ * Also returns the findings this scan newly opened, so the weekly cron can
+ * send the internal accuracy alert without re-deriving "new" from the full
+ * open-findings list.
+ */
+export async function finishScan(
+  db: Db,
+  scanId: string,
+  engines: EngineName[],
+  options: Pick<ScanOptions, "rateTone">,
+): Promise<ScanResult> {
+  const [scan] = await db.select().from(scans).where(eq(scans.id, scanId));
+  const { practiceId, runs } = scan;
+
+  try {
+    const { practice, promptRows, competitorRows, factRows, practiceNames } = await loadScanContext(db, practiceId);
+    // Grows during the record phase as discoveries are reconciled, so a
+    // competitor found in one answer is matched by plain name detection in
+    // every later one.
+    let competitorNames = competitorRows.filter(c => c.status === "active").map(c => c.name);
+    const ignoredNames = competitorRows.filter(c => c.status === "ignored").map(c => c.name);
+    const judgeFacts = factRows.map(f => ({ label: f.label, value: f.value, category: f.category }));
+
+    const saved = new Map(
+      (await db.select().from(scanAnswers).where(eq(scanAnswers.scanId, scanId)))
+        .map(a => [taskKey(a.promptId, a.run, a.engine), a]),
+    );
+    const gathered: Gathered[] = buildTasks(promptRows, runs, engines.map(name => ({ name }))).map(task => {
+      const s = saved.get(taskKey(task.prompt.id, task.run, task.adapter.name));
+      if (!s || !s.ok) return { ...task, ok: false, retriable: s?.retriable ?? false };
+      return {
+        ...task, ok: true, answer: s.answer ?? "", citations: s.citations, searchQueries: s.searchQueries,
+        tone: s.tone ?? null, discovered: s.discovered ?? null,
+        judged: s.judged === null ? undefined : s.judged.result,
+      };
+    });
 
     for (const g of gathered) {
       if (!g.ok) await logActivity(db, practiceId, `scan warning: ${g.adapter.name} failed on prompt ${g.prompt.text}`);
@@ -359,7 +511,8 @@ export async function runScan(
     // so every client surface keeps showing the last complete scan.
     const coverage = summarizeCoverage(gathered.map(g => ({ engine: g.adapter.name, ok: g.ok })));
     if (coverage.blocked) {
-      await db.update(scans).set({ status: "blocked", coverage, finishedAt: new Date() }).where(eq(scans.id, scan.id));
+      await db.update(scans).set({ status: "blocked", coverage, finishedAt: new Date() })
+        .where(and(eq(scans.id, scan.id), eq(scans.status, "running")));
       await logActivity(db, practiceId, `scan blocked: ${blockedReason(coverage)}`);
       return { scanId: scan.id, score: null, newFindings: [], blocked: true, coverage };
     }
@@ -578,7 +731,7 @@ export async function runScan(
     const hasCritical = seenFindings.some(f => f.severity === "critical");
     // Reach is out of the engines that actually answered: an engine that was
     // down didn't decline to name the client, it just wasn't heard from.
-    const engineCount = new Set(gathered.filter(g => g.ok).map(g => g.adapter.name)).size || adapters.length;
+    const engineCount = new Set(gathered.filter(g => g.ok).map(g => g.adapter.name)).size || engines.length;
     const overallFor = (subset: ScoringCheck[]) =>
       computeOverall({ visibility: computeVisibility(subset, engineCount), factScore, hasCritical }).score;
 
@@ -601,11 +754,9 @@ export async function runScan(
       factScore,
       scoreLow: band.low,
       scoreHigh: band.high,
-      websiteCheck: await websiteCheck,
-      aiOverviews: await aiOverviews,
       coverage,
       finishedAt: new Date(),
-    }).where(eq(scans.id, scan.id));
+    }).where(and(eq(scans.id, scan.id), eq(scans.status, "running")));
 
     const mentionedCount = scoringChecks.filter(c => c.mentioned).length;
     const range = runs > 1 && band.low !== null ? `, ${band.low}-${band.high} across ${runs} runs` : "";
@@ -623,7 +774,29 @@ export async function runScan(
 
     return { scanId: scan.id, score, newFindings, blocked: false, coverage };
   } catch (err) {
-    await db.update(scans).set({ status: "failed" }).where(eq(scans.id, scan.id));
+    await db.update(scans).set({ status: "failed" }).where(eq(scans.id, scanId));
     throw err;
   }
+}
+
+/**
+ * Runs one full monitoring scan for a practice in a single call: asks every
+ * active prompt of every adapter `runs` times, then records the checks,
+ * findings and scores. See `gatherStep` and `finishScan`. Calls not started
+ * by `options.deadline` count as failed.
+ */
+export async function runScan(
+  db: Db,
+  practiceId: string,
+  adapters: EngineAdapter[],
+  judge: Judge,
+  extractor: Extractor,
+  options: ScanOptions = {},
+): Promise<ScanResult> {
+  const scanId = await startScan(db, practiceId, { runs: options.runs ?? 1, purpose: "manual" });
+  const { done } = await gatherStep(db, scanId, adapters, judge, extractor, {
+    ...options, startBy: options.deadline ?? Number.POSITIVE_INFINITY, stopBy: Number.POSITIVE_INFINITY, lastChance: true,
+  });
+  if (!done) throw new Error("scan did not settle");
+  return finishScan(db, scanId, adapters.map(a => a.name), options);
 }

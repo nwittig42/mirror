@@ -2,6 +2,7 @@ import { getDb } from "@/db";
 import { loadEnv } from "@/lib/env";
 import { dispatchWeeklyScans, makeScanTrigger } from "@/services/weekly-scan";
 import { sendDispatchAlert } from "@/services/alert-email";
+import { sweepStuckScans } from "@/services/scan-completion";
 
 // The weekly cron no longer scans. It starts one /api/cron/scan-practice
 // request per active practice, each of which answers at once and scans in its
@@ -14,6 +15,8 @@ export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${env.CRON_SECRET}`) {
     return new Response("nope", { status: 401 });
   }
+  // Closes last week's broken chains first, so none blocks or hides behind this week's.
+  await sweepStuckScans(getDb()).catch(err => console.error("stuck scan sweep failed:", err));
   const results = await dispatchWeeklyScans(getDb(), makeScanTrigger({
     appUrl: env.APP_URL, cronSecret: env.CRON_SECRET, bypassSecret: env.VERCEL_AUTOMATION_BYPASS_SECRET,
   }));

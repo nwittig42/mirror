@@ -30,7 +30,7 @@ export async function Scan({ practiceId, slug, scanStarted }: { practiceId: stri
     : latestAttempt.status === "blocked" && latestAttempt.coverage
       ? `Latest attempt ${attemptDate} blocked: ${blockedReason(latestAttempt.coverage)}`
     : latestAttempt.status === "running"
-      ? scanLooksStuck(latestAttempt.startedAt)
+      ? scanLooksStuck(latestAttempt.updatedAt)
         ? `Latest attempt ${attemptDate} stopped without finishing (it ran out of time). Run it again.`
         : `Scan running since ${latestAttempt.startedAt.toISOString().slice(0, 16).replace("T", " ")} UTC`
     : latestAttempt.status === "failed" ? `Latest attempt ${attemptDate} failed. See diagnostics below.`

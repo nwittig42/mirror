@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { prepareProspect, type ProspectDeps } from "@/services/prospect-setup";
+import { prepareProspect, finishProspect, type ProspectDeps } from "@/services/prospect-setup";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
 
@@ -237,5 +237,49 @@ describe("prepareProspect", () => {
     expect(texts).toHaveLength(6);
     expect(texts).toContain("What are the best plumbers in Portland, OR? Name specific businesses.");
     expect(await db.select().from(schema.scans)).toHaveLength(1);
+  });
+});
+
+describe("a lead whose scan runs in steps", () => {
+  it("stays preparing once the scan has started, keeping the setup notes", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    const d = deps({ fetchPages: async () => [], scan: async () => "started" });
+    await prepareProspect(db, l.id, d);
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.status).toBe("preparing");
+    expect(after.note).toContain("website couldn't be read");
+    expect(d.notify).not.toHaveBeenCalled();
+    expect(d.sendAudit).not.toHaveBeenCalled();
+  });
+
+  it("is marked ready and emailed exactly once when the scan finishes", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    const d = deps({ scan: async () => "started" });
+    await prepareProspect(db, l.id, d);
+    const [p] = await db.select().from(schema.practices);
+    const result = await runScan(db, p.id, [adapter], async () => ({ wrong: [], right: [] }), async () => [],
+      { retryDelaysMs: [], finalRetryDelayMs: 0 });
+    await finishProspect(db, p.id, result, d);
+    await finishProspect(db, p.id, result, d);
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.status).toBe("ready");
+    expect(after.auditEmailedAt).toBeInstanceOf(Date);
+    expect(d.sendAudit).toHaveBeenCalledTimes(1);
+    expect(d.notify).toHaveBeenCalledTimes(1);
+  });
+
+  it("needs a look, with the reason, when the scan fails", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    const d = deps({ scan: async () => "started" });
+    await prepareProspect(db, l.id, d);
+    const [p] = await db.select().from(schema.practices);
+    await finishProspect(db, p.id, { error: "couldn't start step 2: scan-step 401" }, d);
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.status).toBe("needs_attention");
+    expect(after.note).toContain("The first scan failed: couldn't start step 2: scan-step 401");
+    expect(d.sendAudit).not.toHaveBeenCalled();
   });
 });

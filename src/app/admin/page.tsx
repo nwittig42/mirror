@@ -7,6 +7,7 @@ import { requireOperator } from "@/lib/auth";
 import { createPractice } from "@/app/admin/actions";
 import { listPracticeRows } from "@/lib/admin-queries";
 import { listLeads } from "@/services/leads";
+import { sweepStuckScans } from "@/services/scan-completion";
 import {
   Button, Empty, PageTitle, PrimaryLink, SecondaryLink, SCAN_STATUS, TextInput, actionClass, formatDate, linkClass,
 } from "@/app/admin/ui";
@@ -23,10 +24,8 @@ const LEAD_STATUS: Record<string, { label: string; tone: Tone }> = {
 // duration, same as `src/app/admin/practices/[id]/page.tsx` (the page that
 // actually renders the "Run scan now" form). Set here too so this rule
 // holds regardless of which admin page ends up invoking scan actions.
-// Mirrors the cron route's identical setting
-// (`src/app/api/cron/weekly-scan/route.ts`). 800s requires a paid Vercel
-// plan (see README ship checklist).
-// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+// That after() runs the scan's first step; later steps run in
+// /api/cron/scan-step, each with its own 300s (the Hobby plan's most).
 export const maxDuration = 300;
 
 async function handleCreatePractice(formData: FormData): Promise<void> {
@@ -50,6 +49,8 @@ async function handleCreatePractice(formData: FormData): Promise<void> {
 export default async function AdminPage() {
   await requireOperator();
   const db = getDb();
+  // A lead whose scan broke off shows as needing a look, not "Preparing" forever.
+  await sweepStuckScans(db).catch(() => 0);
   const [practiceRows, leadRows, openSupport] = await Promise.all([
     listPracticeRows(db),
     listLeads(db, 10),

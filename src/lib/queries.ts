@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
 import { displayScores } from "@/core/scoring";
 import { activities, checks, facts, findings, prompts, scans } from "@/db/schema";
+import { SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
 
 /**
  * Most recent scan of any status (running, complete, blocked, failed). Tells
@@ -32,6 +33,20 @@ export async function scanStartedWithin(
     eq(scans.practiceId, practiceId),
     inArray(scans.status, statuses),
     gt(scans.startedAt, new Date(Date.now() - withinMs)),
+  )).limit(1);
+  return !!row;
+}
+
+/**
+ * Whether a scan of this practice is running and still making progress. A
+ * scan runs as a chain of steps that can outlast any fixed window from its
+ * start, so this goes by its last progress.
+ */
+export async function scanInProgress(db: Db, practiceId: string): Promise<boolean> {
+  const [row] = await db.select({ id: scans.id }).from(scans).where(and(
+    eq(scans.practiceId, practiceId),
+    eq(scans.status, "running"),
+    gt(scans.updatedAt, new Date(Date.now() - SCAN_STUCK_AFTER_MS)),
   )).limit(1);
   return !!row;
 }

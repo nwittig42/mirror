@@ -1,4 +1,4 @@
-import { pgTable, text, uuid, timestamp, boolean, integer, jsonb, pgEnum, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, boolean, integer, jsonb, pgEnum, primaryKey, uniqueIndex } from "drizzle-orm/pg-core";
 import type { AdapterAccountType } from "@auth/core/adapters";
 
 export const roleEnum = pgEnum("role", ["operator", "client"]);
@@ -181,9 +181,41 @@ export const scans = pgTable("scans", {
   // How many of the answers the scan asked for came back, per engine. Null on
   // scans from before this was recorded.
   coverage: jsonb("coverage").$type<import("@/core/coverage").Coverage>(),
+  // A scan runs as a chain of short steps, each its own function call, so it
+  // fits a 300s platform limit. `step` is the last step claimed; `purpose`
+  // says what to do once the last step finishes; `updatedAt` is the last
+  // sign of progress, which is how a broken chain is told from a slow one.
+  step: integer("step").notNull().default(0),
+  purpose: text("purpose").notNull().default("manual"), // 'manual' | 'weekly' | 'prospect'
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   finishedAt: timestamp("finished_at"),
 });
+
+/**
+ * One engine answer a running scan has back, with what reading it found,
+ * saved the moment it is read so a scan can stop and pick up in a later
+ * step. The record phase rebuilds the scan from these rows.
+ */
+export const scanAnswers = pgTable("scan_answers", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  scanId: uuid("scan_id").notNull().references(() => scans.id),
+  promptId: uuid("prompt_id").notNull().references(() => prompts.id),
+  run: integer("run").notNull(),
+  engine: engineEnum("engine").notNull(),
+  ok: boolean("ok").notNull(),
+  // Failed on a rate limit or a dropped connection, so worth one more try.
+  retriable: boolean("retriable").notNull().default(false),
+  attempts: integer("attempts").notNull().default(1),
+  answer: text("answer"),
+  citations: jsonb("citations").$type<string[]>().notNull().default([]),
+  searchQueries: jsonb("search_queries").$type<string[]>().notNull().default([]),
+  tone: jsonb("tone").$type<import("@/core/tone").ToneRating>(),
+  discovered: jsonb("discovered").$type<string[]>(),
+  // Null = not judged. { result: null } = the judge failed.
+  judged: jsonb("judged").$type<{ result: import("@/core/judge-parse").JudgeVerdict | null }>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, t => [uniqueIndex("scan_answers_task").on(t.scanId, t.promptId, t.run, t.engine)]);
 
 export const checks = pgTable("checks", {
   id: uuid("id").defaultRandom().primaryKey(),

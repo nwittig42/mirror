@@ -12,20 +12,14 @@ import { cleanSection } from "@/core/fact-sections";
 import { FIX_STATE_LABEL, fixState, storedFor, type FixState } from "@/core/fix-list";
 import { requireOperator } from "@/lib/auth";
 import { grantClientLogin } from "@/services/client-access";
-import { runScan, SCAN_DEADLINE_MS, SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
-import { scanStartedWithin } from "@/lib/queries";
-import { getAdapters } from "@/engines";
-import { judgeAnswer } from "@/services/hallucination-judge";
-import { extractCompetitors } from "@/services/competitor-extractor";
+import { startScanChain } from "@/services/scan-chain";
+import { liveStepDeps } from "@/services/scan-live";
+import { scanInProgress } from "@/lib/queries";
 import { logActivity } from "@/services/activity";
-import { loadEnv } from "@/lib/env";
 import { fetchSitePages, draftFactsFromPages, saveDraftFacts } from "@/services/fact-drafter";
 import { setSupportStatus } from "@/services/support";
-import { rateTone } from "@/services/tone-rater";
-import { runWebsiteCheck } from "@/services/website-check";
 import { fetchLogo } from "@/services/logo";
 import { isPlan } from "@/core/plan";
-import { aiOverviewCheck } from "@/services/ai-overviews";
 import { draftForecastSetup } from "@/services/forecast";
 
 type FactCategory = (typeof factCategoryEnum.enumValues)[number];
@@ -388,15 +382,15 @@ export async function triggerScan(practiceId: string): Promise<void> {
   const db = getDb();
   // One scan at a time per practice: a second one started mid-scan would
   // record the same new findings twice.
-  if (await scanStartedWithin(db, practiceId, SCAN_STUCK_AFTER_MS, ["running"])) {
+  if (await scanInProgress(db, practiceId)) {
     revalidatePath(`/admin/practices/${practiceId}`);
     return;
   }
-  // Scan runs post-response via after(); on plain Node servers it runs in-process.
+  // The scan's first step runs post-response via after(), and later steps in
+  // /api/cron/scan-step; on plain Node servers they run in-process.
+  const invokedAt = Date.now();
   after(() =>
-    runScan(db, practiceId, getAdapters(), judgeAnswer, extractCompetitors, {
-      runs: loadEnv().SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, checkAiOverviews: aiOverviewCheck(), deadline: Date.now() + SCAN_DEADLINE_MS,
-    }).catch((err) => {
+    startScanChain(db, practiceId, "manual", liveStepDeps("manual", invokedAt)).catch((err) => {
       const message = err instanceof Error ? err.message : String(err);
       void logActivity(db, practiceId, `scan failed: ${message}`);
     }),

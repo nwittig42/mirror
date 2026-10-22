@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { makeTestDb, seedPractice } from "../helpers/db";
-import { runScan } from "@/services/scan-runner";
+import { runScan, SCAN_DEADLINE_MS, startScan, gatherStep, finishScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
 import { EngineError } from "@/engines/types";
 import { eq } from "drizzle-orm";
 import { getLatestScan, scanStartedWithin } from "@/lib/queries";
-import { competitors, findings as findingsTable, scans as scansTable } from "@/db/schema";
+import { competitors, findings as findingsTable, scans as scansTable, scanAnswers } from "@/db/schema";
 import type { Db } from "@/db";
 import type { WebsiteCheckResult } from "@/core/website-check";
 
@@ -1121,11 +1121,103 @@ describe("scanStartedWithin", () => {
   });
 });
 
-describe("scanLooksStuck", () => {
-  it("flags a running scan only after 15 minutes", async () => {
-    const { scanLooksStuck } = await import("@/services/scan-runner");
-    const now = Date.now();
-    expect(scanLooksStuck(new Date(now - 14 * 60_000), now)).toBe(false);
-    expect(scanLooksStuck(new Date(now - 16 * 60_000), now)).toBe(true);
+describe("SCAN_DEADLINE_MS", () => {
+  it("leaves room inside a 300s function", () => {
+    expect(SCAN_DEADLINE_MS).toBeLessThanOrEqual(150_000);
+  });
+});
+
+describe("a scan gathered in steps", () => {
+  const fast = { retryDelaysMs: [], finalRetryDelayMs: 0, concurrency: 1 };
+  const counting = (name: EngineAdapter["name"], answer: string, seen: Map<string, number>, step: { calls: number }): EngineAdapter =>
+    ({ name, run: async (prompt: string) => {
+      step.calls++;
+      seen.set(`${name}|${prompt}`, (seen.get(`${name}|${prompt}`) ?? 0) + 1);
+      return { answer, citations: [] };
+    } });
+
+  // Runs steps until done, each one allowed to start a single engine call.
+  async function gatherOneCallPerStep(db: Db, scanId: string, adapters: EngineAdapter[], judge = clean, step = { calls: 0 }) {
+    let steps = 0;
+    for (; steps < 30; steps++) {
+      step.calls = 0;
+      const { done } = await gatherStep(db, scanId, adapters, judge, async () => [], {
+        ...fast, startBy: 1, stopBy: Number.POSITIVE_INFINITY, now: () => (step.calls >= 1 ? 10 : 0),
+      });
+      if (done) break;
+    }
+    return steps;
+  }
+
+  it("records the same checks as one run, asking each engine each question once", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }, { text: "Cheap", kind: "category" }],
+    });
+    const seen = new Map<string, number>();
+    const step = { calls: 0 };
+    const adapters = [counting("openai", "Glow MedSpa.", seen, step), counting("perplexity", "Glow MedSpa.", seen, step)];
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    const steps = await gatherOneCallPerStep(db, scanId, adapters, clean, step);
+    expect(steps).toBeGreaterThan(1);
+    const result = await finishScan(db, scanId, adapters.map(a => a.name), {});
+    expect(result.blocked).toBe(false);
+    expect((await db.query.checks.findMany()).filter(c => c.scanId === scanId)).toHaveLength(4);
+    expect([...seen.values()]).toEqual([1, 1, 1, 1]);
+    expect((await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) }))?.status).toBe("complete");
+  });
+
+  it("skips answers already saved", async () => {
+    const db = await makeTestDb();
+    const { practiceId, promptIds } = await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    await db.insert(scanAnswers).values({
+      scanId, promptId: promptIds[0], run: 1, engine: "openai", ok: true, retriable: false,
+      answer: "Glow MedSpa.", citations: [], searchQueries: [],
+    });
+    const seen = new Map<string, number>();
+    const r = await gatherStep(db, scanId, [counting("openai", "Glow MedSpa.", seen, { calls: 0 })], clean, async () => [],
+      { ...fast, startBy: Number.POSITIVE_INFINITY, stopBy: Number.POSITIVE_INFINITY });
+    expect(r.done).toBe(true);
+    expect(seen.size).toBe(0);
+  });
+
+  it("goes straight to done with no prompts, and finishes", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    const r = await gatherStep(db, scanId, [fakeAdapter("openai", "x")], clean, async () => [],
+      { ...fast, startBy: Number.POSITIVE_INFINITY, stopBy: Number.POSITIVE_INFINITY });
+    expect(r.done).toBe(true);
+    await finishScan(db, scanId, ["openai"], {});
+    expect((await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) }))?.status).not.toBe("running");
+  });
+
+  it("keeps 'judge failed' apart from 'not judged' across steps", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa",
+      prompts: [{ text: "Botox at Glow MedSpa?", kind: "branded" }, { text: "Fillers at Glow MedSpa?", kind: "branded" }],
+      facts: [{ category: "pricing", label: "Botox price", value: "$13/unit" }],
+    });
+    let judgeCalls = 0;
+    const judge = async () => {
+      if (++judgeCalls === 1) throw new Error("judge down");
+      return { wrong: [], right: [] };
+    };
+    const step = { calls: 0 };
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    await gatherOneCallPerStep(db, scanId, [counting("openai", "Glow MedSpa is lovely.", new Map(), step)], judge, step);
+    await finishScan(db, scanId, ["openai"], {});
+    const activities = await db.query.activities.findMany();
+    expect(activities.filter(a => a.description.startsWith("scan warning: judge failed"))).toHaveLength(1);
+  });
+
+  it("saves a scan's purpose", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
+    const scanId = await startScan(db, practiceId, { runs: 2, purpose: "weekly" });
+    const scan = await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) });
+    expect(scan).toMatchObject({ purpose: "weekly", runs: 2, step: 0, status: "running" });
   });
 });

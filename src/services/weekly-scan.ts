@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db";
-import { practices } from "@/db/schema";
-import { runScan, type ScanOptions } from "@/services/scan-runner";
+import { practices, scans } from "@/db/schema";
+import { runScan, type ScanOptions, type ScanResult } from "@/services/scan-runner";
 import { alertableFindings, sendAlert, sendBlockedAlert } from "@/services/alert-email";
 import type { EngineAdapter } from "@/engines/types";
 import type { judgeAnswer } from "@/services/hallucination-judge";
@@ -28,15 +28,24 @@ export interface WeeklyScanDeps {
 }
 
 /**
- * One practice's weekly scan: scan, then either the internal findings alert
- * or, when the scan was blocked for missing too many answers, the blocked
- * notice. The unit each /api/cron/scan-practice invocation runs, so every
- * practice gets its own function time budget.
+ * One practice's weekly scan in a single call (tests and scripts; the cron
+ * runs it as a chain of steps, see /api/cron/scan-practice): scan, then
+ * `weeklyAlerts`.
  */
 export async function scanPracticeWeekly(db: Db, practice: Practice, deps: WeeklyScanDeps): Promise<WeeklyScanResult> {
+  const result = await runScan(db, practice.id, deps.adapters, deps.judge, deps.extractor, deps.scanOptions);
+  return weeklyAlerts(db, practice, result, deps);
+}
+
+/**
+ * After a weekly scan: either the internal findings alert or, when the scan
+ * was blocked for missing too many answers, the blocked notice.
+ */
+async function weeklyAlerts(
+  db: Db, practice: Practice, result: ScanResult, deps: { send?: Send; sendBlocked?: SendBlocked },
+): Promise<WeeklyScanResult> {
   const { send = sendAlert, sendBlocked = sendBlockedAlert } = deps;
   const summary = { id: practice.id, name: practice.name, slug: practice.slug };
-  const result = await runScan(db, practice.id, deps.adapters, deps.judge, deps.extractor, deps.scanOptions);
   if (result.blocked || result.score === null) {
     await sendBlocked(db, summary, result.coverage);
     return { practice: practice.slug, blocked: true };
@@ -46,6 +55,16 @@ export async function scanPracticeWeekly(db: Db, practice: Practice, deps: Weekl
   // never page the operator, so counting them here would misreport the
   // cron's own output.
   return { practice: practice.slug, score: result.score, alerted: alertableFindings(result.newFindings).length };
+}
+
+/** The weekly scan chain's completion: the alerts for the scan's practice. */
+export async function weeklyComplete(
+  db: Db, scanId: string, result: ScanResult, deps: { send?: Send; sendBlocked?: SendBlocked } = {},
+): Promise<void> {
+  const [row] = await db.select({ practice: practices }).from(scans)
+    .innerJoin(practices, eq(scans.practiceId, practices.id))
+    .where(eq(scans.id, scanId));
+  await weeklyAlerts(db, row.practice, result, deps);
 }
 
 /**
@@ -108,11 +127,11 @@ export async function runWeeklyScans(
 /**
  * Seconds practice `index` waits before it starts scanning. Every practice
  * uses the same engine API keys, so starting them all at once invites the
- * rate limits that get scans blocked. Twelve start slots, 25s apart: the
- * latest start (275s) still leaves over 8 minutes of the 800s budget.
+ * rate limits that get scans blocked. Twelve start slots, 5s apart: the
+ * latest start (55s) fits under the scan route's 60s cap on the wait.
  */
 export function staggerSeconds(index: number): number {
-  return (index % 12) * 25;
+  return (index % 12) * 5;
 }
 
 /**

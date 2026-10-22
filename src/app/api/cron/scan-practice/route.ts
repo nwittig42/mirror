@@ -3,21 +3,13 @@ import { eq } from "drizzle-orm";
 import { getDb } from "@/db";
 import { practices } from "@/db/schema";
 import { loadEnv } from "@/lib/env";
-import { getAdapters } from "@/engines";
-import { judgeAnswer } from "@/services/hallucination-judge";
-import { extractCompetitors } from "@/services/competitor-extractor";
-import { scanPracticeWeekly } from "@/services/weekly-scan";
-import { SCAN_DEADLINE_MS } from "@/services/scan-runner";
 import { scanStartedWithin } from "@/lib/queries";
-import { rateTone } from "@/services/tone-rater";
-import { runWebsiteCheck } from "@/services/website-check";
-import { aiOverviewCheck } from "@/services/ai-overviews";
+import { startScanChain } from "@/services/scan-chain";
+import { liveStepDeps } from "@/services/scan-live";
 
 // One practice's weekly scan, started by /api/cron/weekly-scan. It answers at
-// once and runs the scan in after(), inside this function's own time budget
-// (800s needs a paid Vercel plan), so each practice gets the full budget
-// instead of sharing one with every other practice.
-// 300 is the most the Vercel Hobby plan allows; a Pro plan allows up to 800.
+// once and runs the scan's first step in after(), inside this function's own
+// 300s; later steps run in /api/cron/scan-step, each with its own 300s.
 export const maxDuration = 300;
 export const dynamic = "force-dynamic";
 
@@ -40,20 +32,15 @@ export async function GET(req: Request) {
   }
 
   // The dispatcher staggers starts so practices don't all hit the same API
-  // keys at once. The wait counts against this function's budget, so the
-  // scan's deadline shrinks by the same amount.
-  const delaySec = Math.min(300, Math.max(0, Number(new URL(req.url).searchParams.get("delay")) || 0));
+  // keys at once. The wait counts against the first step's budget, which
+  // runs from when this function was invoked.
+  const delaySec = Math.min(60, Math.max(0, Number(new URL(req.url).searchParams.get("delay")) || 0));
   const invokedAt = Date.now();
 
   after(async () => {
     await new Promise(resolve => setTimeout(resolve, delaySec * 1000));
-    await scanPracticeWeekly(db, practice, {
-      adapters: getAdapters(), judge: judgeAnswer, extractor: extractCompetitors,
-      scanOptions: {
-        runs: env.SCAN_RUNS, rateTone, checkWebsite: runWebsiteCheck, checkAiOverviews: aiOverviewCheck(),
-        deadline: invokedAt + SCAN_DEADLINE_MS,
-      },
-    }).catch(err => console.error(`weekly scan failed for ${practice.slug}:`, err));
+    await startScanChain(db, practice.id, "weekly", liveStepDeps("weekly", invokedAt))
+      .catch(err => console.error(`weekly scan failed for ${practice.slug}:`, err));
   });
 
   return Response.json({ queued: practice.slug }, { status: 202 });
