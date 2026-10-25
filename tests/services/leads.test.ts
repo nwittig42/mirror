@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { makeTestDb } from "../helpers/db";
-import { saveLead, listLeads, startLead, attachContact, shouldPrepareLead } from "@/services/leads";
+import { saveLead, listLeads, startLead, attachContact, shouldPrepareLead, isRepeatSite } from "@/services/leads";
 import { leads, practices, nameVariations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -89,5 +89,27 @@ describe("startLead and attachContact", () => {
     await startLead(db, { practiceName: "A", category: "c", location: "l" });
     const b = await startLead(db, { practiceName: "B", category: "c", location: "l" });
     expect(await shouldPrepareLead(db, b.id)).toBe(true);
+  });
+});
+
+describe("isRepeatSite", () => {
+  it("is true when the same site was booked in the day before this lead, and not for later or older ones", async () => {
+    const db = await makeTestDb();
+    const old = await startLead(db, { websiteUrl: "glow.example" });
+    await db.update(leads).set({ createdAt: new Date(Date.now() - 2 * 86_400_000) }).where(eq(leads.id, old.id));
+    const first = await startLead(db, { websiteUrl: "https://www.Glow.example/" });
+    expect(await isRepeatSite(db, first.id)).toBe(false);
+    await new Promise(r => setTimeout(r, 5));
+    const again = await startLead(db, { websiteUrl: "glow.example" });
+    expect(await isRepeatSite(db, again.id)).toBe(true);
+    // The first one stays a first, even though a repeat came after it.
+    expect(await isRepeatSite(db, first.id)).toBe(false);
+  });
+
+  it("is false with no website or an unknown lead", async () => {
+    const db = await makeTestDb();
+    const { id } = await startLead(db, { practiceName: "A", category: "c", location: "l" });
+    expect(await isRepeatSite(db, id)).toBe(false);
+    expect(await isRepeatSite(db, "00000000-0000-4000-8000-000000000000")).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import "@/app/landing.css";
 import { ChatWindow, Dot, ENGINES, LandingCta, LandingFooter, LandingNav } from "./chrome";
+import { WebsiteBox } from "./website-box";
 
 /**
  * The home page: one promise, one example, one way in. Everything longer
@@ -74,18 +75,7 @@ export function LandingHome() {
               Mirror tracks how often ChatGPT, Gemini, Perplexity and other AI assistants recommend your brand over
               competitors, flags every wrong fact, and shows you how to improve both.
             </p>
-            <form className="lp-lookup" action="/book" method="get">
-              <input
-                type="text"
-                name="websiteUrl"
-                placeholder="yourwebsite.com"
-                aria-label="Your website"
-                autoComplete="url"
-              />
-              <button type="submit" className="lp-btn lp-btn-primary">
-                Get a free audit
-              </button>
-            </form>
+            <WebsiteBox variant="hero" />
             <p className="lp-reassure">
               <span>✓ Free audit</span>
               <span>✓ No credit card required</span>

@@ -2445,3 +2445,213 @@
   .lp-why-sources { columns: 1; }
   .lp-why-panel.feature .huge { font-size: 64px; }
 }
+
+/* ---------- website box (home hero and /book) ---------- */
+.lp-lookup-wrap {
+  width: 100%;
+  max-width: 620px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.lp-lookup-error {
+  color: var(--goldsoft);
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+/* The no-website fields, on a paper card under the hero headline. */
+.lp-lookup-alt {
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+  border-radius: 20px;
+  width: 100%;
+  margin-top: 32px;
+  padding: 24px;
+  box-shadow: 0 0 48px #a8763e59;
+}
+.lp-lookup-alt .lp-btn {
+  width: 100%;
+  margin-top: 4px;
+}
+.lp-lookup-toggle {
+  margin: 12px 0 0;
+  font-size: 14px;
+}
+.lp-lookup-toggle .mk-link-btn {
+  color: var(--line);
+}
+.mk-link-btn {
+  font: inherit;
+  color: var(--gold);
+  background: none;
+  border: 0;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+/* ---------- the audit page (/audit/<id>), /book and /welcome ---------- */
+.mk-audit-page .mk-book-grid > * {
+  /* Grid items default to their content's width, which would push a long
+     answer or the scheduler past the edge of a phone. */
+  min-width: 0;
+}
+.mk-progress {
+  height: 8px;
+  margin-top: 32px;
+  background: var(--bone);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mk-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  border-radius: 999px;
+  transition: width 600ms ease;
+}
+.mk-audit-steps {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+}
+.mk-audit-steps li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 14px 0 14px 26px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 15px;
+  position: relative;
+}
+.mk-audit-steps li:last-child {
+  border-bottom: 1px solid var(--line);
+}
+.mk-audit-steps li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 20px;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.mk-audit-steps li.done {
+  color: var(--ink-soft);
+}
+.mk-audit-steps li.done::before {
+  background: var(--gold);
+  border-color: var(--gold);
+}
+.mk-audit-steps li.now {
+  color: var(--ink);
+  font-weight: 600;
+}
+.mk-audit-steps li.now::before {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px var(--goldsoft);
+}
+.mk-audit-steps .count {
+  color: var(--gold);
+  font-weight: 500;
+}
+.mk-welcome {
+  max-width: 480px;
+}
+
+/* The teaser of a finished audit, full width above the two columns. */
+.mk-teaser {
+  margin-bottom: 64px;
+}
+.mk-teaser-top {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+.mk-teaser-top > * {
+  min-width: 0;
+}
+.mk-teaser-dial {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+  margin-top: 18px;
+}
+.mk-teaser-dial .mk-body {
+  flex: 1;
+  min-width: 200px;
+  margin: 0;
+}
+.mk-teaser-quote {
+  margin: 14px 0 0;
+  padding-left: 16px;
+  border-left: 2px solid var(--gold);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+/* The blur and the card over it share one grid cell, so the block is as tall
+   as whichever is taller and the card is never clipped. */
+.mk-teaser-locked {
+  display: grid;
+  margin-top: 24px;
+  overflow: hidden;
+}
+.mk-teaser-locked > * {
+  grid-area: 1 / 1;
+  min-width: 0;
+}
+.mk-teaser-blur {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+.mk-teaser-blur ul {
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 15px;
+  line-height: 2;
+  color: var(--ink-soft);
+}
+.mk-teaser-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.mk-teaser-overlay > .mk-form-card {
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 12px 48px rgba(26, 26, 24, 0.12);
+}
+.mk-calendly-bleed {
+  margin: 0 -36px -36px;
+}
+@media (max-width: 900px) {
+  .mk-teaser-top {
+    grid-template-columns: 1fr;
+  }
+  .mk-teaser-blur {
+    grid-template-columns: 1fr;
+  }
+  /* Matches .mk-form-card's phone padding, so the scheduler gets the card's full width. */
+  .mk-calendly-bleed {
+    margin: 0 -20px -26px;
+  }
+}
+@media (max-width: 640px) {
+  .mk-audit-page .mk-section {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}

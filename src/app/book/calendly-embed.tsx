@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 /**
- * Calendly inline embed, shown in place of the old "we'll email you within one
- * business day" panel once the audit request is submitted.
+ * Calendly inline embed, shown on the audit page once the visitor's details
+ * are in (see src/app/audit/[id]/thank-you.tsx).
  *
  * Inline rather than Calendly's pop-up widget: the scheduler has to appear on
  * render (the visitor just submitted, they did not click anything), and an

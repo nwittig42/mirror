@@ -43,6 +43,13 @@ export async function createInvite(db: Db, practiceId: string, email: string): P
   return token;
 }
 
+/** Whose a set-up link is, for the page it opens. Null for an unknown, used or expired link. */
+export async function inviteEmail(db: Db, token: string): Promise<string | null> {
+  const [invite] = await db.select().from(accountInvites).where(eq(accountInvites.tokenHash, hashToken(token)));
+  if (!invite || invite.usedAt || invite.expiresAt.getTime() < Date.now()) return null;
+  return invite.email;
+}
+
 /** The address is the operator's, which a visitor must never get to set a password on, even before it is bootstrapped. */
 const isOperatorAddress = (email: string, operatorEmail: string) => email === operatorEmail.trim().toLowerCase();
 

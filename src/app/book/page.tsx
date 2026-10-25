@@ -1,14 +1,15 @@
 import type { Metadata } from "next";
 import "../landing.css";
 import { LandingFooter, LandingNav } from "@/components/landing/chrome";
-import { BookingForm } from "./booking-form";
+import { WebsiteBox } from "@/components/landing/website-box";
 
 /**
- * The audit-request form every landing-page CTA points at. Public (see
- * PUBLIC_PATHS in src/middleware.ts) and, like "/", makes no session read and
- * no database call, so it renders for a cold visitor even when DATABASE_URL is
- * unreachable. The only request input it reads is ?websiteUrl=, which the
- * home page's lookup box sends to prefill the form.
+ * Where every "Get a free audit" link lands: the website box, which starts
+ * the audit at once and moves them to /audit/<id>. Public (see PUBLIC_PATHS
+ * in src/middleware.ts) and, like "/", makes no session read and no database
+ * call, so it renders for a cold visitor even when DATABASE_URL is
+ * unreachable. The only request input it reads is ?websiteUrl=, which older
+ * links send to prefill the box (never to submit it).
  *
  * It wears the same nav and footer as the other marketing pages, so the step
  * from the website to the form does not look like a different product.
@@ -18,7 +19,7 @@ import { BookingForm } from "./booking-form";
  * (section 8): "business", "customers", "team" or "people", "services".
  */
 
-// Submitting the form sets up the prospect and runs the first step of their
+// Submitting the box sets up the prospect and runs the first step of their
 // first scan in the background (after()), inside this page's time budget.
 // Later steps run in /api/cron/scan-step, each with its own 300s (the Hobby
 // plan's most).
@@ -33,18 +34,18 @@ export const metadata: Metadata = {
 const STEPS = [
   {
     n: "01",
-    head: "You send your business",
-    body: "Name and website are enough for us to find you the way an engine finds you. Add what kind of business it is and where, and we ask what your customers ask.",
+    head: "Paste your website",
+    body: "That's all we need to start. No website? Give us your business name, type and city instead.",
   },
   {
     n: "02",
-    head: "We scan before we call",
-    body: "Your business goes through every major AI assistant on the questions your customers actually ask. We read the answers before you do.",
+    head: "Watch your audit run",
+    body: "We ask ChatGPT, Claude, Gemini, Grok and Perplexity what your customers ask. It takes 5-7 minutes.",
   },
   {
     n: "03",
-    head: "Thirty minutes, verbatim",
-    body: "We walk you through what they said, what they got wrong, and what it would take to change it. No slides, no engagement required.",
+    head: "Book 30 minutes",
+    body: "Leave your details while it runs and pick a time. We go through what AI said, what it got wrong and what to fix first.",
   },
 ];
 
@@ -60,7 +61,7 @@ export default async function BookPage({
   const initialWebsite = typeof websiteUrl === "string" ? websiteUrl.trim().slice(0, 200) : undefined;
 
   return (
-    <div className="mk">
+    <div className="mk mk-audit-page">
       <LandingNav />
 
       <main style={{ flex: 1 }}>
@@ -89,10 +90,7 @@ export default async function BookPage({
               </ol>
             </div>
 
-            {/* Read straight off process.env rather than through loadEnv(): this
-                route is deliberately renderable with a broken environment (see
-                the note above), and loadEnv() throws on any missing key. */}
-            <BookingForm calendlyUrl={process.env.CALENDLY_URL} initialWebsite={initialWebsite || undefined} />
+            <WebsiteBox variant="card" initialWebsite={initialWebsite || undefined} />
           </div>
         </section>
       </main>

@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, ne } from "drizzle-orm";
+import { and, desc, eq, gt, lte, ne } from "drizzle-orm";
 import type { Db } from "@/db";
 import { leads, nameVariations, practices } from "@/db/schema";
 import type { AuditRequest } from "@/services/audit-request";
@@ -90,6 +90,21 @@ export async function shouldPrepareLead(db: Db, leadId: string, cap = DAILY_SETU
   const mine = lead.websiteUrl;
   if (mine && others.some(o => o.websiteUrl && siteKey(o.websiteUrl) === siteKey(mine))) return false;
   return others.length < cap;
+}
+
+/**
+ * Whether a lead that wasn't set up was turned away as a repeat of a site
+ * booked in the day before it, rather than by the daily cap. Worked out the
+ * way shouldPrepareLead decides, so the audit page can say which it was.
+ */
+export async function isRepeatSite(db: Db, leadId: string): Promise<boolean> {
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  const mine = lead?.websiteUrl;
+  if (!mine) return false;
+  const since = new Date(lead.createdAt.getTime() - 86_400_000);
+  const earlier = await db.select({ websiteUrl: leads.websiteUrl }).from(leads)
+    .where(and(ne(leads.id, leadId), gt(leads.createdAt, since), lte(leads.createdAt, lead.createdAt)));
+  return earlier.some(o => o.websiteUrl && siteKey(o.websiteUrl) === siteKey(mine));
 }
 
 /** Marks a lead that won't be set up automatically, so admin doesn't show it "preparing" forever. */

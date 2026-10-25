@@ -5,7 +5,7 @@ import type { Db } from "@/db";
 import { accountInvites, practiceMembers, users } from "@/db/schema";
 import { authorizeCredentials } from "@/lib/auth";
 import { hashPassword, verifyPassword } from "@/lib/password";
-import { createAccountFromAudit, createInvite, redeemInvite } from "@/services/account-invites";
+import { createAccountFromAudit, createInvite, inviteEmail, redeemInvite } from "@/services/account-invites";
 
 const env = { OPERATOR_EMAIL: "operator@mirror.test", OPERATOR_PASSWORD: "bootstrap-secret" };
 const OP = "operator@mirror.test";
@@ -37,6 +37,16 @@ describe("account invites", () => {
     const days = (row.expiresAt.getTime() - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(13.9);
     expect(days).toBeLessThanOrEqual(14);
+  });
+
+  it("tells the set-up page whose link it is, only while the link can still be used", async () => {
+    const token = await createInvite(db, practiceId, "Dale@Harbor.example");
+    expect(await inviteEmail(db, token)).toBe("dale@harbor.example");
+    expect(await inviteEmail(db, "nope")).toBeNull();
+    await db.update(accountInvites).set({ expiresAt: new Date(Date.now() - 1000) });
+    expect(await inviteEmail(db, token)).toBeNull();
+    await db.update(accountInvites).set({ expiresAt: new Date(Date.now() + 60_000), usedAt: new Date() });
+    expect(await inviteEmail(db, token)).toBeNull();
   });
 
   it("works once", async () => {
