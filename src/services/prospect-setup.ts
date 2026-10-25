@@ -97,8 +97,10 @@ async function insertPractice(db: Db, row: { name: string; website: string; cate
  * Runs once per lead: a lead that already has a practice is left alone.
  */
 export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps): Promise<void> {
-  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
-  if (!lead || lead.practiceId) return;
+  const [row] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!row || row.practiceId) return;
+  // Leads may now lack these until task 2 handles that; keep the old behaviour.
+  const lead = { ...row, practiceName: row.practiceName ?? "", websiteUrl: row.websiteUrl ?? "" };
 
   const notes: string[] = [];
   // Null until the practice row exists, so an early failure's notification
@@ -204,9 +206,10 @@ export async function finishProspect(
   outcome: ScanResult | { error: string },
   deps: Pick<ProspectDeps, "notify" | "sendAudit">,
 ): Promise<void> {
-  const [lead] = await db.select().from(leads)
+  const [row] = await db.select().from(leads)
     .where(and(eq(leads.practiceId, practiceId), eq(leads.status, "preparing")));
-  if (!lead) return;
+  if (!row) return;
+  const lead = { ...row, practiceName: row.practiceName ?? "", email: row.email ?? "", contactName: row.contactName ?? "" };
   const notes = lead.note ? [lead.note] : [];
   const finish = async (status: "ready" | "needs_attention") => {
     const note = notes.length ? notes.join(" ") : null;

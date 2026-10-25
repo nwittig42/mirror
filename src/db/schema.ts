@@ -171,6 +171,8 @@ export const scans = pgTable("scans", {
   // gives a low/high band, which is how we show the score is stable and not
   // one lucky (or unlucky) roll of the engines.
   runs: integer("runs").notNull().default(1),
+  // How many steps the scan was split into, so progress can be shown. Null on older scans.
+  totalTasks: integer("total_tasks"),
   scoreLow: integer("score_low"),
   scoreHigh: integer("score_high"),
   // AI-readiness check of the practice's website, run alongside the scan.
@@ -313,10 +315,14 @@ export const forecastSnapshots = pgTable("forecast_snapshots", {
 
 export const leads = pgTable("leads", {
   id: uuid("id").defaultRandom().primaryKey(),
-  practiceName: text("practice_name").notNull(),
-  websiteUrl: text("website_url").notNull(),
-  contactName: text("contact_name").notNull(),
-  email: text("email").notNull(),
+  // A lead starts with just a website (the audit runs at once) and the
+  // contact details arrive afterwards, so all four are empty until known.
+  practiceName: text("practice_name"),
+  // True while the name is still a guess read from the website.
+  nameFromSite: boolean("name_from_site").notNull().default(false),
+  websiteUrl: text("website_url"),
+  contactName: text("contact_name"),
+  email: text("email"),
   phone: text("phone"),
   bestTimes: text("best_times"),
   // What kind of business it is and where, as the prospect typed them on
@@ -331,6 +337,18 @@ export const leads = pgTable("leads", {
   note: text("note"),
   // When the prospect was emailed their ranking audit. Null = not sent.
   auditEmailedAt: timestamp("audit_emailed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// One-time links that let a prospect set up their login for a practice.
+// Only the hash of the token is kept.
+export const accountInvites = pgTable("account_invites", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tokenHash: text("token_hash").notNull().unique(),
+  email: text("email").notNull(),
+  practiceId: uuid("practice_id").notNull().references(() => practices.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

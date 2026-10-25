@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, ne } from "drizzle-orm";
 import type { Db } from "@/db";
-import { leads } from "@/db/schema";
+import { leads, nameVariations, practices } from "@/db/schema";
 import type { AuditRequest } from "@/services/audit-request";
 
 /** Saves a /book submission. The row is the record of the lead; the emails are notices. */
@@ -11,6 +11,54 @@ export async function saveLead(db: Db, req: AuditRequest): Promise<{ id: string 
     category: req.category || null, location: req.location || null,
   }).returning({ id: leads.id });
   return row;
+}
+
+export type LeadDetails = {
+  contactName: string; email: string; phone?: string; bestTimes?: string;
+  practiceName?: string; category?: string; location?: string;
+};
+
+/**
+ * Starts a lead before any contact details exist: the audit runs at once and
+ * the visitor's details arrive later through attachContact. With a website the
+ * name is a guess to be read from it; without one the visitor gave the name.
+ */
+export async function startLead(
+  db: Db,
+  input: { websiteUrl: string } | { practiceName: string; category: string; location: string },
+): Promise<{ id: string }> {
+  const values = "websiteUrl" in input
+    ? { websiteUrl: input.websiteUrl, practiceName: null, nameFromSite: true }
+    : { websiteUrl: null, practiceName: input.practiceName, category: input.category, location: input.location };
+  const [row] = await db.insert(leads).values(values).returning({ id: leads.id });
+  return row;
+}
+
+/**
+ * Adds the visitor's contact details to a lead. A different business name
+ * than the one on file replaces it (and renames the practice, keeping the new
+ * name as a name variation so scans recognise it). Null for an unknown lead.
+ */
+export async function attachContact(db: Db, leadId: string, details: LeadDetails) {
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!lead) return null;
+  const set: Partial<typeof leads.$inferInsert> = {
+    contactName: details.contactName, email: details.email.trim().toLowerCase(),
+    phone: details.phone || null, bestTimes: details.bestTimes || null,
+  };
+  if (details.category) set.category = details.category;
+  if (details.location) set.location = details.location;
+  const name = details.practiceName?.trim();
+  if (name && name !== lead.practiceName) {
+    set.practiceName = name;
+    set.nameFromSite = false;
+    if (lead.practiceId) {
+      await db.update(practices).set({ name }).where(eq(practices.id, lead.practiceId));
+      await db.insert(nameVariations).values({ practiceId: lead.practiceId, text: name });
+    }
+  }
+  const [updated] = await db.update(leads).set(set).where(eq(leads.id, leadId)).returning();
+  return updated;
 }
 
 /** Every lead, newest first, for admin. */
@@ -38,7 +86,9 @@ export async function shouldPrepareLead(db: Db, leadId: string, cap = DAILY_SETU
   const since = new Date(Date.now() - 86_400_000);
   const others = await db.select({ websiteUrl: leads.websiteUrl }).from(leads)
     .where(and(ne(leads.id, leadId), gt(leads.createdAt, since)));
-  if (others.some(o => siteKey(o.websiteUrl) === siteKey(lead.websiteUrl))) return false;
+  // A lead with no website can't repeat another site.
+  const mine = lead.websiteUrl;
+  if (mine && others.some(o => o.websiteUrl && siteKey(o.websiteUrl) === siteKey(mine))) return false;
   return others.length < cap;
 }
 
