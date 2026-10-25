@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { makeTestDb } from "../helpers/db";
 import * as schema from "@/db/schema";
 import { prepareProspect, finishProspect, nameFromTitle, type ProspectDeps } from "@/services/prospect-setup";
+import { attachContact } from "@/services/leads";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
 
@@ -42,6 +43,9 @@ describe("nameFromTitle", () => {
     expect(nameFromTitle("Harbor Plumbing \u2014 Home", "harborplumbing.com")).toBe("Harbor Plumbing");
   });
   it("falls back to the domain when the title is missing, too short or too long", () => {
+    expect(nameFromTitle("Home | Harbor Plumbing", "harborplumbing.com")).toBe("Harbor Plumbing");
+    expect(nameFromTitle("Welcome - Home page - Harbor Plumbing", "harborplumbing.com")).toBe("Harbor Plumbing");
+    expect(nameFromTitle("Home", "harborplumbing.com")).toBe("Harborplumbing");
     expect(nameFromTitle(null, "https://www.harborplumbing.com/about")).toBe("Harborplumbing");
     expect(nameFromTitle("A | Home", "harborplumbing.com")).toBe("Harborplumbing");
     expect(nameFromTitle("x".repeat(81), "harborplumbing.com")).toBe("Harborplumbing");
@@ -61,19 +65,38 @@ describe("prepareProspect", () => {
     expect((await db.select().from(schema.nameVariations)).map(v => v.text)).toEqual(["Glow MedSpa"]);
   });
 
-  it("leaves a name typed in meanwhile alone", async () => {
+  it("leaves a name typed in while the site is read alone, on the lead and the practice", async () => {
     const db = await makeTestDb();
     const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
-    await prepareProspect(db, l.id, deps({
+    const d = deps({
       fetchPages: async () => {
-        await db.update(schema.leads).set({ practiceName: "Glow Aesthetics", nameFromSite: false }).where(eq(schema.leads.id, l.id));
+        await attachContact(db, l.id, { practiceName: "Glow Aesthetics", contactName: "Dr. Kim", email: "kim@glow.example" } as never);
         return [{ url: "https://glowmedspa.com", title: "Glow MedSpa | Austin", text: "Botox." }];
       },
-    }));
+    });
+    await prepareProspect(db, l.id, d);
     const [p] = await db.select().from(schema.practices);
-    expect(p.name).toBe("Glowmedspa");
     const [after] = await db.select().from(schema.leads);
     expect(after.practiceName).toBe("Glow Aesthetics");
+    expect(p.name).toBe("Glow Aesthetics");
+    expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ practiceName: "Glow Aesthetics" }));
+  });
+
+  it("applies a name typed before the practice existed", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
+    const d = deps({
+      fetchLogo: async () => {
+        await attachContact(db, l.id, { practiceName: "Glow Aesthetics", contactName: "Dr. Kim", email: "kim@glow.example" } as never);
+        return null;
+      },
+    });
+    // The form lands before the lead points at its practice: simulate by typing first.
+    await db.update(schema.leads).set({ practiceName: "Glow Aesthetics", nameFromSite: false }).where(eq(schema.leads.id, l.id));
+    await prepareProspect(db, l.id, d);
+    const [p] = await db.select().from(schema.practices);
+    expect(p.name).toBe("Glow Aesthetics");
+    expect((await db.select().from(schema.leads))[0].practiceName).toBe("Glow Aesthetics");
   });
 
   it("scans a lead with no website on the standard questions", async () => {

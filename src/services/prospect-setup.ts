@@ -59,11 +59,14 @@ function nameFromDomain(website: string): string {
 /**
  * A business name for a lead that only gave a website: the first part of the
  * home page's title ("Harbor Plumbing | Austin plumbers" becomes "Harbor
- * Plumbing") when that is a plausible name, else the domain.
+ * Plumbing"; generic parts like "Home" are skipped) when that is a plausible
+ * name, else the domain.
  */
 export function nameFromTitle(title: string | null, website: string): string {
-  const first = (title ?? "").split(/ \| | - | \u2013 | \u2014 /)[0].trim();
-  return first.length >= 2 && first.length <= 80 ? first : nameFromDomain(website);
+  const generic = /^(home|welcome|homepage|home page)$/i;
+  const first = (title ?? "").split(/ \| | - | \u2013 | \u2014 /).map(t => t.trim())
+    .find(t => !generic.test(t) && t.length >= 2 && t.length <= 80);
+  return first ?? nameFromDomain(website);
 }
 
 /** How many more slugs to try when the chosen one turns out to be taken after all. */
@@ -129,7 +132,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
   const finish = async (status: "ready" | "needs_attention", practiceId: string | null) => {
     const note = notes.length ? notes.join(" ") : null;
     await db.update(leads).set({ status, note }).where(eq(leads.id, leadId));
-    await deps.notify({ practiceName: name, practiceId, status, note }).catch(() => undefined);
+    // The name now on the lead, which a visitor may have typed since setup began.
+    const [current] = await db.select({ practiceName: leads.practiceName }).from(leads).where(eq(leads.id, leadId));
+    await deps.notify({ practiceName: current?.practiceName ?? name, practiceId, status, note }).catch(() => undefined);
   };
 
   const setUp = async () => {
@@ -142,6 +147,14 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     practiceId = practice.id;
     await db.insert(nameVariations).values({ practiceId: practice.id, text: name });
     await db.update(leads).set({ practiceId: practice.id }).where(eq(leads.id, leadId));
+    // A name typed before the lead pointed at its practice couldn't rename
+    // the practice then, so it is applied now.
+    const [typed] = await db.select().from(leads).where(eq(leads.id, leadId));
+    if (typed && !typed.nameFromSite && known(typed.practiceName) && typed.practiceName !== name) {
+      name = typed.practiceName!.trim();
+      await db.update(practices).set({ name }).where(eq(practices.id, practice.id));
+      await db.update(nameVariations).set({ text: name }).where(eq(nameVariations.practiceId, practice.id));
+    }
 
     const logo = website ? await deps.fetchLogo?.(website).catch(() => null) : null;
     if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
@@ -151,15 +164,18 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     else if (pages.length === 0) notes.push("Their website couldn't be read, so the fact sheet is empty and nothing was fact-checked.");
 
     if (lead.nameFromSite && pages.length) {
-      // Read again now: a name typed in while the site was being fetched wins.
-      const [current] = await db.select({ nameFromSite: leads.nameFromSite }).from(leads).where(eq(leads.id, leadId));
+      // One conditional update: a name typed in meanwhile (which clears
+      // nameFromSite) is not overwritten, and then nothing else changes.
       const siteName = nameFromTitle(pages[0].title, website!);
-      if (current?.nameFromSite && siteName !== name) {
-        await db.update(practices).set({ name: siteName }).where(eq(practices.id, practice.id));
-        await db.update(nameVariations).set({ text: siteName })
-          .where(and(eq(nameVariations.practiceId, practice.id), eq(nameVariations.text, name)));
-        await db.update(leads).set({ practiceName: siteName }).where(eq(leads.id, leadId));
-        name = siteName;
+      if (siteName !== name) {
+        const [renamed] = await db.update(leads).set({ practiceName: siteName })
+          .where(and(eq(leads.id, leadId), eq(leads.nameFromSite, true))).returning({ id: leads.id });
+        if (renamed) {
+          await db.update(practices).set({ name: siteName }).where(eq(practices.id, practice.id));
+          await db.update(nameVariations).set({ text: siteName })
+            .where(and(eq(nameVariations.practiceId, practice.id), eq(nameVariations.text, name)));
+          name = siteName;
+        }
       }
     }
 
