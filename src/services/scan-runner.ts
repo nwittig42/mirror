@@ -312,6 +312,7 @@ export async function gatherStep(
     // from a namesake in another city or trade.
     const context = { category: practice.category, location: practice.location, website: practice.website };
     const tasks = buildTasks(promptRows, scan.runs, adapters);
+    if (scan.totalTasks == null) await db.update(scans).set({ totalTasks: tasks.length }).where(eq(scans.id, scanId));
     type Task = (typeof tasks)[number];
     type Answer = Awaited<ReturnType<EngineAdapter["run"]>>;
     const loadSaved = async () => new Map(

@@ -1167,6 +1167,18 @@ describe("a scan gathered in steps", () => {
     expect((await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) }))?.status).toBe("complete");
   });
 
+  it("records how many checks the scan has, once", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, {
+      name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }, { text: "Cheap", kind: "category" }],
+    });
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    expect((await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) }))?.totalTasks).toBeNull();
+    await gatherStep(db, scanId, [fakeAdapter("openai", "x"), fakeAdapter("perplexity", "x")], clean, async () => [],
+      { ...fast, startBy: Number.POSITIVE_INFINITY, stopBy: Number.POSITIVE_INFINITY });
+    expect((await db.query.scans.findFirst({ where: eq(scansTable.id, scanId) }))?.totalTasks).toBe(4);
+  });
+
   it("skips answers already saved", async () => {
     const db = await makeTestDb();
     const { practiceId, promptIds } = await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });

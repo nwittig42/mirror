@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { prepareProspect, finishProspect, type ProspectDeps } from "@/services/prospect-setup";
+import { prepareProspect, finishProspect, nameFromTitle, type ProspectDeps } from "@/services/prospect-setup";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
 
@@ -34,7 +34,84 @@ function deps(over: Partial<ProspectDeps> = {}): ProspectDeps {
 
 const noQuestions: ProspectDeps["draftQuestions"] = async () => ({ category: null, location: null, questions: [] });
 
+describe("nameFromTitle", () => {
+  it("takes the first part of the page title", () => {
+    expect(nameFromTitle("Harbor Plumbing | Austin plumbers", "https://harborplumbing.com")).toBe("Harbor Plumbing");
+    expect(nameFromTitle("Harbor Plumbing - Home", "harborplumbing.com")).toBe("Harbor Plumbing");
+    expect(nameFromTitle("Harbor Plumbing \u2013 Home", "harborplumbing.com")).toBe("Harbor Plumbing");
+    expect(nameFromTitle("Harbor Plumbing \u2014 Home", "harborplumbing.com")).toBe("Harbor Plumbing");
+  });
+  it("falls back to the domain when the title is missing, too short or too long", () => {
+    expect(nameFromTitle(null, "https://www.harborplumbing.com/about")).toBe("Harborplumbing");
+    expect(nameFromTitle("A | Home", "harborplumbing.com")).toBe("Harborplumbing");
+    expect(nameFromTitle("x".repeat(81), "harborplumbing.com")).toBe("Harborplumbing");
+    expect(nameFromTitle("   ", "harborplumbing.com")).toBe("Harborplumbing");
+  });
+});
+
 describe("prepareProspect", () => {
+  it("names a website-only lead from its page title", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
+    await prepareProspect(db, l.id, deps({ fetchPages: async () => [{ url: "https://glowmedspa.com", title: "Glow MedSpa | Austin", text: "Botox." }] }));
+    const [p] = await db.select().from(schema.practices);
+    expect(p.name).toBe("Glow MedSpa");
+    const [after] = await db.select().from(schema.leads);
+    expect(after.practiceName).toBe("Glow MedSpa");
+    expect((await db.select().from(schema.nameVariations)).map(v => v.text)).toEqual(["Glow MedSpa"]);
+  });
+
+  it("leaves a name typed in meanwhile alone", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
+    await prepareProspect(db, l.id, deps({
+      fetchPages: async () => {
+        await db.update(schema.leads).set({ practiceName: "Glow Aesthetics", nameFromSite: false }).where(eq(schema.leads.id, l.id));
+        return [{ url: "https://glowmedspa.com", title: "Glow MedSpa | Austin", text: "Botox." }];
+      },
+    }));
+    const [p] = await db.select().from(schema.practices);
+    expect(p.name).toBe("Glowmedspa");
+    const [after] = await db.select().from(schema.leads);
+    expect(after.practiceName).toBe("Glow Aesthetics");
+  });
+
+  it("scans a lead with no website on the standard questions", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { websiteUrl: null, category: "Med spa", location: "Austin, TX" });
+    const d = deps({ fetchPages: vi.fn(async () => []), draftFacts: vi.fn(async () => []), draftQuestions: vi.fn(async () => ({ category: null, location: null, questions: [] })) });
+    await prepareProspect(db, l.id, d);
+    expect(d.fetchPages).not.toHaveBeenCalled();
+    expect(d.draftFacts).not.toHaveBeenCalled();
+    expect(d.draftQuestions).not.toHaveBeenCalled();
+    const [p] = await db.select().from(schema.practices);
+    expect(p).toMatchObject({ name: "Glow MedSpa", website: null, category: "Med spa", location: "Austin, TX" });
+    expect((await db.select().from(schema.prompts)).length).toBeGreaterThan(0);
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("ready");
+    expect(after.note).toContain("No website, so there's no fact check.");
+  });
+
+  it("parks a no-website lead that lacks a category or location", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { websiteUrl: null, category: null, location: null });
+    await prepareProspect(db, l.id, deps());
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("needs_attention");
+    expect(await db.select().from(schema.scans)).toHaveLength(0);
+  });
+
+  it("finishes a lead with no email as ready without sending anything", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { contactName: null, email: null });
+    const d = deps();
+    await prepareProspect(db, l.id, d);
+    const [after] = await db.select().from(schema.leads);
+    expect(after.status).toBe("ready");
+    expect(after.auditEmailedAt).toBeNull();
+    expect(d.sendAudit).not.toHaveBeenCalled();
+  });
+
   it("creates a paused practice, fills its fact sheet and questions from the website, scans it, and says it's ready", async () => {
     const db = await makeTestDb();
     const l = await lead(db);

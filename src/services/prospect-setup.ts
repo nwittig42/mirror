@@ -49,6 +49,23 @@ function isUniqueViolation(err: unknown): boolean {
   return false;
 }
 
+/** The domain as a name: "https://www.harborplumbing.com/x" becomes "Harborplumbing". */
+function nameFromDomain(website: string): string {
+  const host = website.trim().replace(/^https?:\/\//i, "").split(/[/?#]/)[0].replace(/^www\./i, "");
+  const label = host.split(".")[0] || host;
+  return label.charAt(0).toUpperCase() + label.slice(1).toLowerCase();
+}
+
+/**
+ * A business name for a lead that only gave a website: the first part of the
+ * home page's title ("Harbor Plumbing | Austin plumbers" becomes "Harbor
+ * Plumbing") when that is a plausible name, else the domain.
+ */
+export function nameFromTitle(title: string | null, website: string): string {
+  const first = (title ?? "").split(/ \| | - | \u2013 | \u2014 /)[0].trim();
+  return first.length >= 2 && first.length <= 80 ? first : nameFromDomain(website);
+}
+
 /** How many more slugs to try when the chosen one turns out to be taken after all. */
 const SLUG_RETRIES = 3;
 
@@ -59,7 +76,7 @@ const SLUG_RETRIES = 3;
  * on the unique constraint; the loser treats the failed slug as taken and
  * tries the next suffix, instead of leaving its lead stuck in "preparing".
  */
-async function insertPractice(db: Db, row: { name: string; website: string; category: string | null; location: string | null }) {
+async function insertPractice(db: Db, row: { name: string; website: string | null; category: string | null; location: string | null }) {
   const taken = new Set((await db.select({ slug: practices.slug }).from(practices)).map(p => p.slug));
   for (let attempt = 0; ; attempt++) {
     const slug = uniqueSlug(row.name, taken);
@@ -99,8 +116,11 @@ async function insertPractice(db: Db, row: { name: string; website: string; cate
 export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps): Promise<void> {
   const [row] = await db.select().from(leads).where(eq(leads.id, leadId));
   if (!row || row.practiceId) return;
-  // Leads may now lack these until task 2 handles that; keep the old behaviour.
-  const lead = { ...row, practiceName: row.practiceName ?? "", websiteUrl: row.websiteUrl ?? "" };
+  const lead = row;
+  const hasWebsite = !!known(lead.websiteUrl);
+  // A lead that gave only a website starts under a name guessed from its
+  // domain, renamed once the home page has been read.
+  let name = known(lead.practiceName) ?? (hasWebsite ? nameFromTitle(null, lead.websiteUrl!) : "");
 
   const notes: string[] = [];
   // Null until the practice row exists, so an early failure's notification
@@ -109,26 +129,42 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
   const finish = async (status: "ready" | "needs_attention", practiceId: string | null) => {
     const note = notes.length ? notes.join(" ") : null;
     await db.update(leads).set({ status, note }).where(eq(leads.id, leadId));
-    await deps.notify({ practiceName: lead.practiceName, practiceId, status, note }).catch(() => undefined);
+    await deps.notify({ practiceName: name, practiceId, status, note }).catch(() => undefined);
   };
 
   const setUp = async () => {
-    const website = /^https?:\/\//i.test(lead.websiteUrl) ? lead.websiteUrl : `https://${lead.websiteUrl}`;
+    if (!name) throw new Error("The lead has neither a name nor a website");
+    const websiteUrl = known(lead.websiteUrl);
+    const website = websiteUrl ? (/^https?:\/\//i.test(websiteUrl) ? websiteUrl : `https://${websiteUrl}`) : null;
     const leadCategory = known(lead.category);
     const leadLocation = known(lead.location);
-    const practice = await insertPractice(db, { name: lead.practiceName, website, category: leadCategory, location: leadLocation });
+    const practice = await insertPractice(db, { name, website, category: leadCategory, location: leadLocation });
     practiceId = practice.id;
-    await db.insert(nameVariations).values({ practiceId: practice.id, text: lead.practiceName });
+    await db.insert(nameVariations).values({ practiceId: practice.id, text: name });
     await db.update(leads).set({ practiceId: practice.id }).where(eq(leads.id, leadId));
 
-    const logo = await deps.fetchLogo?.(website).catch(() => null);
+    const logo = website ? await deps.fetchLogo?.(website).catch(() => null) : null;
     if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
 
-    const pages = await deps.fetchPages(website).catch(() => [] as SitePage[]);
-    if (pages.length === 0) notes.push("Their website couldn't be read, so the fact sheet is empty and nothing was fact-checked.");
+    const pages = website ? await deps.fetchPages(website).catch(() => [] as SitePage[]) : [];
+    if (!website) notes.push("No website, so there's no fact check.");
+    else if (pages.length === 0) notes.push("Their website couldn't be read, so the fact sheet is empty and nothing was fact-checked.");
+
+    if (lead.nameFromSite && pages.length) {
+      // Read again now: a name typed in while the site was being fetched wins.
+      const [current] = await db.select({ nameFromSite: leads.nameFromSite }).from(leads).where(eq(leads.id, leadId));
+      const siteName = nameFromTitle(pages[0].title, website!);
+      if (current?.nameFromSite && siteName !== name) {
+        await db.update(practices).set({ name: siteName }).where(eq(practices.id, practice.id));
+        await db.update(nameVariations).set({ text: siteName })
+          .where(and(eq(nameVariations.practiceId, practice.id), eq(nameVariations.text, name)));
+        await db.update(leads).set({ practiceName: siteName }).where(eq(leads.id, leadId));
+        name = siteName;
+      }
+    }
 
     const drafted = pages.length
-      ? await deps.draftFacts({ businessName: lead.practiceName, pages }).catch(() => [] as DraftFact[])
+      ? await deps.draftFacts({ businessName: name, pages }).catch(() => [] as DraftFact[])
       : [];
     const seen = new Set<string>();
     const factRows = drafted.filter(f => !seen.has(f.label.toLowerCase()) && seen.add(f.label.toLowerCase()));
@@ -141,7 +177,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
       notes.push("No facts could be drafted from their website.");
     }
 
-    const q = await deps.draftQuestions({ businessName: lead.practiceName, pages, category: leadCategory, location: leadLocation })
+    const q = !website
+      ? ({ category: null, location: null, questions: [] }) as DraftQuestions
+      : await deps.draftQuestions({ businessName: name, pages, category: leadCategory, location: leadLocation })
       .catch(() => ({ category: null, location: null, questions: [] }) as DraftQuestions);
     const category = leadCategory ?? known(q.category);
     const location = leadLocation ?? known(q.location);
@@ -149,6 +187,7 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
 
     let questions: DraftQuestions["questions"] = q.questions;
     let questionsLine = `${questions.length} questions drafted from ${website}`;
+    const fromWhere = website ? `from ${website}` : "without a website";
     if (questions.length === 0) {
       // The standard questions all name the location, so without one (or
       // without knowing what kind of business to ask about) they would ask
@@ -159,11 +198,13 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
         notes.push("No buyer questions could be drafted. Add them on the business page, then run the scan.");
         return finish("needs_attention", practice.id);
       }
-      questions = generateFallbackPrompts({ name: lead.practiceName, category, location });
-      questionsLine = `${questions.length} standard questions for "${category}" in ${location} (none could be drafted from ${website})`;
+      questions = generateFallbackPrompts({ name, category, location });
+      questionsLine = `${questions.length} standard questions for "${category}" in ${location} (none could be drafted ${fromWhere})`;
       await logActivity(db, practice.id,
-        `no buyer questions could be drafted from ${website}, so the standard set for "${category}" in ${location} was used`);
-      notes.push(`Buyer questions couldn't be drafted from their website, so the standard questions for "${category}" in ${location} were used. Review them on the business page.`);
+        `no buyer questions could be drafted ${fromWhere}, so the standard set for "${category}" in ${location} was used`);
+      notes.push(website
+        ? `Buyer questions couldn't be drafted from their website, so the standard questions for "${category}" in ${location} were used. Review them on the business page.`
+        : `The standard questions for "${category}" in ${location} were used. Review them on the business page.`);
     }
     await db.insert(prompts).values(questions.map(x => ({ practiceId: practice.id, text: x.text, kind: x.kind })));
     await logActivity(db, practice.id, `set up from the booking form: ${factRows.length} facts, ${questionsLine}`);
@@ -209,12 +250,12 @@ export async function finishProspect(
   const [row] = await db.select().from(leads)
     .where(and(eq(leads.practiceId, practiceId), eq(leads.status, "preparing")));
   if (!row) return;
-  const lead = { ...row, practiceName: row.practiceName ?? "", email: row.email ?? "", contactName: row.contactName ?? "" };
+  const lead = row;
   const notes = lead.note ? [lead.note] : [];
   const finish = async (status: "ready" | "needs_attention") => {
     const note = notes.length ? notes.join(" ") : null;
     await db.update(leads).set({ status, note }).where(eq(leads.id, lead.id));
-    await deps.notify({ practiceName: lead.practiceName, practiceId, status, note }).catch(() => undefined);
+    await deps.notify({ practiceName: lead.practiceName ?? "", practiceId, status, note }).catch(() => undefined);
   };
 
   if ("error" in outcome) {
@@ -225,10 +266,13 @@ export async function finishProspect(
     notes.push(`The first scan was blocked. ${blockedReason(outcome.coverage)}`);
     return finish("needs_attention");
   }
+  // No email yet: the visitor hasn't left their details, so there is nobody
+  // to send to; the report is still ready.
+  if (!lead.email) return finish("ready");
   // The prospect's report: no fact check, since the facts it would check
   // against haven't been reviewed. A failed send is noted, not fatal.
   try {
-    await deps.sendAudit(db, practiceId, { email: lead.email, contactName: lead.contactName });
+    await deps.sendAudit(db, practiceId, { email: lead.email, contactName: lead.contactName ?? "" });
     await db.update(leads).set({ auditEmailedAt: new Date() }).where(eq(leads.id, lead.id));
   } catch {
     notes.push("Their report email couldn't be sent. Send them the summary report yourself.");
