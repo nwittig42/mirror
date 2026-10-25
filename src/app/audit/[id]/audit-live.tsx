@@ -67,13 +67,15 @@ export function AuditLive({ leadId, initial, notStarted }: {
   }, [leadId, router, settledAtStart]);
 
   const current = stepIndex(progress);
-  const heading = progress.stage === "done" ? "Your audit is ready" : "Your audit is running";
+  // Failed and not-started won't finish by themselves, so neither the running heading nor the time applies.
+  const stuck = progress.stage === "failed" || progress.stage === "not-started";
+  const heading = progress.stage === "done" ? "Your audit is ready" : stuck ? "Your audit" : "Your audit is running";
 
   return (
     <div>
       <span className="mk-eyebrow">{progress.businessName ? `Free audit · ${progress.businessName}` : "Free audit"}</span>
       <h1 className="lp-h2" style={{ marginTop: 18 }}>{heading}</h1>
-      <p className="mk-lede" style={{ fontSize: 17, marginTop: 12 }}>This takes 5-7 minutes.</p>
+      {!stuck && <p className="mk-lede" style={{ fontSize: 17, marginTop: 12 }}>This takes 5-7 minutes.</p>}
 
       {progress.stage === "failed" ? (
         <p className="mk-form-alert" role="status" style={{ marginTop: 28 }}>

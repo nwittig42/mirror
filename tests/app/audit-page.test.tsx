@@ -7,6 +7,7 @@ import { leads, practices } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { runScan } from "@/services/scan-runner";
 import { createInvite } from "@/services/account-invites";
+import { NOT_PREPARED_NOTE } from "@/services/leads";
 import type { EngineAdapter } from "@/engines/types";
 
 // The pages' forms import the server actions, which sign people in; nothing here submits one.
@@ -103,7 +104,7 @@ describe("the audit page", () => {
   });
 
   it("says why an audit wasn't started: a repeat of the same site, or the daily limit", async () => {
-    const note = "Not set up automatically";
+    const note = `${NOT_PREPARED_NOTE}: this website was already booked, or today's limit was reached.`;
     await seedLead({ websiteUrl: "https://www.harbor.example/" });
     const repeat = await seedLead({ websiteUrl: "harbor.example", status: "needs_attention", note });
     expect(text(await audit(repeat.id))).toContain("We've already started an audit for this site today. Leave your details and we'll send it.");
@@ -115,6 +116,24 @@ describe("the audit page", () => {
     const practiceId = await scannedPractice();
     const lead = await seedLead({ practiceId, status: "needs_attention" });
     expect(text(await audit(lead.id))).toContain("Something went wrong on our side. We'll finish your audit by hand and email it to you.");
+  });
+
+  it("says so when setup broke before the business existed, not that we're at capacity", async () => {
+    const lead = await seedLead({ status: "needs_attention", note: "Setup failed: x" });
+    const page = text(await audit(lead.id));
+    expect(page).toContain("Something went wrong on our side. We'll finish your audit by hand and email it to you.");
+    expect(page).not.toContain("We're at capacity today");
+  });
+
+  it("drops the running heading and the time line once the audit won't run on its own", async () => {
+    const failed = await seedLead({ status: "needs_attention", note: "Setup failed: x" });
+    const skipped = await seedLead({ websiteUrl: "skipped.example", status: "needs_attention", note: NOT_PREPARED_NOTE });
+    for (const lead of [failed, skipped]) {
+      const page = text(await audit(lead.id));
+      expect(page).toMatch(/<h1[^>]*>Your audit<\/h1>/);
+      expect(page).not.toContain("Your audit is running");
+      expect(page).not.toContain("This takes 5-7 minutes");
+    }
   });
 
   describe("when the audit is done", () => {

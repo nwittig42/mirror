@@ -10,6 +10,9 @@ import type { Db } from "@/db";
  */
 export async function makeTestDb(): Promise<Db> {
   const client = new PGlite();
+  // UTC, as Neon is. PGlite takes the machine's zone otherwise, and then a
+  // defaultNow() timestamp reads back hours off from Date.now().
+  await client.exec("SET TIME ZONE 'UTC'");
   const db = drizzle(client, { schema });
   const { pushSchema } = await import("drizzle-kit/api");
   const { apply } = await pushSchema(schema, db as never);

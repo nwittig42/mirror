@@ -1,6 +1,7 @@
 import { count, desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { leads, prompts, scanAnswers, scans } from "@/db/schema";
+import { NOT_PREPARED_NOTE } from "@/services/leads";
 
 export type AuditStage = "reading" | "asking" | "writing" | "done" | "failed" | "not-started";
 
@@ -13,6 +14,9 @@ export type AuditProgress = {
   hasEmail: boolean;
   email: string | null;
 };
+
+/** A preparing lead with nothing under way after this long has lost its setup. */
+const STALE_MS = 15 * 60_000;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,13 +35,20 @@ export async function auditProgress(db: Db, leadId: string): Promise<AuditProgre
   const at = (stage: AuditStage, percent: number, answers = 0, total: number | null = null): AuditProgress =>
     ({ stage, percent, answers, total, ...base });
 
-  // Not scanned at all (the daily cap or a repeat) vs. set up but broken.
-  if (lead.status === "needs_attention") return lead.practiceId ? at("failed", 0) : at("not-started", 0);
+  // Not scanned at all (the daily cap or a repeat, which markNotPrepared
+  // notes) vs. a setup that broke, before or after the business existed.
+  if (lead.status === "needs_attention") {
+    return !lead.practiceId && lead.note?.startsWith(NOT_PREPARED_NOTE) ? at("not-started", 0) : at("failed", 0);
+  }
   if (lead.status === "ready") return at("done", 100);
-  if (!lead.practiceId) return at("reading", 5);
+  // Setup runs in the background of the start request, and a killed one never
+  // marks the lead. Past this long with nothing under way, it isn't coming.
+  const stale = Date.now() - lead.createdAt.getTime() > STALE_MS;
+  if (!lead.practiceId) return stale ? at("failed", 0) : at("reading", 5);
 
   const [scan] = await db.select().from(scans).where(eq(scans.practiceId, lead.practiceId))
     .orderBy(desc(scans.startedAt)).limit(1);
+  if (stale && scan?.status !== "running" && scan?.status !== "complete") return at("failed", 0);
   if (!scan) {
     const [{ n }] = await db.select({ n: count() }).from(prompts).where(eq(prompts.practiceId, lead.practiceId));
     return at("reading", n > 0 ? 15 : 8);

@@ -3,6 +3,7 @@ import { makeTestDb, seedPractice } from "../helpers/db";
 import type { Db } from "@/db";
 import * as schema from "@/db/schema";
 import { auditProgress, isUuid } from "@/services/audit-progress";
+import { NOT_PREPARED_NOTE } from "@/services/leads";
 
 let db: Db;
 beforeEach(async () => { db = await makeTestDb(); });
@@ -34,8 +35,40 @@ describe("auditProgress", () => {
   });
 
   it("is not-started for a lead skipped by the cap, with no business", async () => {
-    const row = await lead({ status: "needs_attention" });
+    const row = await lead({ status: "needs_attention", note: `${NOT_PREPARED_NOTE}: this website was already booked.` });
     expect(await auditProgress(db, row.id)).toMatchObject({ stage: "not-started" });
+  });
+
+  it("fails a lead whose setup broke before the business existed", async () => {
+    const broken = await lead({ status: "needs_attention", note: "Setup failed: x" });
+    expect(await auditProgress(db, broken.id)).toMatchObject({ stage: "failed" });
+    const noNote = await lead({ status: "needs_attention" });
+    expect(await auditProgress(db, noNote.id)).toMatchObject({ stage: "failed" });
+  });
+
+  describe("a lead still preparing after 15 minutes", () => {
+    const old = () => new Date(Date.now() - 16 * 60_000);
+
+    it("fails with no business, or a business with no scan under way", async () => {
+      const bare = await lead({ createdAt: old() });
+      expect(await auditProgress(db, bare.id)).toMatchObject({ stage: "failed" });
+      const { row } = await withPractice({ createdAt: old() });
+      expect(await auditProgress(db, row.id)).toMatchObject({ stage: "failed" });
+    });
+
+    it("fails when its only scan stopped, but not while one is running", async () => {
+      const { seeded, row } = await withPractice({ createdAt: old() });
+      const [scan] = await db.insert(schema.scans).values({ practiceId: seeded.practiceId, totalTasks: 4 }).returning();
+      expect(await auditProgress(db, row.id)).toMatchObject({ stage: "asking" });
+      await db.update(schema.scans).set({ status: "failed" });
+      expect(scan.status).toBe("running");
+      expect(await auditProgress(db, row.id)).toMatchObject({ stage: "failed" });
+    });
+
+    it("keeps reading before 15 minutes", async () => {
+      const row = await lead({ createdAt: new Date(Date.now() - 14 * 60_000) });
+      expect(await auditProgress(db, row.id)).toMatchObject({ stage: "reading" });
+    });
   });
 
   it("fails a needs-attention lead that has a business", async () => {

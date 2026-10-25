@@ -107,10 +107,16 @@ export async function isRepeatSite(db: Db, leadId: string): Promise<boolean> {
   return earlier.some(o => o.websiteUrl && siteKey(o.websiteUrl) === siteKey(mine));
 }
 
+/**
+ * How markNotPrepared's note starts. The audit page reads it to tell a lead
+ * that was never set up from one whose setup broke before the business existed.
+ */
+export const NOT_PREPARED_NOTE = "Not set up automatically";
+
 /** Marks a lead that won't be set up automatically, so admin doesn't show it "preparing" forever. */
 export async function markNotPrepared(db: Db, leadId: string): Promise<void> {
   await db.update(leads).set({
     status: "needs_attention",
-    note: "Not set up automatically: this website was already booked in the last day, or today's limit of automatic scans was reached. Set it up by hand if it's real.",
+    note: `${NOT_PREPARED_NOTE}: this website was already booked in the last day, or today's limit of automatic scans was reached. Set it up by hand if it's real.`,
   }).where(eq(leads.id, leadId));
 }
