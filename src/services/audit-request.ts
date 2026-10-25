@@ -64,9 +64,12 @@ export function composeAuditRequest(req: AuditRequest): { subject: string; html:
 
   const rows = [
     row("Business", escapeHtml(req.practiceName)),
+    // A lead with no website is passed as plain text ("No website"), not a link.
     row(
       "Website",
-      `<a href="${escapeHtml(req.websiteUrl)}" style="color:#2563eb;">${escapeHtml(req.websiteUrl)}</a>`,
+      /^https?:\/\//i.test(req.websiteUrl)
+        ? `<a href="${escapeHtml(req.websiteUrl)}" style="color:#2563eb;">${escapeHtml(req.websiteUrl)}</a>`
+        : escapeHtml(req.websiteUrl),
     ),
     // Kept next to the website so the operator reads what the business is
     // and where before who sent it.

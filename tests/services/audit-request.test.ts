@@ -261,3 +261,25 @@ describe("audit confirmation", () => {
     expect(calls).toEqual([expect.objectContaining({ to: ["kim@glow.example"], replyTo: "sales@mirror.example" })]);
   });
 });
+
+describe("composeAuditRequest for a lead with no website", () => {
+  it("shows No website as plain text, never as a link", async () => {
+    const { composeAuditRequest } = await import("@/services/audit-request");
+    const { html } = composeAuditRequest({
+      practiceName: "Glow MedSpa", websiteUrl: "No website", category: "", location: "",
+      contactName: "Dr. Kim", email: "kim@glow.example", phone: "", bestTimes: "",
+    });
+    expect(html).toContain("No website");
+    expect(html).not.toContain('href="No website"');
+    expect(html).not.toMatch(/<a href="(?!mailto:)/);
+  });
+
+  it("still links a real website", async () => {
+    const { composeAuditRequest } = await import("@/services/audit-request");
+    const { html } = composeAuditRequest({
+      practiceName: "Glow MedSpa", websiteUrl: "https://glow.example", category: "", location: "",
+      contactName: "Dr. Kim", email: "kim@glow.example", phone: "", bestTimes: "",
+    });
+    expect(html).toContain('<a href="https://glow.example"');
+  });
+});

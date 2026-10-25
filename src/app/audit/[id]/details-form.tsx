@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { submitDetails, type DetailsState } from "../actions";
 import { ThankYou } from "./thank-you";
 
@@ -47,6 +48,16 @@ export function DetailsForm({ leadId, prefill, websiteUrl, calendlyUrl }: {
   // The action answers with the email only, so the typed name and business
   // are kept here for the scheduler's prefill.
   const [typed, setTyped] = useState<{ contactName?: string; practiceName?: string }>({});
+  // Once the details are in, the server re-renders so the page knows the
+  // email (the account form below no longer asks for it). Once only.
+  const router = useRouter();
+  const refreshed = useRef(false);
+  useEffect(() => {
+    if (state.status === "success" && !refreshed.current) {
+      refreshed.current = true;
+      router.refresh();
+    }
+  }, [state.status, router]);
 
   if (state.status === "success" && state.email) {
     return (

@@ -145,6 +145,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     const leadLocation = known(lead.location);
     const practice = await insertPractice(db, { name, website, category: leadCategory, location: leadLocation });
     practiceId = practice.id;
+    // A lead with no name yet (website only) takes the name the practice was
+    // given. Conditional, so a name typed in meanwhile always wins.
+    await db.update(leads).set({ practiceName: name }).where(and(eq(leads.id, leadId), isNull(leads.practiceName)));
     await db.insert(nameVariations).values({ practiceId: practice.id, text: name });
     await db.update(leads).set({ practiceId: practice.id }).where(eq(leads.id, leadId));
     // A name typed before the lead pointed at its practice couldn't rename
@@ -271,7 +274,8 @@ export async function finishProspect(
   const finish = async (status: "ready" | "needs_attention") => {
     const note = notes.length ? notes.join(" ") : null;
     await db.update(leads).set({ status, note }).where(eq(leads.id, lead.id));
-    await deps.notify({ practiceName: lead.practiceName ?? "", practiceId, status, note }).catch(() => undefined);
+    const [practice] = await db.select({ name: practices.name }).from(practices).where(eq(practices.id, practiceId));
+    await deps.notify({ practiceName: lead.practiceName ?? practice?.name ?? "", practiceId, status, note }).catch(() => undefined);
   };
 
   if ("error" in outcome) {
@@ -282,11 +286,13 @@ export async function finishProspect(
     notes.push(`The first scan was blocked. ${blockedReason(outcome.coverage)}`);
     return finish("needs_attention");
   }
-  // No email yet: the visitor hasn't left their details, so there is nobody
-  // to send to; the report is still ready.
-  if (!lead.email) return finish("ready");
-  // The prospect's report: no fact check, since the facts it would check
-  // against haven't been reviewed. A failed send is noted, not fatal.
+  // Ready is marked first, then the send re-reads the lead's email: details
+  // that arrive while this runs are then caught by one side or the other
+  // (submitDetails sends when it finds the lead ready), never neither. With no
+  // email the send is skipped and the report is still ready. The prospect's
+  // report has no fact check, since the facts it would check against haven't
+  // been reviewed. A failed send is noted, not fatal.
+  await db.update(leads).set({ status: "ready" }).where(eq(leads.id, lead.id));
   try {
     await sendReportOnce(db, lead.id, deps);
   } catch {

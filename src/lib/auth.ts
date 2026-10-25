@@ -172,7 +172,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth(() => {
         // from.
         if (
           account?.provider === "resend" &&
-          user.email?.toLowerCase() === env.OPERATOR_EMAIL.toLowerCase()
+          user.email?.toLowerCase() === env.OPERATOR_EMAIL.trim().toLowerCase()
         ) {
           return false;
         }

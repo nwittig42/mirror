@@ -84,15 +84,17 @@ export default async function AdminPage() {
                   <li key={l.id} className="flex flex-wrap items-start justify-between gap-3 py-3.5">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-[15px] font-semibold text-ink">{l.practiceName}</span>
+                        <span className="text-[15px] font-semibold text-ink">{l.practiceName || "Unnamed business"}</span>
                         <Tag tone={st.tone}>{st.label}</Tag>
                       </div>
                       {(l.category || l.location) && (
                         <div className="text-[14px] text-ink-soft">{[l.category, l.location].filter(Boolean).join(" · ")}</div>
                       )}
                       <div className="break-words text-[13px] text-muted">
-                        {l.contactName} · <a href={`mailto:${l.email}`} className="hover:text-gold hover:underline">{l.email}</a>
-                        {l.phone ? ` · ${l.phone}` : ""} · {l.websiteUrl} · booked {formatDate(l.createdAt)}
+                        {l.email ? (
+                          <>{l.contactName} · <a href={`mailto:${l.email}`} className="hover:text-gold hover:underline">{l.email}</a></>
+                        ) : "No details yet"}
+                        {l.phone ? ` · ${l.phone}` : ""} · {l.websiteUrl || "No website"} · booked {formatDate(l.createdAt)}
                       </div>
                       {l.bestTimes && <div className="text-[13px] text-muted">Best times: {l.bestTimes}</div>}
                       {l.note && <div className="mt-1 text-[13px] font-medium text-gold">{l.note}</div>}

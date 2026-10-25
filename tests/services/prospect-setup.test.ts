@@ -395,6 +395,82 @@ describe("a lead whose scan runs in steps", () => {
   });
 });
 
+describe("a lead's name when the website gives none", () => {
+  it("gets the domain name on the lead and in the operator notice when the pages come back empty", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
+    const d = deps({ fetchPages: async () => [] });
+    await prepareProspect(db, l.id, d);
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.practiceName).toBe("Glowmedspa");
+    expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ practiceName: "Glowmedspa" }));
+  });
+
+  it("never overwrites a name already on the lead", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: "Glow Aesthetics" });
+    await prepareProspect(db, l.id, deps({ fetchPages: async () => [] }));
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.practiceName).toBe("Glow Aesthetics");
+  });
+
+  it("falls back to the practice's name when finishing a lead that has none", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
+    const d = deps({ scan: async () => "started" });
+    await prepareProspect(db, l.id, d);
+    const [p] = await db.select().from(schema.practices);
+    await db.update(schema.leads).set({ practiceName: null }).where(eq(schema.leads.id, l.id));
+    await finishProspect(db, p.id, { error: "boom" }, d);
+    expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ practiceName: p.name }));
+  });
+});
+
+describe("the report email race", () => {
+  it("still sends the report once when the details arrive just after the scan result was read", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db, { contactName: null, email: null });
+    const d = deps({ scan: async () => "started" });
+    await prepareProspect(db, l.id, d);
+    const [p] = await db.select().from(schema.practices);
+    const result = await runScan(db, p.id, [adapter], async () => ({ wrong: [], right: [] }), async () => [],
+      { retryDelaysMs: [], finalRetryDelayMs: 0 });
+    // The visitor's details land right after finishProspect read the lead, before it wrote anything.
+    const afterRead = (builder: object, hook: () => Promise<void>): object => new Proxy(builder, {
+      get(target, prop) {
+        const value = Reflect.get(target, prop, target);
+        if (prop === "then") {
+          return (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
+            (value as (f: (v: unknown) => Promise<unknown>) => Promise<unknown>).call(target, async rows => { await hook(); return rows; }).then(res, rej);
+        }
+        if (typeof value !== "function") return value;
+        return (...args: unknown[]) => {
+          const out = value.apply(target, args);
+          return out && typeof out === "object" && typeof (out as { then?: unknown }).then === "function" ? afterRead(out, hook) : out;
+        };
+      },
+    });
+    let added = false;
+    const hooked = new Proxy(db, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (typeof value !== "function") return value;
+        if (prop !== "select" || added) return value.bind(target);
+        added = true;
+        return (...args: unknown[]) => afterRead(value.apply(target, args), async () => {
+          await attachContact(db, l.id, { practiceName: "Glow MedSpa", contactName: "Dr. Kim", email: "kim@glow.example" } as never);
+        });
+      },
+    }) as Db;
+    await finishProspect(hooked, p.id, result, d);
+    expect(added).toBe(true);
+    expect(d.sendAudit).toHaveBeenCalledTimes(1);
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.status).toBe("ready");
+    expect(after.auditEmailedAt).toBeInstanceOf(Date);
+  });
+});
+
 describe("sendReportOnce", () => {
   async function prepared(extra: Partial<typeof schema.leads.$inferInsert> = {}) {
     const db = await makeTestDb();
