@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import type { Db } from "@/db";
 import { facts, leads, nameVariations, practices, prompts } from "@/db/schema";
 import { uniqueSlug } from "@/core/slug";
@@ -288,10 +288,31 @@ export async function finishProspect(
   // The prospect's report: no fact check, since the facts it would check
   // against haven't been reviewed. A failed send is noted, not fatal.
   try {
-    await deps.sendAudit(db, practiceId, { email: lead.email, contactName: lead.contactName ?? "" });
-    await db.update(leads).set({ auditEmailedAt: new Date() }).where(eq(leads.id, lead.id));
+    await sendReportOnce(db, lead.id, deps);
   } catch {
     notes.push("Their report email couldn't be sent. Send them the summary report yourself.");
   }
   return finish("ready");
+}
+
+/**
+ * Emails the lead their report, once. The send is claimed first with a
+ * conditional update (only a lead not yet emailed matches), so two calls at
+ * the same moment send one email. A failed send gives the claim back so a
+ * later call can try again, and the error is rethrown. Returns true if this
+ * call sent, false if it was skipped (already sent, no email, no practice).
+ */
+export async function sendReportOnce(db: Db, leadId: string, deps: Pick<ProspectDeps, "sendAudit">): Promise<boolean> {
+  const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!lead?.email || !lead.practiceId || lead.auditEmailedAt) return false;
+  const [claimed] = await db.update(leads).set({ auditEmailedAt: new Date() })
+    .where(and(eq(leads.id, leadId), isNull(leads.auditEmailedAt))).returning({ id: leads.id });
+  if (!claimed) return false;
+  try {
+    await deps.sendAudit(db, lead.practiceId, { email: lead.email, contactName: lead.contactName ?? "" });
+  } catch (err) {
+    await db.update(leads).set({ auditEmailedAt: null }).where(eq(leads.id, leadId));
+    throw err;
+  }
+  return true;
 }

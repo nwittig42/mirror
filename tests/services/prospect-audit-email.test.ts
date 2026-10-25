@@ -52,25 +52,26 @@ describe("sendProspectReport", () => {
 });
 
 describe("the prospect's login", () => {
-  const login = { email: "dale@harbor-plumbing.example", password: "KXQM-7RTD-2WPH", url: "https://mirror.example/login" };
+  const login = { email: "dale@harbor-plumbing.example", setupUrl: "https://mirror.example/welcome?token=abc123", loginUrl: "https://mirror.example/login" };
 
-  it("puts their dashboard link, email and temporary password in the email", () => {
+  it("gives a set-up link and no temporary password", () => {
     const body = unescape(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror", login }).html);
-    expect(body).toContain("Your dashboard is ready");
-    expect(body).toContain('href="https://mirror.example/login"');
-    expect(body).toContain("dale@harbor-plumbing.example");
-    expect(body).toContain("KXQM-7RTD-2WPH");
-    expect(body).toMatch(/choose your own the first time you sign in/);
-    expect(body).toMatch(/open after your call/);
-  });
-
-  it("tells someone who already has a password to use it, and shows none", () => {
-    const body = unescape(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror", login: { ...login, password: null } }).html);
-    expect(body).toContain("Sign in with the password you already use.");
+    expect(body).toContain("Your account");
+    expect(body).toContain("Choose a password to see your full audit.");
+    expect(body).toContain("Set up your account");
+    expect(body).toContain('href="https://mirror.example/welcome?token=abc123"');
     expect(body).not.toContain("Temporary password");
   });
 
-  it("says nothing about a dashboard when no login was made", () => {
-    expect(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror" }).html).not.toContain("Your dashboard is ready");
+  it("tells someone who already has a password to log in with their email", () => {
+    const body = unescape(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror", login: { ...login, setupUrl: null } }).html);
+    expect(body).toContain("Log in with dale@harbor-plumbing.example to see your full audit.");
+    expect(body).toContain('href="https://mirror.example/login"');
+    expect(body).not.toContain("welcome?token");
+    expect(body).not.toContain("Set up your account");
+  });
+
+  it("says nothing about an account when no login was made", () => {
+    expect(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror" }).html).not.toContain("Your account");
   });
 });

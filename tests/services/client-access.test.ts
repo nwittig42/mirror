@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import type { Db } from "@/db";
-import { practiceMembers, practices, users } from "@/db/schema";
-import { verifyPassword } from "@/lib/password";
+import { accountInvites, practiceMembers, practices, users } from "@/db/schema";
+import { hashPassword, verifyPassword } from "@/lib/password";
+import { redeemInvite } from "@/services/account-invites";
 import { grantClientLogin, OperatorAddressError } from "@/services/client-access";
 import { runScan } from "@/services/scan-runner";
 import { sendProspectReportFor, type ReportEmail } from "@/services/prospect-audit-email";
@@ -70,20 +71,32 @@ describe("sendProspectReportFor", () => {
     return { db, practiceId };
   }
 
-  it("makes the prospect a login and emails it with their summary", async () => {
+  it("emails the prospect a set-up link, without making the login yet", async () => {
     const { db, practiceId } = await scanned();
     const sent: ReportEmail[] = [];
     await sendProspectReportFor(db, practiceId, { email: "dale@harbor.example", contactName: "Dale" },
       async email => { sent.push(email); }, async () => Buffer.from("%PDF-1"));
 
-    const [user] = await db.select().from(users);
-    expect(user).toMatchObject({ email: "dale@harbor.example", role: "client", mustChangePassword: true });
+    expect(await db.select().from(users)).toEqual([]);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toBe("dale@harbor.example");
     expect(sent[0].attachments).toHaveLength(1);
+    const token = /href="https:\/\/mirror\.example\/welcome\?token=([^"]+)"/.exec(sent[0].html)?.[1];
+    expect(token).toBeTruthy();
+    expect(sent[0].html).not.toContain("Temporary password");
+    expect((await redeemInvite(db, token!, "a-long-enough-password")).ok).toBe(true);
+  });
+
+  it("sends someone who already has a password to log in, with no set-up link", async () => {
+    const { db, practiceId } = await scanned();
+    await db.insert(users).values({ email: "dale@harbor.example", role: "client", passwordHash: await hashPassword("their-own-password") });
+    const sent: ReportEmail[] = [];
+    await sendProspectReportFor(db, practiceId, { email: "dale@harbor.example", contactName: "Dale" },
+      async email => { sent.push(email); }, async () => Buffer.from("%PDF-1"));
     expect(sent[0].html).toContain('href="https://mirror.example/login"');
-    const password = /Temporary password: <strong[^>]*>([^<]+)</.exec(sent[0].html)?.[1];
-    expect(await verifyPassword(password!, user.passwordHash)).toBe(true);
+    expect(sent[0].html).not.toContain("welcome?token");
+    expect(await db.select().from(accountInvites)).toEqual([]);
+    expect(await db.select().from(practiceMembers)).toHaveLength(1);
   });
 
   it("still sends the report, without a login, when the address is the operator's", async () => {
@@ -93,6 +106,6 @@ describe("sendProspectReportFor", () => {
     await sendProspectReportFor(db, practiceId, { email: "nick@mirror.example", contactName: "Nick" },
       async email => { sent.push(email); }, async () => Buffer.from("%PDF-1"));
     expect(sent).toHaveLength(1);
-    expect(sent[0].html).not.toContain("Your dashboard is ready");
+    expect(sent[0].html).not.toContain("Your account");
   });
 });

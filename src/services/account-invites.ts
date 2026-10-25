@@ -1,0 +1,74 @@
+import { createHash, randomBytes } from "node:crypto";
+import { and, eq, isNull } from "drizzle-orm";
+import type { Db } from "@/db";
+import { accountInvites, practiceMembers, users } from "@/db/schema";
+import { hashPassword } from "@/lib/password";
+import { MIN_PASSWORD_LENGTH } from "@/lib/password-policy";
+
+/**
+ * Set-up links. A prospect's report email carries a link; opening it lets them
+ * choose their own password, which creates their client login. The link holds
+ * a random token, and only its hash is stored, so a copy of the table can't
+ * be used to set anyone's password.
+ */
+
+const INVITE_DAYS = 14;
+
+export type AccountResult =
+  | { ok: true; email: string }
+  | { ok: false; reason: "invalid" | "used" | "expired" | "has-account" | "weak" };
+
+const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** A set-up link's token for `email` and the business, valid for 14 days. Only its hash is stored. */
+export async function createInvite(db: Db, practiceId: string, email: string): Promise<string> {
+  const token = randomBytes(32).toString("base64url");
+  await db.insert(accountInvites).values({
+    tokenHash: hashToken(token),
+    email: email.trim().toLowerCase(),
+    practiceId,
+    expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
+  });
+  return token;
+}
+
+/**
+ * Gives `email` a client login with the chosen password, linked to the
+ * business. Someone who already has a password (or the operator) is refused,
+ * so a set-up link can never replace a password.
+ */
+async function createLogin(db: Db, practiceId: string, email: string, password: string): Promise<AccountResult> {
+  const [existing] = await db.select().from(users).where(eq(users.email, email));
+  if (existing?.role === "operator" || existing?.passwordHash) return { ok: false, reason: "has-account" };
+  const passwordHash = await hashPassword(password);
+  const user = existing
+    ? (await db.update(users).set({ passwordHash, mustChangePassword: false }).where(eq(users.id, existing.id)).returning())[0]
+    : (await db.insert(users).values({ email, role: "client", passwordHash, mustChangePassword: false }).returning())[0];
+  await db.insert(practiceMembers).values({ userId: user.id, practiceId }).onConflictDoNothing();
+  return { ok: true, email };
+}
+
+/** Uses a set-up link: checks it, then makes the login with the password they chose. */
+export async function redeemInvite(db: Db, token: string, password: string): Promise<AccountResult> {
+  const [invite] = await db.select().from(accountInvites).where(eq(accountInvites.tokenHash, hashToken(token)));
+  if (!invite) return { ok: false, reason: "invalid" };
+  if (invite.usedAt) return { ok: false, reason: "used" };
+  if (invite.expiresAt.getTime() < Date.now()) return { ok: false, reason: "expired" };
+  if (password.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: "weak" };
+
+  // A person who already has a password is refused before the link is spent.
+  const [existing] = await db.select().from(users).where(eq(users.email, invite.email));
+  if (existing?.role === "operator" || existing?.passwordHash) return { ok: false, reason: "has-account" };
+
+  // The link is claimed by one conditional update, so two opens at once can't both use it.
+  const [claimed] = await db.update(accountInvites).set({ usedAt: new Date() })
+    .where(and(eq(accountInvites.id, invite.id), isNull(accountInvites.usedAt))).returning();
+  if (!claimed) return { ok: false, reason: "used" };
+  return createLogin(db, invite.practiceId, invite.email, password);
+}
+
+/** Makes the login straight from the audit page, where the visitor types their password and no link is involved. */
+export async function createAccountFromAudit(db: Db, practiceId: string, email: string, password: string): Promise<AccountResult> {
+  if (password.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: "weak" };
+  return createLogin(db, practiceId, email.trim().toLowerCase(), password);
+}

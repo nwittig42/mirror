@@ -7,7 +7,9 @@ import { toolMeta } from "@/report/tokens";
 import type { AuditReport } from "@/report/types";
 import { joinNames } from "@/report/pages/one-page-summary";
 import { renderReportPdf } from "@/services/report-pdf";
-import { grantClientLogin, type ClientLogin } from "@/services/client-access";
+import { eq } from "drizzle-orm";
+import { practiceMembers, users } from "@/db/schema";
+import { createInvite } from "@/services/account-invites";
 import {
   EMAIL_COLORS, emailButton, emailLabel, emailLink, emailNote, emailQuote, emailRule, emailShell, emailText,
 } from "@/services/email-shell";
@@ -19,13 +21,17 @@ import {
  * call where their fact sheet is set up. No fact claims: those facts were
  * read off their website by AI and nobody has reviewed them yet.
  *
- * It also carries their login. The dashboard it opens shows the summary and
+ * It also carries their set-up link. The dashboard it opens shows the summary and
  * names what the call unlocks, so the email and the dashboard ask for the
  * same next step.
  */
 
-/** Where the prospect signs in, and with what. `password` is null when they already have their own. */
-export interface ProspectLogin extends ClientLogin { url: string }
+/**
+ * How the prospect gets into their dashboard. `setupUrl` is the link where
+ * they choose a password; it is null when they already have one, and the
+ * email then points them to `loginUrl`.
+ */
+export interface ProspectLogin { email: string; setupUrl: string | null; loginUrl: string }
 
 /** "Dr. Kim Lee" → "Dr. Kim"; "Kim Lee" → "Kim". */
 function firstName(full: string): string {
@@ -86,18 +92,12 @@ export function composeProspectReportEmail(
   const loginBlock = login
     ? emailRule() +
       `<div style="padding-top:22px;">` +
-      emailLabel("Your login") +
-      emailText("<strong>Your dashboard is ready</strong>") +
+      emailLabel("Your account") +
+      emailText(login.setupUrl
+        ? "<strong>Choose a password to see your full audit.</strong>"
+        : `<strong>Log in with ${e(login.email)} to see your full audit.</strong>`) +
       emailText("It shows how often AI recommends you and this summary today. Your Accuracy score, every AI answer and your fix plan open after your call.", "secondary", 14) +
-      `</div><div style="padding-top:12px;">` +
-      emailNote(
-        `Email: <strong>${e(login.email)}</strong><br>` +
-        (login.password
-          ? `Temporary password: <strong style="font-family:Menlo,Consolas,monospace;">${e(login.password)}</strong><br>` +
-            `<span style="color:${EMAIL_COLORS.caption};">You'll choose your own the first time you sign in.</span>`
-          : `<span style="color:${EMAIL_COLORS.caption};">Sign in with the password you already use.</span>`),
-      ) +
-      `</div><div style="padding-top:12px;">${emailLink(login.url, "Open your dashboard")}</div>`
+      `</div><div style="padding-top:12px;">${login.setupUrl ? emailButton(login.setupUrl, "Set up your account") : emailButton(login.loginUrl, "Log in")}</div>`
     : "";
 
   const html = emailShell({
@@ -161,19 +161,30 @@ export async function sendProspectReport(args: {
 
 /**
  * The real thing: the prospect's report from the database, emailed with its
- * PDF and a login of their own. Someone who already has a password keeps it.
- * If the login can't be made (the address is the operator's, say), the
- * report still goes, without one.
+ * PDF and a link to set up their account. Someone who already has a password
+ * keeps it and is linked to the business, with a plain log-in link instead.
+ * If no link can be made (the address is the operator's, say), the report
+ * still goes, without one.
  */
 export async function sendProspectReportFor(
   db: Db, practiceId: string, lead: { email: string; contactName: string },
   transport?: ReportEmailTransport, pdf?: (r: AuditReport) => Promise<Buffer>,
 ): Promise<void> {
-  const access = await grantClientLogin(db, practiceId, lead.email, { keepExisting: true }).catch(err => {
-    console.error(`no login made for ${practiceId}:`, err);
+  const appUrl = loadEnv().APP_URL;
+  const email = lead.email.trim().toLowerCase();
+  const login = await (async (): Promise<ProspectLogin | null> => {
+    const [existing] = await db.select().from(users).where(eq(users.email, email));
+    if (existing?.role === "operator") return null;
+    if (existing?.passwordHash) {
+      await db.insert(practiceMembers).values({ userId: existing.id, practiceId }).onConflictDoNothing();
+      return { email, setupUrl: null, loginUrl: `${appUrl}/login` };
+    }
+    const token = await createInvite(db, practiceId, email);
+    return { email, setupUrl: `${appUrl}/welcome?token=${token}`, loginUrl: `${appUrl}/login` };
+  })().catch(err => {
+    console.error(`no set-up link made for ${practiceId}:`, err);
     return null;
   });
-  const login = access ? { ...access, url: `${loadEnv().APP_URL}/login` } : null;
   await sendProspectReport({
     report: () => buildAuditReportData(db, practiceId), to: lead.email, contactName: lead.contactName, login, transport, pdf,
   });

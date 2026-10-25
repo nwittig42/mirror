@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { eq } from "drizzle-orm";
 import { makeTestDb } from "../helpers/db";
 import * as schema from "@/db/schema";
-import { prepareProspect, finishProspect, nameFromTitle, type ProspectDeps } from "@/services/prospect-setup";
+import { prepareProspect, finishProspect, sendReportOnce, nameFromTitle, type ProspectDeps } from "@/services/prospect-setup";
 import { attachContact } from "@/services/leads";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
@@ -392,5 +392,45 @@ describe("a lead whose scan runs in steps", () => {
     expect(after.status).toBe("needs_attention");
     expect(after.note).toContain("The first scan failed: couldn't start step 2: scan-step 401");
     expect(d.sendAudit).not.toHaveBeenCalled();
+  });
+});
+
+describe("sendReportOnce", () => {
+  async function prepared(extra: Partial<typeof schema.leads.$inferInsert> = {}) {
+    const db = await makeTestDb();
+    const l = await lead(db, extra);
+    const [p] = await db.insert(schema.practices).values({ name: "Glow MedSpa", slug: "glow", active: false }).returning();
+    await db.update(schema.leads).set({ practiceId: p.id }).where(eq(schema.leads.id, l.id));
+    return { db, leadId: l.id, practiceId: p.id };
+  }
+
+  it("sends once however many times it is asked", async () => {
+    const { db, leadId, practiceId } = await prepared();
+    const d = deps();
+    expect(await sendReportOnce(db, leadId, d)).toBe(true);
+    expect(await sendReportOnce(db, leadId, d)).toBe(false);
+    expect(d.sendAudit).toHaveBeenCalledTimes(1);
+    expect(d.sendAudit).toHaveBeenCalledWith(db, practiceId, { email: "kim@glow.example", contactName: "Dr. Kim" });
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, leadId));
+    expect(after.auditEmailedAt).toBeInstanceOf(Date);
+  });
+
+  it("skips a lead with no email or no practice", async () => {
+    const noEmail = await prepared({ email: null, contactName: null });
+    const d = deps();
+    expect(await sendReportOnce(noEmail.db, noEmail.leadId, d)).toBe(false);
+    const db = await makeTestDb();
+    const l = await lead(db);
+    expect(await sendReportOnce(db, l.id, d)).toBe(false);
+    expect(d.sendAudit).not.toHaveBeenCalled();
+  });
+
+  it("lets a later call retry when the send failed", async () => {
+    const { db, leadId } = await prepared();
+    const d = deps({ sendAudit: vi.fn().mockRejectedValueOnce(new Error("resend down")).mockResolvedValue(undefined) });
+    await expect(sendReportOnce(db, leadId, d)).rejects.toThrow("resend down");
+    const [mid] = await db.select().from(schema.leads).where(eq(schema.leads.id, leadId));
+    expect(mid.auditEmailedAt).toBeNull();
+    expect(await sendReportOnce(db, leadId, d)).toBe(true);
   });
 });
