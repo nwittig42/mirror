@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
 import { leads, scans } from "@/db/schema";
@@ -10,7 +10,7 @@ import { signIn } from "@/lib/auth";
 import { loadEnv } from "@/lib/env";
 import { isSafeHttpUrl } from "@/lib/url";
 import { accountErrorMessage, createAccountFromAudit } from "@/services/account-invites";
-import { auditProgress, isUuid } from "@/services/audit-progress";
+import { isUuid } from "@/services/audit-progress";
 import { auditRequestSchema, sendAuditRequest, withScheme } from "@/services/audit-request";
 import { attachContact, markNotPrepared, shouldPrepareLead, startLead } from "@/services/leads";
 import { sendProspectReportFor } from "@/services/prospect-audit-email";
@@ -113,10 +113,16 @@ export async function submitDetails(leadId: string, _prev: DetailsState, formDat
   const unknownLead: DetailsState = { status: "error", message: "We couldn't find this audit. Start a new one.", values };
   if (!isUuid(leadId)) return unknownLead;
 
+  const db = getDb();
+  // Details are taken once. After that the lead is the visitor's record and
+  // the audit's address can't be used to change it or to ping the operator.
+  const [existing] = await db.select().from(leads).where(eq(leads.id, leadId));
+  if (!existing) return unknownLead;
+  if (existing.email) return { status: "success", email: existing.email };
+
   const parsed = detailsSchema.safeParse(values);
   if (!parsed.success) return { status: "error", fieldErrors: fieldErrorsOf(parsed.error), values };
 
-  const db = getDb();
   const lead = await attachContact(db, leadId, parsed.data);
   if (!lead) return unknownLead;
 
@@ -128,7 +134,7 @@ export async function submitDetails(leadId: string, _prev: DetailsState, formDat
   }).catch(() => undefined);
 
   // If the audit finished before they gave an address, the report goes out now.
-  if ((await auditProgress(db, leadId))?.stage === "done") {
+  if (lead.status === "ready") {
     await sendReportOnce(db, leadId, reportDeps).catch(err => console.error(`report email for lead ${leadId} failed:`, err));
   }
   return { status: "success", email: parsed.data.email };
@@ -147,19 +153,34 @@ export async function createAccount(leadId: string, _prev: AccountState, formDat
     .where(and(eq(scans.practiceId, lead.practiceId), eq(scans.status, "complete"))).orderBy(desc(scans.startedAt)).limit(1);
   if (!done) return { error: "Your audit isn't finished yet. Try again in a moment." };
 
-  // The lead's own address wins. A typed one is only taken when none is on file.
+  // The lead's own address wins. A typed one is only taken when none is on
+  // file, and it is claimed on the lead first (one conditional update, so two
+  // submits at once can't both win) and given back if no login is made.
   let email = lead.email;
+  let claimed = false;
   if (!email) {
     const parsed = emailField.safeParse(text(formData, "email"));
     if (!parsed.success) return { fieldErrors: { email: parsed.error.issues[0].message } };
     email = parsed.data.toLowerCase();
+    const [won] = await db.update(leads).set({ email })
+      .where(and(eq(leads.id, leadId), isNull(leads.email))).returning({ id: leads.id });
+    if (!won) return { error: accountErrorMessage("has-account") };
+    claimed = true;
   }
 
-  const result = await createAccountFromAudit(db, lead.practiceId, email, password, loadEnv().OPERATOR_EMAIL);
-  if (!result.ok) return { error: accountErrorMessage(result.reason) };
+  let result;
+  try {
+    result = await createAccountFromAudit(db, lead.practiceId, email, password, loadEnv().OPERATOR_EMAIL);
+  } catch (err) {
+    if (claimed) await db.update(leads).set({ email: null }).where(eq(leads.id, leadId));
+    throw err;
+  }
+  if (!result.ok) {
+    if (claimed) await db.update(leads).set({ email: null }).where(eq(leads.id, leadId));
+    return { error: accountErrorMessage(result.reason) };
+  }
 
-  if (!lead.email) {
-    await db.update(leads).set({ email: result.email }).where(eq(leads.id, leadId));
+  if (claimed) {
     await sendReportOnce(db, leadId, reportDeps).catch(err => console.error(`report email for lead ${leadId} failed:`, err));
   }
   try {

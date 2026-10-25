@@ -157,6 +157,22 @@ describe("submitDetails", () => {
     expect((await submitDetails(lead.id, DETAILS, form(DETAIL_FIELDS))).status).toBe("success");
   });
 
+  it("runs once: a second submit on a lead that has an email changes nothing and sends no notice", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example" }).returning();
+    await submitDetails(lead.id, DETAILS, form(DETAIL_FIELDS));
+    sendAuditRequest.mockClear();
+    const state = await submitDetails(lead.id, DETAILS, form({ ...DETAIL_FIELDS, email: "evil@x.example", contactName: "Eve", practiceName: "Renamed" }));
+    expect(state).toEqual({ status: "success", email: "kim@glow.example" });
+    expect((await allLeads())[0]).toMatchObject({ email: "kim@glow.example", contactName: "Dr. Kim", practiceName: "Glow" });
+    expect(sendAuditRequest).not.toHaveBeenCalled();
+  });
+
+  it("holds the report back for a lead that isn't ready, even if its scan is complete", async () => {
+    const { lead } = await readyLead({ status: "preparing" });
+    await submitDetails(lead.id, DETAILS, form(DETAIL_FIELDS));
+    expect(sendProspectReportFor).not.toHaveBeenCalled();
+  });
+
   it("sends the report once when the audit was already done", async () => {
     const { lead } = await readyLead();
     await submitDetails(lead.id, DETAILS, form(DETAIL_FIELDS));
@@ -195,6 +211,23 @@ describe("createAccount", () => {
     const state = await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" }));
     expect(state.error).toMatch(/log in/i);
     expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it("refuses a second login for the same business, whatever the email", async () => {
+    const { lead } = await readyLead();
+    await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "a@glow.example" }))).rejects.toBe(SIGNED_IN);
+    await getDb().update(schema.leads).set({ email: null }).where(eq(schema.leads.id, lead.id));
+    const state = await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "b@glow.example" }));
+    expect(state.error).toMatch(/log in/i);
+    expect(await getDb().select().from(schema.users)).toHaveLength(1);
+    expect((await getDb().select().from(schema.leads))[0].email).toBeNull();
+  });
+
+  it("leaves no address on the lead when the login is refused", async () => {
+    const { lead } = await readyLead();
+    await getDb().insert(schema.users).values({ email: "taken@x.example", role: "client", passwordHash: "x" });
+    await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "taken@x.example" }));
+    expect((await getDb().select().from(schema.leads))[0].email).toBeNull();
   });
 
   it("refuses a weak password", async () => {

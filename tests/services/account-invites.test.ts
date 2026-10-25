@@ -87,6 +87,15 @@ describe("createAccountFromAudit", () => {
   });
 });
 
+describe("createAccountFromAudit on a business that already has a client", () => {
+  it("refuses any other address, so one business can't collect logins", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", slug: "harbor", members: ["dale@harbor.example"] });
+    expect(await createAccountFromAudit(db, practiceId, "other@x.example", PASSWORD, OP)).toEqual({ ok: false, reason: "has-account" });
+    expect(await db.select().from(users)).toHaveLength(1);
+  });
+});
+
 describe("account safety", () => {
   let db: Db;
   let practiceId: string;

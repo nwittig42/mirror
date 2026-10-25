@@ -115,5 +115,11 @@ export async function createAccountFromAudit(
   const normalized = email.trim().toLowerCase();
   if (!normalized) return { ok: false, reason: "invalid" };
   if (password.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: "weak" };
+  // One login per business from this page: otherwise anyone holding the audit's
+  // address could keep adding logins to it with new emails.
+  const [member] = await db.select({ id: users.id }).from(practiceMembers)
+    .innerJoin(users, eq(users.id, practiceMembers.userId))
+    .where(and(eq(practiceMembers.practiceId, practiceId), eq(users.role, "client"))).limit(1);
+  if (member) return { ok: false, reason: "has-account" };
   return createLogin(db, practiceId, normalized, password, operatorEmail, false);
 }
