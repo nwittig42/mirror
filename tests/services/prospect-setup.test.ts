@@ -82,20 +82,31 @@ describe("prepareProspect", () => {
     expect(d.notify).toHaveBeenCalledWith(expect.objectContaining({ practiceName: "Glow Aesthetics" }));
   });
 
-  it("applies a name typed before the practice existed", async () => {
+  it("applies a name typed after setup began but before the lead pointed at its practice", async () => {
     const db = await makeTestDb();
     const l = await lead(db, { practiceName: null, nameFromSite: true, contactName: null, email: null });
-    const d = deps({
-      fetchLogo: async () => {
-        await attachContact(db, l.id, { practiceName: "Glow Aesthetics", contactName: "Dr. Kim", email: "kim@glow.example" } as never);
-        return null;
+    // The form lands just before the practice is inserted, after setup's first read of the lead.
+    let typed = false;
+    const hooked = new Proxy(db, {
+      get(target, prop, receiver) {
+        const value = Reflect.get(target, prop, receiver);
+        if (prop !== "insert") return typeof value === "function" ? value.bind(target) : value;
+        return (table: unknown) => {
+          const builder = (value as (t: unknown) => { values: (v: unknown) => { returning: () => Promise<unknown> } }).call(target, table);
+          if (table !== schema.practices || typed) return builder;
+          return { values: (v: unknown) => ({ returning: async () => {
+            typed = true;
+            await attachContact(db, l.id, { practiceName: "Glow Aesthetics", contactName: "Dr. Kim", email: "kim@glow.example" } as never);
+            return builder.values(v).returning();
+          } }) };
+        };
       },
-    });
-    // The form lands before the lead points at its practice: simulate by typing first.
-    await db.update(schema.leads).set({ practiceName: "Glow Aesthetics", nameFromSite: false }).where(eq(schema.leads.id, l.id));
-    await prepareProspect(db, l.id, d);
+    }) as Db;
+    await prepareProspect(hooked, l.id, deps({ fetchPages: async () => [] }));
+    expect(typed).toBe(true);
     const [p] = await db.select().from(schema.practices);
     expect(p.name).toBe("Glow Aesthetics");
+    expect((await db.select().from(schema.nameVariations)).map(v => v.text)).toEqual(["Glow Aesthetics"]);
     expect((await db.select().from(schema.leads))[0].practiceName).toBe("Glow Aesthetics");
   });
 
