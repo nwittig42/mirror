@@ -15,6 +15,10 @@ export const metadata: Metadata = {
     "Mirror tracks how often ChatGPT, Gemini, Perplexity and other AI assistants recommend your brand, flags every wrong fact, and shows you how to improve both.",
 };
 
+// startAudit (the home page form) starts the new lead's setup in after(), which
+// counts toward this limit, so it needs the same budget as /book.
+export const maxDuration = 300;
+
 export default function LandingPage() {
   return <LandingHome />;
 }

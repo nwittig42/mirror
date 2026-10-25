@@ -18,6 +18,17 @@ export type AccountResult =
   | { ok: true; email: string }
   | { ok: false; reason: "invalid" | "used" | "expired" | "has-account" | "weak" };
 
+/** What to tell the visitor when a set-up attempt is refused. */
+export function accountErrorMessage(reason: Extract<AccountResult, { ok: false }>["reason"]): string {
+  switch (reason) {
+    case "has-account": return "This email already has an account. Log in instead.";
+    case "weak": return `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`;
+    case "used": return "This set-up link has already been used. If you set a password, log in instead.";
+    case "expired": return "This set-up link has expired. Ask us for a new one.";
+    default: return "This set-up link isn't valid. Ask us for a new one.";
+  }
+}
+
 const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 /** A set-up link's token for `email` and the business, valid for 14 days. Only its hash is stored. */

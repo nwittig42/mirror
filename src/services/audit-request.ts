@@ -18,7 +18,7 @@ import { isSafeHttpUrl } from "@/lib/url";
  * `isSafeHttpUrl` — "javascript:alert(1)" becomes "https://javascript:alert(1)",
  * whose non-numeric port fails to parse.
  */
-function withScheme(value: string): string {
+export function withScheme(value: string): string {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
