@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import type { Db } from "@/db";
 import { accountInvites, practiceMembers, users } from "@/db/schema";
 import { hashPassword } from "@/lib/password";
@@ -32,14 +32,27 @@ export async function createInvite(db: Db, practiceId: string, email: string): P
   return token;
 }
 
+/** The address is the operator's, which a visitor must never get to set a password on, even before it is bootstrapped. */
+const isOperatorAddress = (email: string, operatorEmail: string) => email === operatorEmail.trim().toLowerCase();
+
+/** Case-insensitive, as sign-in is, so a mixed-case row is found. */
+const findUser = async (db: Db, email: string) =>
+  (await db.select().from(users).where(sql`lower(${users.email}) = ${email}`))[0];
+
 /**
  * Gives `email` a client login with the chosen password, linked to the
  * business. Someone who already has a password (or the operator) is refused,
- * so a set-up link can never replace a password.
+ * so a set-up link can never replace a password. `allowExisting` lets a
+ * passwordless existing user get one, which only a redeemed link may do.
  */
-async function createLogin(db: Db, practiceId: string, email: string, password: string): Promise<AccountResult> {
-  const [existing] = await db.select().from(users).where(eq(users.email, email));
-  if (existing?.role === "operator" || existing?.passwordHash) return { ok: false, reason: "has-account" };
+async function createLogin(
+  db: Db, practiceId: string, email: string, password: string, operatorEmail: string, allowExisting: boolean,
+): Promise<AccountResult> {
+  if (isOperatorAddress(email, operatorEmail)) return { ok: false, reason: "has-account" };
+  const existing = await findUser(db, email);
+  if (existing && (!allowExisting || existing.role === "operator" || existing.passwordHash)) {
+    return { ok: false, reason: "has-account" };
+  }
   const passwordHash = await hashPassword(password);
   const user = existing
     ? (await db.update(users).set({ passwordHash, mustChangePassword: false }).where(eq(users.id, existing.id)).returning())[0]
@@ -49,7 +62,7 @@ async function createLogin(db: Db, practiceId: string, email: string, password: 
 }
 
 /** Uses a set-up link: checks it, then makes the login with the password they chose. */
-export async function redeemInvite(db: Db, token: string, password: string): Promise<AccountResult> {
+export async function redeemInvite(db: Db, token: string, password: string, operatorEmail: string): Promise<AccountResult> {
   const [invite] = await db.select().from(accountInvites).where(eq(accountInvites.tokenHash, hashToken(token)));
   if (!invite) return { ok: false, reason: "invalid" };
   if (invite.usedAt) return { ok: false, reason: "used" };
@@ -57,18 +70,39 @@ export async function redeemInvite(db: Db, token: string, password: string): Pro
   if (password.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: "weak" };
 
   // A person who already has a password is refused before the link is spent.
-  const [existing] = await db.select().from(users).where(eq(users.email, invite.email));
-  if (existing?.role === "operator" || existing?.passwordHash) return { ok: false, reason: "has-account" };
+  const existing = await findUser(db, invite.email);
+  if (isOperatorAddress(invite.email, operatorEmail) || existing?.role === "operator" || existing?.passwordHash) {
+    return { ok: false, reason: "has-account" };
+  }
 
   // The link is claimed by one conditional update, so two opens at once can't both use it.
   const [claimed] = await db.update(accountInvites).set({ usedAt: new Date() })
     .where(and(eq(accountInvites.id, invite.id), isNull(accountInvites.usedAt))).returning();
   if (!claimed) return { ok: false, reason: "used" };
-  return createLogin(db, invite.practiceId, invite.email, password);
+  // The database driver has no transactions, so a login that couldn't be made
+  // gives the link back instead.
+  const release = () => db.update(accountInvites).set({ usedAt: null }).where(eq(accountInvites.id, invite.id));
+  try {
+    const result = await createLogin(db, invite.practiceId, invite.email, password, operatorEmail, true);
+    if (!result.ok) await release();
+    return result;
+  } catch (err) {
+    await release();
+    throw err;
+  }
 }
 
-/** Makes the login straight from the audit page, where the visitor types their password and no link is involved. */
-export async function createAccountFromAudit(db: Db, practiceId: string, email: string, password: string): Promise<AccountResult> {
+/**
+ * Makes the login straight from the audit page, where the visitor types their
+ * password and no link proves the address is theirs. So only a brand-new
+ * address is allowed: anyone already known (with or without a password) is
+ * refused, since typing their address must never take over their account.
+ */
+export async function createAccountFromAudit(
+  db: Db, practiceId: string, email: string, password: string, operatorEmail: string,
+): Promise<AccountResult> {
+  const normalized = email.trim().toLowerCase();
+  if (!normalized) return { ok: false, reason: "invalid" };
   if (password.length < MIN_PASSWORD_LENGTH) return { ok: false, reason: "weak" };
-  return createLogin(db, practiceId, email.trim().toLowerCase(), password);
+  return createLogin(db, practiceId, normalized, password, operatorEmail, false);
 }

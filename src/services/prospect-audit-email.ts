@@ -7,11 +7,11 @@ import { toolMeta } from "@/report/tokens";
 import type { AuditReport } from "@/report/types";
 import { joinNames } from "@/report/pages/one-page-summary";
 import { renderReportPdf } from "@/services/report-pdf";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { practiceMembers, users } from "@/db/schema";
 import { createInvite } from "@/services/account-invites";
 import {
-  EMAIL_COLORS, emailButton, emailLabel, emailLink, emailNote, emailQuote, emailRule, emailShell, emailText,
+  EMAIL_COLORS, emailButton, emailLabel, emailQuote, emailRule, emailShell, emailText,
 } from "@/services/email-shell";
 
 /**
@@ -173,8 +173,9 @@ export async function sendProspectReportFor(
   const appUrl = loadEnv().APP_URL;
   const email = lead.email.trim().toLowerCase();
   const login = await (async (): Promise<ProspectLogin | null> => {
-    const [existing] = await db.select().from(users).where(eq(users.email, email));
-    if (existing?.role === "operator") return null;
+    const [existing] = await db.select().from(users).where(sql`lower(${users.email}) = ${email}`);
+    // The operator's address is theirs even before their row exists.
+    if (existing?.role === "operator" || email === loadEnv().OPERATOR_EMAIL.trim().toLowerCase()) return null;
     if (existing?.passwordHash) {
       await db.insert(practiceMembers).values({ userId: existing.id, practiceId }).onConflictDoNothing();
       return { email, setupUrl: null, loginUrl: `${appUrl}/login` };

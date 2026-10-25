@@ -84,7 +84,7 @@ describe("sendProspectReportFor", () => {
     const token = /href="https:\/\/mirror\.example\/welcome\?token=([^"]+)"/.exec(sent[0].html)?.[1];
     expect(token).toBeTruthy();
     expect(sent[0].html).not.toContain("Temporary password");
-    expect((await redeemInvite(db, token!, "a-long-enough-password")).ok).toBe(true);
+    expect((await redeemInvite(db, token!, "a-long-enough-password", "operator@example.com")).ok).toBe(true);
   });
 
   it("sends someone who already has a password to log in, with no set-up link", async () => {
@@ -97,6 +97,25 @@ describe("sendProspectReportFor", () => {
     expect(sent[0].html).not.toContain("welcome?token");
     expect(await db.select().from(accountInvites)).toEqual([]);
     expect(await db.select().from(practiceMembers)).toHaveLength(1);
+  });
+
+  it("sends no set-up link to the operator's address, even before they have an account", async () => {
+    const { db, practiceId } = await scanned();
+    const sent: ReportEmail[] = [];
+    await sendProspectReportFor(db, practiceId, { email: " Operator@Example.com ", contactName: "Nick" },
+      async email => { sent.push(email); }, async () => Buffer.from("%PDF-1"));
+    expect(sent[0].html).not.toContain("welcome?token");
+    expect(await db.select().from(accountInvites)).toEqual([]);
+  });
+
+  it("finds a mixed-case account and links it instead of inviting again", async () => {
+    const { db, practiceId } = await scanned();
+    await db.insert(users).values({ email: "Dale@Harbor.example", role: "client", passwordHash: await hashPassword("their-own-password") });
+    const sent: ReportEmail[] = [];
+    await sendProspectReportFor(db, practiceId, { email: "dale@harbor.example", contactName: "Dale" },
+      async email => { sent.push(email); }, async () => Buffer.from("%PDF-1"));
+    expect(sent[0].html).not.toContain("welcome?token");
+    expect(await db.select().from(accountInvites)).toEqual([]);
   });
 
   it("still sends the report, without a login, when the address is the operator's", async () => {
