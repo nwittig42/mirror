@@ -5,8 +5,14 @@ import { getFindingsForPractice, getLatestScan, priceFirst } from "@/lib/queries
 import { DashboardHeader } from "@/components/dashboard-header";
 import { LockedSection } from "@/components/locked";
 import { FixCard } from "@/components/fix-card";
-import { Card, Note, PageBody, SectionTitle, buttonClass } from "@/components/ui";
+import { Card, Note, PageBody, SectionTitle, Tag, buttonClass } from "@/components/ui";
 import { FIX_STATES, fixAdvice, fixProgress, fixState, supersededIds, type FixState } from "@/core/fix-list";
+import { buildAuditReportData } from "@/report/build-report";
+import { actionsFor, levelLabel, quadrant } from "@/report/scoring";
+import type { Action } from "@/report/types";
+
+// The first view after a scan may run the website check (a few page loads), as the report viewer does.
+export const maxDuration = 60;
 
 const SECTION: Record<Exclude<FixState, "dismissed">, { title: string; note: string }> = {
   todo: { title: "To do", note: "Prices and serious mistakes first." },
@@ -16,28 +22,79 @@ const SECTION: Record<Exclude<FixState, "dismissed">, { title: string; note: str
 };
 
 /**
- * The customer's fix list: every wrong fact as a piece of work, with where AI
- * read it, what to change and how far the fix has got. Facts we ruled "not
- * actually wrong" are left out. A prospect before their call gets the locked
- * card and no data, like every section that rests on confirmed facts.
+ * The recommendations from the latest scan, step by step: the report's
+ * actions, most help for the work first. A gold number marks little effort
+ * and big impact, as on the report's plan page.
+ */
+function Recommendations({ actions }: { actions: Action[] }) {
+  return (
+    <Card title="Your recommendations">
+      {actions.length === 0 ? (
+        <Note>Nothing urgent in the latest scan. We look again on the next one.</Note>
+      ) : (
+        <>
+          <ol className="divide-y divide-line">
+            {actions.map((a, i) => {
+              const quick = quadrant(a.effort, a.impact) === "quick_win";
+              return (
+                <li key={a.id} className="flex gap-4 py-3.5">
+                  <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-paper ${quick ? "bg-gold" : "bg-ink"}`}>{i + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[16px] font-semibold leading-snug text-ink">{a.title}</p>
+                    <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{a.why}</p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      <Tag tone={a.effort === "low" ? "ok" : "neutral"}>{levelLabel[a.effort]} effort</Tag>
+                      <Tag tone={a.impact === "high" ? "ok" : "neutral"}>{levelLabel[a.impact]} impact</Tag>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+          <Note className="mt-3">Do them in order. A gold number marks little effort and big impact.</Note>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The fix plan: the recommendations from the latest scan, then every wrong
+ * fact as a piece of work, with where AI read it, what to change and how far
+ * the fix has got. Facts we ruled "not actually wrong" are left out.
+ *
+ * A free account (before their call) gets the recommendations that don't
+ * rest on the fact check (the same set as the prospect's one-page summary),
+ * and the wrong-fact list stays locked: none of it is loaded.
  */
 export default async function FixListPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
+  const db = getDb();
+  const latestScan = await getLatestScan(db, practice.id);
+  const report = latestScan ? await buildAuditReportData(db, practice.id) : null;
+  const plan = report && <Recommendations actions={locked ? actionsFor("visibility", report) : report.actions} />;
+
   if (locked) {
     return (
       <PageBody>
         <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="fixes" />
-        <LockedSection
-          title="Wrong facts"
-          what="Every wrong fact AI states about you, where it read it, what to change, and whether it has been fixed."
-        />
+        <div className="space-y-4">
+          {plan ?? (
+            <Card title="Your recommendations">
+              <Note>Your first scan is running. Your recommendations show up here when it finishes.</Note>
+            </Card>
+          )}
+          <LockedSection
+            title="Wrong facts"
+            what="Every wrong fact AI states about you, where it read it, what to change, and whether it has been fixed."
+          />
+        </div>
       </PageBody>
     );
   }
 
-  const db = getDb();
-  const [all, latestScan] = await Promise.all([getFindingsForPractice(db, practice.id), getLatestScan(db, practice.id)]);
+  const all = await getFindingsForPractice(db, practice.id);
   const stale = supersededIds(all);
   const rows = all.filter(f => f.status !== "dismissed" && !stale.has(f.id)).map(f => ({ ...f, state: fixState(f) }));
   const progress = fixProgress(rows.map(r => r.state));
@@ -47,6 +104,8 @@ export default async function FixListPage({ params }: { params: Promise<{ slug: 
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="fixes" />
 
       <div className="space-y-4">
+        {plan}
+
         <Card title="Wrong facts">
           <p className="text-[22px] font-semibold tracking-tight text-ink">{progress.sentence}</p>
           {progress.total > 0 && (

@@ -1,6 +1,5 @@
 import { eq } from "drizzle-orm";
 import { requirePracticeView } from "@/lib/auth";
-import { LockedSection } from "@/components/locked";
 import { getDb } from "@/db";
 import { nameVariations } from "@/db/schema";
 import { getLatestScan, getChecksForScan } from "@/lib/queries";
@@ -65,20 +64,12 @@ function NamedList({ cell, markOf }: { cell: CompetitorCell | undefined; markOf:
 
 /**
  * Competitors: who AI names most and who it named for each question, then
- * the websites it read to decide. A prospect before their call gets the
- * locked card and no data.
+ * the websites it read to decide. Nothing here rests on the fact check, so
+ * a free account (before their call) sees all of it, as a client does.
  */
 export default async function CompetitorsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { practice, locked } = await requirePracticeView(slug);
-  if (locked) {
-    return (
-      <PageBody>
-        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
-        <LockedSection title="Competitors" what="Who AI recommends instead of you, question by question, and the websites it reads to decide." />
-      </PageBody>
-    );
-  }
+  const { practice } = await requirePracticeView(slug);
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
 

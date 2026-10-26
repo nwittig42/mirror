@@ -18,6 +18,18 @@ vi.mock("@/lib/auth", () => ({
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// The recommendations come from the report, which checks the website once per
+// scan. Here the site blocks AI (a fix for anyone) and has no machine labels
+// (a fix that only matters for facts), with no network call.
+vi.mock("@/services/website-check", () => ({
+  runWebsiteCheck: vi.fn(async () => ({
+    checkedAt: "2026-10-26T00:00:00Z", pages: [], homepageText: "",
+    checks: [
+      { id: "ai_allowed", label: "AI allowed", why: "Your site tells AI assistants to stay out.", status: "fail" },
+      { id: "machine_labels", label: "Machine labels", why: "Prices and FAQs are not labelled for machines.", status: "fail" },
+    ],
+  })),
+}));
 
 import FixListPage from "@/app/dashboard/[slug]/fixes/page";
 import { updateFix } from "@/app/admin/actions";
@@ -139,11 +151,27 @@ describe("the fix list", () => {
     expect(page.split("Harbor Plumbing charges $49").length - 1).toBe(1);
   });
 
-  it("shows a prospect before their call the locked card and none of it", async () => {
+  it("lists the recommendations above the wrong facts, in order", async () => {
+    const page = await html(FixListPage({ params }));
+    expect(page).toContain("Your recommendations");
+    expect(page.indexOf("Your recommendations")).toBeLessThan(page.indexOf("To do ("));
+    expect(page).toContain("Let AI assistants read your site");
+    expect(page).toContain("Fix your price everywhere it appears");
+  });
+
+  it("gives a prospect before their call the recommendations, but none that rest on a wrong fact", async () => {
     await db.update(schema.practices).set({ active: false }).where(eq(schema.practices.id, practiceId));
     const page = await html(FixListPage({ params }));
+    expect(page).toContain("Your recommendations");
+    expect(page).toContain("Let AI assistants read your site");
+    expect(page).not.toContain("Fix your price everywhere it appears");
+    expect(page).not.toContain("Correct the wrong facts at their source");
+    expect(page).not.toContain("Label your prices and FAQs for machines");
+    // The wrong-fact list stays locked, and none of it is sent.
     expect(page).toContain("Unlocks after your call");
     expect(page).not.toContain("$49");
+    expect(page).not.toContain("Sundays");
     expect(page).not.toContain("yelp.com");
+    expect(page).not.toContain("Want us to fix these for you?");
   });
 });

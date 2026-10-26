@@ -1,18 +1,21 @@
 import type { ReactNode } from "react";
 import { asc, eq } from "drizzle-orm";
 import { cookies } from "next/headers";
-import { auth } from "@/lib/auth";
+import { auth, requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { practices } from "@/db/schema";
 import { isAdminViewer } from "@/lib/admin-view";
 import { AdminViewBanner } from "@/components/admin-view-banner";
+import { CallBanner } from "@/components/locked";
 import { THEME_COOKIE } from "@/lib/theme";
 
 /**
  * Wraps every customer dashboard page in the app's ivory page (the .app class
  * in globals.css, the same look as the website). For an operator it also adds
- * the "viewing as admin" banner; a customer never gets it. Access itself is
- * still checked by each page's requirePracticeAccess.
+ * the "viewing as admin" banner; a customer never gets it. A free account
+ * (requirePracticeView's locked flag) gets the "Book a call" strip, once, on
+ * every page; an active client and an operator never do. Access itself is
+ * still checked by each page.
  *
  * A Partner's dashboard is black (the .theme-dark class) unless the viewer
  * switched back to ivory with the header's toggle, which sets a cookie.
@@ -32,9 +35,12 @@ export default async function DashboardLayout({
   ]);
   // Only a signed-in viewer gets a look that depends on the business; anyone else is about to see a 404.
   const dark = !!session && plan?.plan === "partner" && jar.get(THEME_COOKIE)?.value !== "light";
+  // Without a session there is no viewer to lock: the page itself 404s.
+  const locked = session && plan ? (await requirePracticeView(slug)).locked : false;
   const page = (banner: ReactNode) => (
     <div className={`app antialiased ${dark ? "theme-dark" : ""}`}>
       {banner}
+      {locked && <CallBanner />}
       {children}
     </div>
   );

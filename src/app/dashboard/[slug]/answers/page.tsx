@@ -39,23 +39,16 @@ function Jump({ href, value, label, color }: { href: string; value: number; labe
  * "What AI says": the pictures first (a score for each AI tool, then the
  * websites AI read before answering), then the facts AI got wrong (what it
  * said next to the truth), then every answer word for word, grouped under
- * the question that was asked. A prospect before their call gets the locked
- * card and no data.
+ * the question that was asked.
+ *
+ * A free account (before their call) gets the same page without the fact
+ * check: no wrong facts are loaded, and only buyer-question answers are
+ * shown, since an answer to a question that names the business can repeat
+ * facts nobody has confirmed with them yet.
  */
 export default async function AnswersPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
-  if (locked) {
-    return (
-      <PageBody>
-        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="answers" />
-        <LockedSection
-          title="What AI says"
-          what="Every answer each AI tool gave, word for word, with where you were named, where you were left out and what it got wrong about you."
-        />
-      </PageBody>
-    );
-  }
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
 
@@ -70,11 +63,12 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
     );
   }
 
-  const [variationRows, checks, allFindings] = await Promise.all([
+  const [variationRows, scanChecks, allFindings] = await Promise.all([
     db.select().from(nameVariations).where(eq(nameVariations.practiceId, practice.id)),
     getChecksForScan(db, latestScan.id),
-    getFindingsForPractice(db, practice.id),
+    locked ? [] : getFindingsForPractice(db, practice.id),
   ]);
+  const checks = locked ? scanChecks.filter(c => c.promptKind !== "branded") : scanChecks;
   const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
 
   const open = priceFirst(allFindings.filter(f => f.status === "open"));
@@ -120,9 +114,11 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
     <PageBody>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="answers" />
 
-      <div className="grid grid-cols-3 gap-3 sm:gap-4">
+      <div className={`grid gap-3 sm:gap-4 ${locked ? "grid-cols-2" : "grid-cols-3"}`}>
         <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-ring-visibility" />
-        <Jump href="#wrong-facts" value={open.length} label={`wrong fact${open.length === 1 ? "" : "s"} to fix`} color={open.length > 0 ? "text-flag" : "text-ok"} />
+        {!locked && (
+          <Jump href="#wrong-facts" value={open.length} label={`wrong fact${open.length === 1 ? "" : "s"} to fix`} color={open.length > 0 ? "text-flag" : "text-ok"} />
+        )}
         <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-ring-overall" />
       </div>
 
@@ -139,7 +135,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
                     </div>
                     <div className="mt-1 text-[14px] text-muted">Named you {tool.named} of {tool.asked}</div>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      <Tag tone={tool.wrong > 0 ? "flag" : "ok"}>{tool.wrong} wrong</Tag>
+                      {!locked && <Tag tone={tool.wrong > 0 ? "flag" : "ok"}>{tool.wrong} wrong</Tag>}
                       {tool.topSite && (
                         <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-bone px-2.5 py-1 text-[12px] font-semibold text-ink-soft" title={`The website ${tool.name} read most`}>
                           <SiteIcon domain={tool.topSite} size={14} /><span className="truncate">{tool.topSite}</span>
@@ -240,6 +236,12 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
           </Card>
         )}
 
+        {locked ? (
+          <div id="wrong-facts" className="scroll-mt-24">
+            <LockedSection title="Wrong facts" what="What AI says about your prices, services and hours that isn't true, and the answers to questions that use your name." />
+          </div>
+        ) : (
+        <>
         <SectionTitle id="wrong-facts" title="Wrong facts">
           What AI said about you that does not match your Fact Sheet.
         </SectionTitle>
@@ -292,6 +294,8 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
               ))}
             </div>
           </details>
+        )}
+        </>
         )}
 
         <SectionTitle id="answers" title="Every answer">

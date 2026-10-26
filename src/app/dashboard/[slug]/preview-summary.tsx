@@ -12,11 +12,17 @@ interface PreviewCheck {
   competitorsMentioned: string[] | null;
 }
 
+/** The rest of the audit, open to a free account. */
+const OPEN = [
+  { path: "answers", title: "Every AI answer", what: "Each answer word for word, with where you were named and where you were left out." },
+  { path: "competitors", title: "Competitors and sources", what: "Who AI recommends instead of you, and the websites it reads to decide." },
+  { path: "fixes", title: "Your recommendations", what: "The changes that would help most, step by step, in order." },
+];
+
+/** What waits for the call: everything that rests on facts confirmed with the owner. */
 const LOCKED = [
   { title: "Fact check", what: "What AI gets right and wrong about your prices, services and hours." },
-  { title: "Every AI answer", what: "Each answer word for word, with where you were named and where you were left out." },
-  { title: "Competitors and sources", what: "Who AI recommends instead of you, and the websites it reads to decide." },
-  { title: "Your fix plan", what: "The changes that would help most, in order, for the next 90 days." },
+  { title: "Overall score", what: "Your two scores combined, once your facts are checked." },
 ];
 
 /** A sentence cut to length on a word, so a long answer reads as a quote and not a wall. */
@@ -26,10 +32,11 @@ function excerpt(text: string, max = 260): string {
 }
 
 /**
- * The Summary a prospect sees before their call: how often AI names them,
- * who it names instead, and one answer that shows it, then what the call
- * unlocks. No overall score and no fact check: both rest on facts that were
- * read off their website and that nobody has confirmed with them yet.
+ * The Summary a free account sees before their call: how often AI names
+ * them, who it names instead, and one answer that shows it, then links to
+ * the rest of their audit and what the call unlocks. No overall score and no
+ * fact check: both rest on facts that were read off their website and that
+ * nobody has confirmed with them yet.
  */
 export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor, cta }: {
   slug: string;
@@ -97,6 +104,19 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
           <Link href={`/dashboard/${slug}/audit?variant=summary`} className={buttonClass("outline")}>Open</Link>
           <a href={`/dashboard/${slug}/reports/pdf?variant=summary`} download className={buttonClass("primary")}>Download PDF</a>
         </div>
+      </Card>
+
+      <Card title="Your full audit">
+        <ul className="divide-y divide-line">
+          {OPEN.map(item => (
+            <li key={item.path} className="py-2.5">
+              <Link href={`/dashboard/${slug}/${item.path}`} className="text-[15px] font-semibold text-ink underline decoration-gold underline-offset-4 hover:text-gold">
+                {item.title}
+              </Link>
+              <span className="text-[15px] text-ink-soft">. {item.what}</span>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <Card title="Unlocks after your call">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ScoreDial } from "@/components/ui";
 import { ENGINE_NAMES } from "@/core/coverage";
+import { topBuyerCompetitor } from "@/core/competitors";
 import { CalendlyEmbed, type CalendlyPrefill } from "@/app/book/calendly-embed";
 import { AccountForm } from "./account-form";
 
@@ -41,20 +42,6 @@ function topEngine(earned: TeaserCheck[]): string | null {
 }
 
 /**
- * The business AI named most in the same buyer questions, matched by exact
- * name and tie-broken by name as getCompetitorPressure does, so its count
- * sits on the same base as "X of Y answers".
- */
-function topCompetitor(earned: TeaserCheck[]): { name: string; mentions: number } | null {
-  const counts = new Map<string, number>();
-  for (const c of earned) for (const name of c.competitorsMentioned ?? []) counts.set(name, (counts.get(name) ?? 0) + 1);
-  const [top] = [...counts]
-    .map(([name, mentions]) => ({ name, mentions }))
-    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
-  return top ?? null;
-}
-
-/**
  * The finished audit, top to bottom: the business and the scan date, the
  * score, one real answer, the sign-up card, the rest blurred, then the call.
  * Fed by the same queries as the dashboard's PreviewSummary, and like it uses
@@ -77,7 +64,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   const named = earned.filter(c => c.mentioned).length;
   const shown = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0) ?? earned[0];
   const engine = topEngine(earned);
-  const rival = topCompetitor(earned);
+  const rival = topBuyerCompetitor(earned);
 
   return (
     <div className="mk-teaser">

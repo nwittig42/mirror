@@ -6,15 +6,24 @@ import { setDbForTests, type Db } from "@/db";
 import { practices } from "@/db/schema";
 
 const session: { user: { id: string; role: string } } | null = { user: { id: "u1", role: "client" } };
-vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => session) }));
+// The same rule as the real requirePracticeView: paused and not unlocked is locked, never for an operator.
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(async () => session),
+  requirePracticeView: vi.fn(async (slug: string) => {
+    const [practice] = await db.select().from(practices).where(eq(practices.slug, slug));
+    return { practice, locked: !practice.active && !practice.dashboardUnlocked && session?.user.role !== "operator" };
+  }),
+}));
 // The viewer's saved choice of look, as the browser would send it.
 let themeCookie: string | undefined;
 vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: (name: string) => (name === "mirror-theme" && themeCookie ? { value: themeCookie } : undefined) })),
 }));
 
+import { renderToStaticMarkup } from "react-dom/server";
 import DashboardLayout from "@/app/dashboard/[slug]/layout";
 import { AdminViewBanner } from "@/components/admin-view-banner";
+import { CallBanner } from "@/components/locked";
 
 const child = <main>customer dashboard</main>;
 
@@ -25,9 +34,10 @@ function elements(node: ReactNode): ReactElement[] {
   return [node, ...(Array.isArray(kids) ? kids : [kids]).flatMap(elements)];
 }
 
+let db: Db;
+
 describe("dashboard layout", () => {
   let slug: string;
-  let db: Db;
   const classOf = async () => {
     const out = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
     return (elements(out)[0].props as { className?: string }).className ?? "";
@@ -75,5 +85,32 @@ describe("dashboard layout", () => {
     expect(await classOf()).not.toMatch(/theme-dark/);
     themeCookie = "dark";
     expect(await classOf()).toMatch(/theme-dark/);
+  });
+
+  it("asks a free account to book a call, once, at the top of every page", async () => {
+    session!.user.role = "client";
+    await db.update(practices).set({ active: false }).where(eq(practices.slug, slug));
+    const out = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
+    expect(elements(out).filter(e => e.type === CallBanner)).toHaveLength(1);
+    const markup = renderToStaticMarkup(out);
+    expect(markup).toContain("Get the full picture in 30 minutes: we&#x27;ll confirm your facts, unlock your fact check and walk you through your plan.");
+    expect(markup).toContain(">Book a call</a>");
+    expect(markup.indexOf("Book a call")).toBeLessThan(markup.indexOf("customer dashboard"));
+  });
+
+  it("never shows the call banner to an active client, an unlocked one or an operator viewing as admin", async () => {
+    session!.user.role = "client";
+    const active = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
+    expect(elements(active).some(e => e.type === CallBanner)).toBe(false);
+
+    await db.update(practices).set({ active: false, dashboardUnlocked: true }).where(eq(practices.slug, slug));
+    const unlocked = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
+    expect(elements(unlocked).some(e => e.type === CallBanner)).toBe(false);
+
+    session!.user.role = "operator";
+    await db.update(practices).set({ dashboardUnlocked: false }).where(eq(practices.slug, slug));
+    const admin = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
+    expect(elements(admin).some(e => e.type === CallBanner)).toBe(false);
+    expect(elements(admin).some(e => e.type === AdminViewBanner)).toBe(true);
   });
 });

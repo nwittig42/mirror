@@ -128,3 +128,23 @@ export function reconcileCompetitors(args: {
 
   return { all: [...args.known, ...newlyDiscovered], newlyDiscovered };
 }
+
+/**
+ * The business AI named most in buyer-question answers, matched by exact
+ * name and tie-broken by name as getCompetitorPressure does. Branded
+ * questions are left out, so its count sits on the same base as "AI named
+ * you in X of Y answers". Null when no buyer answer named anyone.
+ */
+export function topBuyerCompetitor(
+  checks: { promptKind: string; competitorsMentioned: string[] | null }[],
+): { name: string; mentions: number } | null {
+  const counts = new Map<string, number>();
+  for (const c of checks) {
+    if (c.promptKind === "branded") continue;
+    for (const name of c.competitorsMentioned ?? []) counts.set(name, (counts.get(name) ?? 0) + 1);
+  }
+  const [top] = [...counts]
+    .map(([name, mentions]) => ({ name, mentions }))
+    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+  return top ?? null;
+}

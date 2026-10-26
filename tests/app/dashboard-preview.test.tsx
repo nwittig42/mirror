@@ -32,6 +32,9 @@ import AnswersPage from "@/app/dashboard/[slug]/answers/page";
 import CompetitorsPage from "@/app/dashboard/[slug]/competitors/page";
 import SourcesPage from "@/app/dashboard/[slug]/sources/page";
 import AccuracyPage from "@/app/dashboard/[slug]/accuracy/page";
+import FixListPage from "@/app/dashboard/[slug]/fixes/page";
+import FactSheetPage from "@/app/dashboard/[slug]/fact-sheet/page";
+import ForecastPage from "@/app/dashboard/[slug]/forecast/page";
 import MonthlyPage from "@/app/dashboard/[slug]/report/page";
 import { GET } from "@/app/dashboard/[slug]/reports/pdf/route";
 
@@ -96,9 +99,64 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).not.toContain("Trends");
   });
 
-  it("sends none of a locked section's data to the browser", async () => {
+  it("counts the top competitor over buyer questions only, as the finished audit does", async () => {
+    // Rose City is named in one buyer answer and in the branded one: 2 in all, 1 of the 2 buyer answers.
+    const page = await html(DashboardPage({ params }));
+    expect(page).toContain("Named 1 time, you 1");
+    expect(page).not.toContain("Named 2 times");
+  });
+
+  it("links the summary to the sections a free account now gets, and keeps the fact check locked", async () => {
+    const page = await html(DashboardPage({ params }));
+    expect(page).toMatch(/href="\/dashboard\/harbor\/answers"[^>]*>[^<]*Every AI answer/);
+    expect(page).toMatch(/href="\/dashboard\/harbor\/competitors"[^>]*>[^<]*Competitors and sources/);
+    expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your recommendations/);
+    // The fact check is the one thing still listed as locked.
+    expect(page).toMatch(/Locked<\/span>.*Fact check/);
+    expect(page).not.toMatch(/Locked<\/span>.*Every AI answer/);
+  });
+
+  it("gives a free account every buyer answer word for word, with nothing from the fact check", async () => {
+    const page = await html(AnswersPage({ params }));
+    expect(page).toContain('id="answers"');
+    expect(page).toContain("Rose City Plumbing is the one most people recommend");
+    expect(page).toContain("is a good choice for water heaters.");
+    expect(page).toContain("secret-source.example");
+    // The wrong facts, and the branded answer that holds an unconfirmed one, wait for the call.
+    expect(page).not.toContain("$49");
+    expect(page).not.toContain("$89");
+    expect(page).not.toContain("Is Harbor Plumbing any good?");
+    expect(page).not.toContain("wrong fact");
+    expect(page).toContain("Unlocks after your call");
+  });
+
+  it("gives a free account who AI recommends instead, and the websites it reads", async () => {
+    const page = await html(CompetitorsPage({ params }));
+    expect(page).not.toContain("Unlocks after your call");
+    expect(page).toContain("Who AI names most");
+    expect(page).toContain("Rose City Plumbing");
+    expect(page).toContain('id="sources"');
+    expect(page).toContain("secret-source.example");
+    expect(page).not.toContain("$49");
+    await expect(SourcesPage({ params })).rejects.toMatchObject({ digest: expect.stringContaining("/dashboard/harbor/competitors#sources") });
+  });
+
+  it("gives a free account the step-by-step recommendations, leaving out every fix that rests on a wrong fact", async () => {
+    const page = await html(FixListPage({ params }));
+    expect(page).toContain("Your recommendations");
+    expect(page).toContain("Get featured on secret-source.example");
+    expect(page).toContain("Make your site a source AI quotes");
+    expect(page).not.toContain("Correct the wrong facts at their source");
+    expect(page).not.toContain("Fix your price everywhere it appears");
+    expect(page).not.toContain("$49");
+    expect(page).not.toContain("Service call fee");
+    // The wrong-fact list itself is still locked.
+    expect(page).toContain("Unlocks after your call");
+  });
+
+  it("keeps the fact check, the fact sheet, the forecast and the monthly report locked, with none of their data", async () => {
     const pages = [
-      AnswersPage({ params }), CompetitorsPage({ params }), SourcesPage({ params }), AccuracyPage({ params }),
+      AccuracyPage({ params }), FactSheetPage({ params }), ForecastPage({ params }),
       MonthlyPage({ params, searchParams: Promise.resolve({}) }),
     ];
     for (const page of pages) {
@@ -106,9 +164,15 @@ describe("a prospect's dashboard before their call", () => {
       expect(out).toContain("Unlocks after your call");
       expect(out).toContain("Book your call");
       expect(out).not.toContain("$49");
+      expect(out).not.toContain("$89");
       expect(out).not.toContain("secret-source.example");
-      expect(out).not.toContain("Rose City Plumbing");
     }
+  });
+
+  it("starts no scan when a free account opens the unlocked pages", async () => {
+    const before = await db.select().from(scans);
+    for (const page of [AnswersPage({ params }), CompetitorsPage({ params }), FixListPage({ params })]) await html(page);
+    expect(await db.select().from(scans)).toHaveLength(before.length);
   });
 
   it("offers the summary report only", async () => {

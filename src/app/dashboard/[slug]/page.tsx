@@ -8,6 +8,7 @@ import { Card, HistoryBars, Note, PageBody, RingLegend, ScoreRings, Stat, TrendR
 import { displayScores, explainOverall, scoreTrend, shareOfVoice, shownScores } from "@/core/scoring";
 import { ENGINE_NAMES, coverageLabel } from "@/core/coverage";
 import { BookCallButton } from "@/components/locked";
+import { topBuyerCompetitor } from "@/core/competitors";
 import { PreviewSummary } from "./preview-summary";
 import { ForecastCard } from "./forecast-card";
 
@@ -58,13 +59,10 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     );
   }
 
-  // A prospect before their call: the ranking and nothing that depends on
+  // A free account before their call: the ranking and nothing that depends on
   // facts nobody has confirmed yet. None of the rest is loaded.
   if (locked) {
-    const [competitorPressure, checks] = await Promise.all([
-      getCompetitorPressure(db, latestScan.id),
-      getChecksForScan(db, latestScan.id),
-    ]);
+    const checks = await getChecksForScan(db, latestScan.id);
     return (
       <PageBody>
         <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
@@ -73,7 +71,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           ranking={shownScores(displayScores(latestScan)).visibility}
           scanDate={latestScan.startedAt}
           checks={checks}
-          topCompetitor={competitorPressure[0] ?? null}
+          // Buyer questions only, as the finished audit counts it, so both pages show the same number.
+          topCompetitor={topBuyerCompetitor(checks)}
           cta={<BookCallButton />}
         />
       </PageBody>

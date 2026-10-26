@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { KNOWN_PLATFORMS, parseCompetitorOutput, reconcileCompetitors } from "@/core/competitors";
+import { KNOWN_PLATFORMS, parseCompetitorOutput, reconcileCompetitors, topBuyerCompetitor } from "@/core/competitors";
 
 describe("parseCompetitorOutput", () => {
   it("parses a bare JSON array of names", () => {
@@ -197,5 +197,25 @@ describe("reconcileCompetitors known platforms", () => {
       discovered: ["Amazon Cleaning Co", "Yelp Plumbing", "Google Street Dental"],
     });
     expect(result.newlyDiscovered).toEqual(["Amazon Cleaning Co", "Yelp Plumbing", "Google Street Dental"]);
+  });
+});
+
+describe("topBuyerCompetitor", () => {
+  const check = (promptKind: string, competitorsMentioned: string[] | null) => ({ promptKind, competitorsMentioned });
+
+  it("counts only buyer-question answers, so it sits on the same base as \"X of Y answers\"", () => {
+    const checks = [
+      check("category", ["Rose City Plumbing"]),
+      check("category", ["Rose City Plumbing", "Drain Kings"]),
+      check("branded", ["Drain Kings"]),
+      check("branded", ["Drain Kings"]),
+    ];
+    expect(topBuyerCompetitor(checks)).toEqual({ name: "Rose City Plumbing", mentions: 2 });
+  });
+
+  it("breaks a tie by name, and is null when no buyer answer named anyone", () => {
+    expect(topBuyerCompetitor([check("category", ["Zed Plumbing"]), check("category", ["Ace Plumbing"])]))
+      .toEqual({ name: "Ace Plumbing", mentions: 1 });
+    expect(topBuyerCompetitor([check("category", []), check("category", null), check("branded", ["Drain Kings"])])).toBeNull();
   });
 });
