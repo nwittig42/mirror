@@ -132,7 +132,7 @@ export function reconcileCompetitors(args: {
 /**
  * The business AI named most in buyer-question answers. Spellings of one
  * business are counted together by nameKey, as the Competitors page and the
- * report do, under the first spelling seen; a tie goes to the name first in
+ * report do, under the first spelling seen, once per answer; a tie goes to the name first in
  * the alphabet. Branded questions are left out, so its count sits on the
  * same base as "AI named you in X of Y answers". Null when no buyer answer
  * named anyone.
@@ -143,8 +143,12 @@ export function topBuyerCompetitor(
   const counts = new Map<string, { name: string; mentions: number }>();
   for (const c of checks) {
     if (c.promptKind === "branded") continue;
+    // A business counts once per answer, however many spellings that answer lists.
+    const seen = new Set<string>();
     for (const name of c.competitorsMentioned ?? []) {
       const key = nameKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const row = counts.get(key) ?? { name, mentions: 0 };
       row.mentions += 1;
       counts.set(key, row);

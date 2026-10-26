@@ -1,7 +1,7 @@
 import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import {
-  getLatestScan, getScoreHistory, getOpenFindings, getActivities, getCompetitorPressure, getChecksForScan,
+  getLatestScan, getScoreHistory, getOpenFindings, getActivities, getChecksForScan,
 } from "@/lib/queries";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Card, HistoryBars, Note, PageBody, RingLegend, ScoreRings, Stat, TrendRow, type RingScore } from "@/components/ui";
@@ -9,6 +9,7 @@ import { displayScores, explainOverall, scoreTrend, shareOfVoice, shownScores } 
 import { ENGINE_NAMES, coverageLabel } from "@/core/coverage";
 import { BookCallButton } from "@/components/locked";
 import { topBuyerCompetitor } from "@/core/competitors";
+import { topEngine } from "@/core/top-engine";
 import { PreviewSummary } from "./preview-summary";
 import { ForecastCard } from "./forecast-card";
 
@@ -79,10 +80,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     );
   }
 
-  const [history, openFindings, competitorPressure, activities, checks] = await Promise.all([
+  const [history, openFindings, activities, checks] = await Promise.all([
     getScoreHistory(db, practice.id, 12),
     getOpenFindings(db, practice.id),
-    getCompetitorPressure(db, latestScan.id),
     getActivities(db, practice.id, 5),
     getChecksForScan(db, latestScan.id),
   ]);
@@ -95,10 +95,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   // Buyer questions only: questions that name the business name it back every time.
   const earned = checks.filter(c => c.promptKind !== "branded");
   const named = earned.filter(c => c.mentioned).length;
-  const byTool = new Map<string, number>();
-  for (const c of earned) if (c.mentioned) byTool.set(c.engine, (byTool.get(c.engine) ?? 0) + 1);
-  const bestTool = [...byTool.entries()].sort((a, b) => b[1] - a[1])[0];
-  const topCompetitor = competitorPressure[0];
+  const bestTool = topEngine(earned);
+  // Buyer questions only, as the finished audit counts it, so every page shows the same number.
+  const topCompetitor = topBuyerCompetitor(checks);
   const voice = shareOfVoice(checks);
   const explanation = shown.estimated ? null : explainOverall({
     visibility: raw.visibility ?? 0, factScore: raw.facts, hasCritical: seenFindings.some(f => f.severity === "critical"),
@@ -155,7 +154,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
               {voice.share === null
                 ? "No business was named in the latest scan."
                 : `You were ${voice.yours} of the ${voice.total} times AI named any business`}
-              {bestTool ? `. Best AI tool: ${ENGINE_NAMES[bestTool[0] as keyof typeof ENGINE_NAMES] ?? bestTool[0]}.` : "."}
+              {bestTool ? `. Best AI tool: ${ENGINE_NAMES[bestTool.engine as keyof typeof ENGINE_NAMES] ?? bestTool.engine}.` : "."}
             </Note>
           </Card>
         </div>

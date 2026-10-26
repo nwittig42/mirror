@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ScoreDial } from "@/components/ui";
 import { ENGINE_NAMES } from "@/core/coverage";
 import { topBuyerCompetitor } from "@/core/competitors";
+import { topEngine } from "@/core/top-engine";
 import { CalendlyEmbed, type CalendlyPrefill } from "@/app/book/calendly-embed";
 import { AccountForm } from "./account-form";
 
@@ -20,7 +21,6 @@ interface TeaserCheck {
  * nothing real can be read from its source.
  */
 const PLACEHOLDER = [
-  { title: "Fact check", lines: ["Prices: 3 of 5 right", "Opening hours: out of date", "Services: 1 missing"] },
   { title: "Every AI answer", lines: ["24 answers, word for word", "Where you were named", "Where you were left out"] },
   { title: "Competitors", lines: ["Named 9 times", "Named 6 times", "Named 4 times"] },
   { title: "Your fix plan", lines: ["First: update your hours", "Next: add a services page", "Then: answer common questions"] },
@@ -32,14 +32,6 @@ function excerpt(text: string, max = 260): string {
 }
 
 const engineName = (engine: string) => ENGINE_NAMES[engine as keyof typeof ENGINE_NAMES] ?? engine;
-
-/** The AI tool that named them in the most buyer questions, or null when none did or two tie. */
-function topEngine(earned: TeaserCheck[]): string | null {
-  const counts = new Map<string, number>();
-  for (const c of earned) if (c.mentioned) counts.set(c.engine, (counts.get(c.engine) ?? 0) + 1);
-  const [first, second] = [...counts].sort((a, b) => b[1] - a[1]);
-  return first && first[1] !== second?.[1] ? first[0] : null;
-}
 
 /**
  * The finished audit, top to bottom: the business and the scan date, the
@@ -63,7 +55,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   const earned = checks.filter(c => c.promptKind !== "branded");
   const named = earned.filter(c => c.mentioned).length;
   const shown = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0) ?? earned[0];
-  const engine = topEngine(earned);
+  const best = topEngine(earned);
   const rival = topBuyerCompetitor(earned);
 
   return (
@@ -88,7 +80,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
           <ScoreDial value={ranking} label="Score" />
           <div className="mk-body">
             <p>AI named you in {named} of {earned.length} answers when customers asked without using your name.</p>
-            {engine && <p>{engineName(engine)} named you most.</p>}
+            {best && <p>{engineName(best.engine)} named you most.</p>}
             {rival && (
               <p>It named <strong>{rival.name}</strong> instead in {rival.mentions} of those {earned.length} answers.</p>
             )}

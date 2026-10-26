@@ -21,9 +21,10 @@ import {
  * call where their fact sheet is set up. No fact claims: those facts were
  * read off their website by AI and nobody has reviewed them yet.
  *
- * It also carries their set-up link. The dashboard it opens shows the summary and
- * names what the call unlocks, so the email and the dashboard ask for the
- * same next step.
+ * It also carries their set-up link. The dashboard it opens shows the summary,
+ * every AI answer, the competitors and the recommendations, and names what the
+ * call unlocks (the fact check and the scores that rest on it), so the email
+ * and the dashboard ask for the same next step.
  */
 
 /**
@@ -96,7 +97,7 @@ export function composeProspectReportEmail(
       emailText(login.setupUrl
         ? "<strong>Choose a password to see your full audit.</strong>"
         : `<strong>Log in with ${e(login.email)} to see your full audit.</strong>`) +
-      emailText("It shows how often AI recommends you and this summary today. Your Accuracy score, every AI answer and your fix plan open after your call.", "secondary", 14) +
+      emailText("It shows every AI answer, who AI recommends instead of you, and your recommendations. Your Accuracy score and fact check open after a short call.", "secondary", 14) +
       `</div><div style="padding-top:12px;">${login.setupUrl ? emailButton(login.setupUrl, "Set up your account") : emailButton(login.loginUrl, "Log in")}</div>`
     : "";
 

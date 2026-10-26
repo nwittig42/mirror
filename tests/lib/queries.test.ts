@@ -3,7 +3,7 @@ import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
 import {
   getLatestScan, getChecksForScan, getOpenFindings,
-  getFindingsForPractice, getActivities, getCompetitorPressure,
+  getFindingsForPractice, getActivities,
 } from "@/lib/queries";
 
 async function insertScan(
@@ -153,55 +153,5 @@ describe("getActivities", () => {
 
     const result = await getActivities(db, practiceId, 10);
     expect(result.map(a => a.description)).toEqual(["Updated 14 Google service entries"]);
-  });
-});
-
-describe("getCompetitorPressure", () => {
-  it("counts competitor mentions across a scan's checks, descending", async () => {
-    const db = await makeTestDb();
-    const { practiceId, promptIds } = await seedPractice(db, {
-      name: "Glow MedSpa",
-      prompts: [{ text: "Best med spa", kind: "category" }],
-      competitors: ["Skin Bar LA", "Derm House"],
-    });
-    const scan = await insertScan(db, practiceId);
-    await db.insert(schema.checks).values([
-      {
-        scanId: scan.id, promptId: promptIds[0], engine: "openai",
-        answerText: "Skin Bar LA and Derm House are options.", citations: [], mentioned: false, position: "absent",
-        competitorsMentioned: ["Skin Bar LA", "Derm House"],
-      },
-      {
-        scanId: scan.id, promptId: promptIds[0], engine: "anthropic",
-        answerText: "Skin Bar LA is popular.", citations: [], mentioned: false, position: "absent",
-        competitorsMentioned: ["Skin Bar LA"],
-      },
-      {
-        scanId: scan.id, promptId: promptIds[0], engine: "gemini",
-        answerText: "Glow MedSpa is great.", citations: [], mentioned: true, position: "first",
-        competitorsMentioned: [],
-      },
-    ]);
-
-    const pressure = await getCompetitorPressure(db, scan.id);
-    expect(pressure).toEqual([
-      { name: "Skin Bar LA", mentions: 2 },
-      { name: "Derm House", mentions: 1 },
-    ]);
-  });
-
-  it("returns an empty array when no check mentions a competitor", async () => {
-    const db = await makeTestDb();
-    const { practiceId, promptIds } = await seedPractice(db, {
-      name: "Glow MedSpa",
-      prompts: [{ text: "Best med spa", kind: "category" }],
-    });
-    const scan = await insertScan(db, practiceId);
-    await db.insert(schema.checks).values({
-      scanId: scan.id, promptId: promptIds[0], engine: "openai",
-      answerText: "Glow MedSpa is great.", citations: [], mentioned: true, position: "first", competitorsMentioned: [],
-    });
-
-    expect(await getCompetitorPressure(db, scan.id)).toEqual([]);
   });
 });

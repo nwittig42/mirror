@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { Card, Note, ScoreDial, Stat, Tag, buttonClass } from "@/components/ui";
 import { ENGINE_NAMES } from "@/core/coverage";
+import { topEngine } from "@/core/top-engine";
 
 interface PreviewCheck {
   engine: string;
@@ -23,6 +24,9 @@ const OPEN = [
 const LOCKED = [
   { title: "Fact check", what: "What AI gets right and wrong about your prices, services and hours." },
   { title: "Overall score", what: "Your two scores combined, once your facts are checked." },
+  { title: "Fact sheet", what: "The confirmed facts about your business that AI is checked against." },
+  { title: "Forecast", what: "What fixing your wrong facts could do for your score." },
+  { title: "Full reports", what: "The visibility, fact check and monthly reports as PDFs." },
 ];
 
 /** A sentence cut to length on a word, so a long answer reads as a quote and not a wall. */
@@ -49,9 +53,7 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
   // Buyer questions only: questions that name the business name it back every time.
   const earned = checks.filter(c => c.promptKind !== "branded");
   const named = earned.filter(c => c.mentioned).length;
-  const byTool = new Map<string, number>();
-  for (const c of earned) if (c.mentioned) byTool.set(c.engine, (byTool.get(c.engine) ?? 0) + 1);
-  const bestTool = [...byTool.entries()].sort((a, b) => b[1] - a[1])[0];
+  const bestTool = topEngine(earned);
   const missed = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0);
 
   return (
@@ -93,8 +95,8 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
 
       {bestTool && (
         <Card title="Best AI tool">
-          <div className="text-[24px] font-semibold tracking-tight text-ink">{ENGINE_NAMES[bestTool[0] as keyof typeof ENGINE_NAMES] ?? bestTool[0]}</div>
-          <Note className="mt-2">Named you {bestTool[1]} time{bestTool[1] === 1 ? "" : "s"}</Note>
+          <div className="text-[24px] font-semibold tracking-tight text-ink">{ENGINE_NAMES[bestTool.engine as keyof typeof ENGINE_NAMES] ?? bestTool.engine}</div>
+          <Note className="mt-2">Named you {bestTool.count} time{bestTool.count === 1 ? "" : "s"}</Note>
         </Card>
       )}
 

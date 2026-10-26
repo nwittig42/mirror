@@ -227,4 +227,14 @@ describe("topBuyerCompetitor", () => {
     ];
     expect(topBuyerCompetitor(checks)).toEqual({ name: "Rose City Plumbing (Portland)", mentions: 2 });
   });
+
+  it("counts a business once per answer, even when one answer lists two spellings of it", () => {
+    const checks = [
+      check("category", ["Rose City Plumbing", "Rose City Plumbing (Portland)"]),
+      check("category", ["Drain Kings"]),
+      check("category", ["Drain Kings"]),
+    ];
+    expect(topBuyerCompetitor(checks)).toEqual({ name: "Drain Kings", mentions: 2 });
+    expect(topBuyerCompetitor(checks.slice(0, 1))).toEqual({ name: "Rose City Plumbing", mentions: 1 });
+  });
 });

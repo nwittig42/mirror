@@ -156,30 +156,6 @@ export async function getActivities(db: Db, practiceId: string, limit: number) {
 }
 
 /**
- * Tallies `competitorsMentioned` across every check in a scan into a
- * per-competitor mention count, descending (ties broken alphabetically for a
- * stable order).
- */
-export async function getCompetitorPressure(
-  db: Db, scanId: string,
-): Promise<{ name: string; mentions: number }[]> {
-  const rows = await db.select({ competitorsMentioned: checks.competitorsMentioned })
-    .from(checks)
-    .where(eq(checks.scanId, scanId));
-
-  const counts = new Map<string, number>();
-  for (const row of rows) {
-    for (const name of row.competitorsMentioned) {
-      counts.set(name, (counts.get(name) ?? 0) + 1);
-    }
-  }
-
-  return Array.from(counts.entries())
-    .map(([name, mentions]) => ({ name, mentions }))
-    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
-}
-
-/**
  * Score-band line for a scan: "Range 57-62 across 3 runs", or null for a
  * single-run scan (or one from before runs were recorded). As shown (30-100).
  */

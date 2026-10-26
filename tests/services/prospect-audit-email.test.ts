@@ -63,6 +63,12 @@ describe("the prospect's login", () => {
     expect(body).not.toContain("Temporary password");
   });
 
+  it("says what the account shows today and what waits for the call", () => {
+    const body = unescape(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror", login }).html);
+    expect(body).toContain("It shows every AI answer, who AI recommends instead of you, and your recommendations. Your Accuracy score and fact check open after a short call.");
+    expect(body).not.toContain("fix plan open after your call");
+  });
+
   it("tells someone who already has a password to log in with their email", () => {
     const body = unescape(composeProspectReportEmail(r, { contactName: "Dale", appName: "Mirror", login: { ...login, setupUrl: null } }).html);
     expect(body).toContain("Log in with dale@harbor-plumbing.example to see your full audit.");

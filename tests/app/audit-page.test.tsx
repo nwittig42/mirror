@@ -221,11 +221,24 @@ describe("the audit page", () => {
       expect(page).not.toContain("named you most.");
     });
 
+    it("blurs the cards for what a free account gets, in order, without a fact check card", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const blurred = blurredRegion(text(await audit(lead.id)));
+      const at = ["Every AI answer", "Competitors", "Your fix plan"].map(t => blurred.indexOf(t));
+      expect(at[0]).toBeGreaterThan(-1);
+      expect(at[1]).toBeGreaterThan(at[0]);
+      expect(at[2]).toBeGreaterThan(at[1]);
+      expect(blurred).not.toContain("Fact check");
+    });
+
     it("shows the logo beside the business name and the scan date, or the name alone without a logo", async () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const [scan] = await db.select().from(scans).where(eq(scans.practiceId, practiceId));
-      const day = (scan.finishedAt ?? scan.startedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+      // Finished on a different day than it started: the date is the start, as on the dashboard.
+      await db.update(scans).set({ finishedAt: new Date(scan.startedAt.getTime() + 3 * 86_400_000) }).where(eq(scans.id, scan.id));
+      const day = scan.startedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
       const plain = text(await audit(lead.id));
       const header = (markup: string) => markup.slice(markup.indexOf("mk-audit-head"), markup.indexOf("Recommended by AI"));

@@ -106,6 +106,16 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).not.toContain("Named 2 times");
   });
 
+  it("hides the best AI tool when two tie, here and on the unlocked home page", async () => {
+    const [practice] = await db.select().from(practices);
+    await runScan(db, practice.id, [adapter, { ...adapter, name: "anthropic" }], judge, async () => ["Rose City Plumbing"]);
+    for (const active of [false, true]) {
+      await db.update(practices).set({ active });
+      const page = await html(DashboardPage({ params }));
+      expect(page).not.toContain("Best AI tool");
+    }
+  });
+
   it("links the summary to the sections a free account now gets, and keeps the fact check locked", async () => {
     const page = await html(DashboardPage({ params }));
     expect(page).toMatch(/href="\/dashboard\/harbor\/answers"[^>]*>[^<]*Every AI answer/);
@@ -113,6 +123,7 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your recommendations/);
     // The fact check is the one thing still listed as locked.
     expect(page).toMatch(/Locked<\/span>.*Fact check/);
+    for (const title of ["Overall score", "Fact sheet", "Forecast", "Full reports"]) expect(page).toMatch(new RegExp(`Locked</span>.*${title}`));
     expect(page).not.toMatch(/Locked<\/span>.*Every AI answer/);
   });
 
@@ -219,6 +230,13 @@ describe("a prospect's dashboard before their call", () => {
     expect(competitors).toContain("secret-source.example");
     expect(await html(ReportsPage({ params }))).toContain("variant=master");
     expect((await pdf("master")).status).toBe(200);
+  });
+
+  it("counts the unlocked home page's top competitor over buyer questions too", async () => {
+    await db.update(practices).set({ active: true });
+    const page = await html(DashboardPage({ params }));
+    expect(page).toContain("Named 1 time, you 1");
+    expect(page).not.toContain("Named 2 times");
   });
 
   it("shows every headline score, the maths line and each AI tool's score on the 30-100 scale once unlocked", async () => {
