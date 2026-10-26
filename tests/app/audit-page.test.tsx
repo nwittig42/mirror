@@ -60,10 +60,10 @@ async function scannedPractice() {
   return practiceId;
 }
 
-/** The blurred block, from its opening tag to the card laid over it. */
+/** The blurred block, from its opening tag to the call offer below it. */
 function blurredRegion(page: string): string {
   const start = page.lastIndexOf("<div", page.indexOf("data-blurred"));
-  const end = page.indexOf("mk-teaser-overlay");
+  const end = page.indexOf("mk-teaser-book");
   expect(start).toBeGreaterThan(-1);
   expect(end).toBeGreaterThan(start);
   return page.slice(start, end);
@@ -166,17 +166,74 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice();
       const anonymous = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(anonymous.id));
-      expect(page).toContain("Create your account to see the full audit");
-      expect(page.slice(page.indexOf("mk-teaser-overlay"))).toContain('name="email"');
+      const card = (markup: string) => markup.slice(markup.indexOf("mk-teaser-account"), markup.indexOf("Already have an account?"));
+      expect(page).toContain("Create your free account to see your full audit");
+      expect(page).toContain("Every AI answer word for word, who AI recommends instead of you, and your step-by-step recommendations.");
+      expect(card(page)).toContain('name="email"');
       expect(page).toContain("Create account");
       expect(page).toContain("Already have an account?");
       expect(page).toContain('href="/login"');
 
       await db.update(leads).set({ email: "dale@harbor.example" }).where(eq(leads.id, anonymous.id));
       const known = text(await audit(anonymous.id));
-      const overlay = known.slice(known.indexOf("mk-teaser-overlay"), known.indexOf("Already have an account?"));
-      expect(overlay).not.toContain('name="email"');
-      expect(overlay).toContain('name="password"');
+      expect(card(known)).not.toContain('name="email"');
+      expect(card(known)).toContain('name="password"');
+    });
+
+    it("puts the account card above the blur, with nothing laid over the blur", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      expect(page.indexOf("mk-teaser-account")).toBeGreaterThan(-1);
+      expect(page.indexOf("mk-teaser-account")).toBeLessThan(page.indexOf("data-blurred"));
+      const blurred = blurredRegion(page);
+      expect(blurred).not.toContain("mk-teaser-overlay");
+      expect(blurred).not.toContain("<form");
+      expect(blurred).not.toContain("Create your free account");
+    });
+
+    it("leads with the score: the dial, how often they were named, by which AI tool, and who was named instead", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      expect(page.indexOf("Recommended by AI")).toBeLessThan(page.indexOf("An answer you were left out of"));
+      expect(page).toContain("AI named you in 1 of 2 answers when customers asked without using your name.");
+      expect(page).toContain("ChatGPT named you most.");
+      expect(page).toMatch(/It named <strong>Rose City Plumbing<\/strong> most instead, \d+ times?\./);
+    });
+
+    it("shows the logo beside the business name and the scan date, or the name alone without a logo", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const [scan] = await db.select().from(scans).where(eq(scans.practiceId, practiceId));
+      const day = (scan.finishedAt ?? scan.startedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+
+      const plain = text(await audit(lead.id));
+      const header = (markup: string) => markup.slice(markup.indexOf("mk-audit-head"), markup.indexOf("Recommended by AI"));
+      expect(header(plain)).toContain("Harbor Plumbing");
+      expect(header(plain)).toContain("AI visibility audit");
+      expect(header(plain)).toContain(day);
+      expect(header(plain)).not.toContain("<img");
+
+      const logo = "data:image/png;base64,iVBORw0KGgo=";
+      await db.update(practices).set({ logo }).where(eq(practices.id, practiceId));
+      const withLogo = text(await audit(lead.id));
+      expect(header(withLogo)).toContain(`<img src="${logo}" alt="Harbor Plumbing"`);
+    });
+
+    it("replaces the progress and the details form with the finished audit, and offers the call last", async () => {
+      process.env.CALENDLY_URL = "https://calendly.com/mirror/30min";
+      const practiceId = await scannedPractice();
+      for (const email of [null, "dale@harbor.example"]) {
+        const lead = await seedLead({ practiceId, status: "ready", email });
+        const page = text(await audit(lead.id));
+        expect(page).not.toContain("mk-audit-steps");
+        expect(page).not.toContain("mk-progress");
+        expect(page).not.toContain("Send me my audit");
+        expect(page).not.toContain("Thank you. We'll email your audit to");
+        expect(page).toContain("Want us to walk you through it? Book 30 minutes");
+        expect(page.indexOf("mk-teaser-book")).toBeGreaterThan(page.indexOf("data-blurred"));
+      }
     });
 
     it("shows nothing extra until the scan row is complete", async () => {
@@ -184,7 +241,8 @@ describe("the audit page", () => {
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
       expect(page).not.toContain("data-blurred");
-      expect(page).not.toContain("Create your account to see the full audit");
+      expect(page).not.toContain("Create your free account to see your full audit");
+      expect(page).toContain("mk-audit-steps");
     });
   });
 });

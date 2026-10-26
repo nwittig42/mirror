@@ -2564,17 +2564,38 @@
   max-width: 480px;
 }
 
-/* The teaser of a finished audit, full width above the two columns. */
+/* The finished audit: one column of full-width cards, top to bottom. */
 .mk-teaser {
-  margin-bottom: 64px;
-}
-.mk-teaser-top {
   display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
-.mk-teaser-top > * {
+.mk-teaser > * {
   min-width: 0;
+}
+.mk-audit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+  margin-bottom: 16px;
+}
+/* A fixed height and a capped width, so a wide logo shrinks instead of
+   pushing the page sideways on a phone. */
+.mk-audit-logo {
+  height: 56px;
+  width: auto;
+  max-width: 100%;
+  object-fit: contain;
+}
+.mk-audit-head-text {
+  flex: 1;
+  min-width: 0;
+}
+.mk-audit-head-text .lp-h2 {
+  overflow-wrap: anywhere;
+}
+.mk-audit-head-text .mk-field-hint {
+  margin-top: 8px;
 }
 .mk-teaser-dial {
   display: flex;
@@ -2588,6 +2609,12 @@
   min-width: 200px;
   margin: 0;
 }
+.mk-teaser-dial .mk-body p {
+  margin: 0;
+}
+.mk-teaser-dial .mk-body p + p {
+  margin-top: 8px;
+}
 .mk-teaser-quote {
   margin: 14px 0 0;
   padding-left: 16px;
@@ -2596,16 +2623,14 @@
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
-/* The blur and the card over it share one grid cell, so the block is as tall
-   as whichever is taller and the card is never clipped. */
-.mk-teaser-locked {
-  display: grid;
-  margin-top: 24px;
-  overflow: hidden;
+.mk-teaser-account {
+  border-color: var(--gold);
 }
-.mk-teaser-locked > * {
-  grid-area: 1 / 1;
-  min-width: 0;
+.mk-teaser-account .mk-body {
+  max-width: 560px;
+}
+.mk-teaser-account form {
+  max-width: 440px;
 }
 .mk-teaser-blur {
   display: grid;
@@ -2623,24 +2648,17 @@
   line-height: 2;
   color: var(--ink-soft);
 }
-.mk-teaser-overlay {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+/* The call is optional, so it reads smaller than the account card above. */
+.mk-teaser-book {
+  margin-top: 24px;
 }
-.mk-teaser-overlay > .mk-form-card {
-  width: 100%;
-  max-width: 440px;
-  box-shadow: 0 12px 48px rgba(26, 26, 24, 0.12);
+.mk-teaser-book .mk-h3 {
+  font-size: 18px;
 }
 .mk-calendly-bleed {
   margin: 0 -36px -36px;
 }
 @media (max-width: 900px) {
-  .mk-teaser-top {
-    grid-template-columns: 1fr;
-  }
   .mk-teaser-blur {
     grid-template-columns: 1fr;
   }

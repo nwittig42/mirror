@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { eq } from "drizzle-orm";
 import "../../landing.css";
 import { getDb } from "@/db";
-import { leads } from "@/db/schema";
+import { leads, practices } from "@/db/schema";
 import { LandingFooter, LandingNav } from "@/components/landing/chrome";
 import { displayScores, shownScore } from "@/core/scoring";
 import { getChecksForScan, getCompetitorPressure, getLatestScan } from "@/lib/queries";
@@ -17,8 +17,8 @@ import { ThankYou } from "./thank-you";
 /**
  * A visitor's own audit, reached from the website box (/audit/<lead id>).
  * Public: the id is a random UUID, so whoever has the link is the visitor.
- * Left, the audit as it runs; right, their details, then the call. Once the
- * scan is complete the results teaser goes above both.
+ * While it runs: left, the audit's progress; right, their details, then the
+ * call. Once the scan is complete the finished audit replaces both.
  */
 
 // The details form's action can send the finished report straight away,
@@ -46,11 +46,16 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
     ? (await isRepeatSite(db, id) ? "repeat" : "capacity")
     : undefined;
 
-  // The teaser needs a complete scan; "done" a moment before that row lands shows nothing extra.
+  // The finished audit needs a complete scan; "done" a moment before that row
+  // lands keeps the progress, which refreshes into it.
   const scan = progress.stage === "done" && lead.practiceId ? await getLatestScan(db, lead.practiceId) : null;
-  const [checks, competitors] = scan
-    ? await Promise.all([getChecksForScan(db, scan.id), getCompetitorPressure(db, scan.id)])
-    : [[], []];
+  const [checks, competitors, [practice]] = scan && lead.practiceId
+    ? await Promise.all([
+      getChecksForScan(db, scan.id),
+      getCompetitorPressure(db, scan.id),
+      db.select({ name: practices.name, logo: practices.logo }).from(practices).where(eq(practices.id, lead.practiceId)),
+    ])
+    : [[], [], []];
 
   // Read straight off process.env, as /book does: a missing scheduler is a fallback, not an error.
   const calendlyUrl = process.env.CALENDLY_URL || undefined;
@@ -63,32 +68,38 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
       <main style={{ flex: 1 }}>
         <section className="mk-section">
           <div className="mk-inner">
-            {scan && (
+            {scan ? (
               <ResultsTeaser
                 leadId={id}
+                businessName={practice?.name ?? lead.practiceName ?? "Your business"}
+                logo={practice?.logo ?? null}
+                scanDate={scan.finishedAt ?? scan.startedAt}
                 ranking={shownScore(displayScores(scan).visibility)}
                 checks={checks}
                 topCompetitor={competitors[0] ?? null}
-                askEmail={!lead.email}
+                email={lead.email}
+                calendlyUrl={calendlyUrl}
+                prefill={{ contactName: lead.contactName ?? undefined, practiceName: lead.practiceName ?? undefined, websiteUrl }}
               />
+            ) : (
+              <div className="mk-book-grid">
+                <AuditLive leadId={id} initial={progress} notStarted={notStarted} />
+                {lead.email ? (
+                  <ThankYou
+                    email={lead.email}
+                    calendlyUrl={calendlyUrl}
+                    prefill={{ contactName: lead.contactName ?? undefined, practiceName: lead.practiceName ?? undefined, websiteUrl }}
+                  />
+                ) : (
+                  <DetailsForm
+                    leadId={id}
+                    prefill={{ practiceName: lead.practiceName ?? "", category: lead.category ?? "", location: lead.location ?? "" }}
+                    websiteUrl={websiteUrl}
+                    calendlyUrl={calendlyUrl}
+                  />
+                )}
+              </div>
             )}
-            <div className="mk-book-grid">
-              <AuditLive leadId={id} initial={progress} notStarted={notStarted} />
-              {lead.email ? (
-                <ThankYou
-                  email={lead.email}
-                  calendlyUrl={calendlyUrl}
-                  prefill={{ contactName: lead.contactName ?? undefined, practiceName: lead.practiceName ?? undefined, websiteUrl }}
-                />
-              ) : (
-                <DetailsForm
-                  leadId={id}
-                  prefill={{ practiceName: lead.practiceName ?? "", category: lead.category ?? "", location: lead.location ?? "" }}
-                  websiteUrl={websiteUrl}
-                  calendlyUrl={calendlyUrl}
-                />
-              )}
-            </div>
           </div>
         </section>
       </main>
