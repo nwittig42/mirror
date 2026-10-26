@@ -1,7 +1,7 @@
 import { and, desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { activities, practiceMembers, practices, scans, supportRequests, users } from "@/db/schema";
-import { displayScores } from "@/core/scoring";
+import { displayScores, shownScores } from "@/core/scoring";
 
 /**
  * Reads behind the operator's customer views (`/admin` and the customer
@@ -11,7 +11,7 @@ import { displayScores } from "@/core/scoring";
 /**
  * Every practice with its latest *published* score (newest complete scan) and
  * its newest scan attempt of any status, so the list shows both "what the
- * customer sees" and "what happened last".
+ * customer sees" and "what happened last". Scores are as shown (30-100).
  */
 export async function listPracticeRows(db: Db) {
   const [practiceRows, scanRows] = await Promise.all([
@@ -28,7 +28,7 @@ export async function listPracticeRows(db: Db) {
     const published = own.find(s => s.status === "complete");
     return {
       id: p.id, name: p.name, slug: p.slug, website: p.website, active: p.active,
-      ...(published ? displayScores(published) : { overall: null, visibility: null, facts: null, estimated: false }),
+      ...(published ? shownScores(displayScores(published)) : { overall: null, visibility: null, facts: null, estimated: false }),
       lastScanAt: own[0]?.startedAt ?? null,
       lastScanStatus: own[0]?.status ?? null,
     };

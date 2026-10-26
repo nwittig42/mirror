@@ -8,7 +8,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { AnswerCard } from "@/components/answer-card";
 import { FindingCard } from "@/components/finding-card";
 import { BarRow, Card, Note, PageBody, ScoreDial, SectionTitle, SiteIcon, SplitBar, Tag } from "@/components/ui";
-import { engineScores } from "@/core/scoring";
+import { SHOWN_CAP, engineScores, shownScore } from "@/core/scoring";
 import { ENGINE_NAMES } from "@/core/coverage";
 import { ENGINES, type Engine, type Position } from "@/core/types";
 import { buildSourcesReport, domainOf, SOURCE_KIND_LABELS } from "@/core/citations";
@@ -92,6 +92,8 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
     }
     return {
       ...tool,
+      // On the same 30-100 scale as the Recommended by AI score it breaks down.
+      score: shownScore(tool.score)!,
       name: ENGINE_NAMES[tool.engine] ?? tool.engine,
       wrong: open.filter(f => f.engine === tool.engine && f.lastSeenScanId === latestScan.id).length,
       topSite: [...sites.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))[0]?.[0] ?? null,
@@ -264,7 +266,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
               />
             ))}
             <Note>
-              A serious wrong fact seen in the latest scan holds your Overall score at 70. One marked &ldquo;Not seen in the latest scan&rdquo; costs no points right now.
+              A serious wrong fact seen in the latest scan holds your Overall score at {SHOWN_CAP}. One marked &ldquo;Not seen in the latest scan&rdquo; costs no points right now.
             </Note>
           </>
         )}

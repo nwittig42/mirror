@@ -9,6 +9,7 @@ import type {
   WebsiteCheck, Tone, SourceShare, Level, Severity, CheckStatus, ToolId,
 } from '@/report/types';
 import { color, statusColor, toolMeta, sourceColor } from '@/report/tokens';
+import { SHOWN_FLOOR, shownScore } from '@/core/scoring';
 
 /* ------------------------------------------------------------------ */
 /* Score bands                                                         */
@@ -16,10 +17,13 @@ import { color, statusColor, toolMeta, sourceColor } from '@/report/tokens';
 
 export type Band = 'needs_work' | 'fair' | 'strong';
 
-/** 0–100 scores (overall, visibility, accuracy, sub-scores). */
+/**
+ * Headline scores as shown (30–100). The bars are raw 70 and 40 moved onto
+ * the shown scale (79 and 58), so "Strong" still means a raw 70 or more.
+ */
 export function scoreBand(score: number): Band {
-  if (score >= 70) return 'strong';
-  if (score >= 40) return 'fair';
+  if (score >= shownScore(70)!) return 'strong';
+  if (score >= shownScore(40)!) return 'fair';
   return 'needs_work';
 }
 
@@ -50,27 +54,32 @@ export function bandColors(b: Band) {
 /* Score maths                                                         */
 /* ------------------------------------------------------------------ */
 
-/** Overall = round( Σ score × weight / 100 ). Weights must sum to 100. */
+/** Every business starts with these points; the parts share the other 70. */
+export const STARTING_POINTS = SHOWN_FLOOR;
+
+/** Overall = 30 + round( Σ score × weight / 100 ). Weights must sum to 70. */
 export function overallScore(components: ScoreComponent[]): number {
-  return Math.round(components.reduce((s, c) => s + (c.score * c.weight) / 100, 0));
+  return STARTING_POINTS + Math.round(components.reduce((s, c) => s + (c.score * c.weight) / 100, 0));
 }
 
-/** Visibility = the three visibility components, rescaled to 0–100. */
+/** Visibility = the three visibility components, rescaled to 0–100, then shown on 30–100. */
 export function visibilityScore(components: ScoreComponent[]): number {
   const vis = components.filter((c) => c.id !== 'accuracy');
   const raw = vis.reduce((s, c) => s + (c.score * c.weight) / 100, 0);
   const max = vis.reduce((s, c) => s + c.weight, 0);
-  return Math.round((raw / max) * 100);
+  return shownScore(Math.round((raw / max) * 100))!;
 }
 
 /**
- * Whole points per component that add up exactly to `total` (largest-remainder
- * rounding). `total` defaults to the components' own sum; pass the stored
- * overall so the donut always matches the number in its centre. When the
- * overall is lower than the parts (never named => 0, or the serious-error
- * cap), the parts are scaled down to it. Sample: 5 + 5 + 10 + 21 = 41.
+ * Whole points per component that add up exactly to the overall less the
+ * starting 30 (largest-remainder rounding). `overall` defaults to the
+ * components' own sum; pass the stored overall so the rows always add up to
+ * the number in the centre. When the overall is lower than the parts (never
+ * named => 30, or the serious-error cap), the parts are scaled down to it.
+ * Sample: 30 + 4 + 4 + 6 + 15 = 59.
  */
-export function componentPoints(components: ScoreComponent[], total = overallScore(components)): number[] {
+export function componentPoints(components: ScoreComponent[], overall = overallScore(components)): number[] {
+  const total = Math.max(0, overall - STARTING_POINTS);
   const raw = components.map((c) => (c.score * c.weight) / 100);
   const sum = raw.reduce((a, b) => a + b, 0);
   const exact = sum > total && sum > 0 ? raw.map((v) => (v * total) / sum) : raw;

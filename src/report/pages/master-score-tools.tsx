@@ -1,5 +1,5 @@
 import { Bar, NoteBox, PageTitle, Pill, ReportPage, ScoreRing, ToolBadge, card, clamp, text, type PageProps } from "@/report/components";
-import { bandColors, componentPoints, headlines, plainScoreNames, rateBandLabel, sortedTools } from "@/report/scoring";
+import { STARTING_POINTS, bandColors, componentPoints, headlines, plainScoreNames, rateBandLabel, sortedTools } from "@/report/scoring";
 import { color, statusColor } from "@/report/tokens";
 import type { AuditReport, ScoreComponent } from "@/report/types";
 
@@ -23,8 +23,8 @@ function scoreTakeaway(r: AuditReport, points: number[]): string {
   const worst = lost.reduce((wi, l, i) => (l > lost[wi] ? i : wi), 0);
   const total = r.scores.overall.value;
   const earnLine = points[best] > 0
-    ? `Your ${total} comes mostly from ${partPhrase(comps[best].id, r).earn}.`
-    : "You have not earned points yet.";
+    ? `Beyond the ${STARTING_POINTS} every business starts with, your ${total} comes mostly from ${partPhrase(comps[best].id, r).earn}.`
+    : `You have the ${STARTING_POINTS} points every business starts with, and no more yet.`;
   const loseLine = lost[worst] > 0
     ? ` You lose the most points by ${partPhrase(comps[worst].id, r).lose}.`
     : " You are earning every point on offer.";
@@ -58,6 +58,14 @@ function waffle(total: number) {
 export function ScoreToolsPage({ r, ctx }: PageProps) {
   const comps = r.scores.components;
   const points = componentPoints(comps, r.scores.overall.value);
+  // The starting points come first, so the rows add up to the number in the ring.
+  const rows = [
+    ...(comps.length ? [{
+      id: "starting", label: "Starting points", definition: "Every business starts with these.",
+      weight: STARTING_POINTS, points: STARTING_POINTS, detail: "",
+    }] : []),
+    ...comps.map((c, i) => ({ ...c, points: points[i] })),
+  ];
   const tools = sortedTools(r.toolResults);
   const many = tools.length > 5;
 
@@ -74,18 +82,18 @@ export function ScoreToolsPage({ r, ctx }: PageProps) {
           <span style={text.label}>Overall</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-          {comps.map((c, i) => (
-            <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 16, alignItems: "center" }}>
+          {rows.map((row) => (
+            <div key={row.id} style={{ display: "grid", gridTemplateColumns: "1fr 200px", gap: 16, alignItems: "center" }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
-                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{c.label}</span>
-                <span style={{ ...text.small, ...clamp(2) }}>{c.definition}</span>
+                <span style={{ fontSize: 13.5, fontWeight: 600 }}>{row.label}</span>
+                <span style={{ ...text.small, ...clamp(2) }}>{row.definition}</span>
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 6, fontSize: 12, color: color.muted }}>
-                  <span style={{ whiteSpace: "nowrap" }}><strong style={{ fontSize: 16, fontWeight: 600, color: color.ink }}>{points[i]}</strong> of {c.weight} points</span>
-                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.detail}</span>
+                  <span style={{ whiteSpace: "nowrap" }}><strong style={{ fontSize: 16, fontWeight: 600, color: color.ink }}>{row.points}</strong> of {row.weight} points</span>
+                  <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{row.detail}</span>
                 </div>
-                <Bar pct={c.weight ? (points[i] / c.weight) * 100 : 0} fill={color.client} height={8} />
+                <Bar pct={row.weight ? (row.points / row.weight) * 100 : 0} fill={color.client} height={8} />
               </div>
             </div>
           ))}

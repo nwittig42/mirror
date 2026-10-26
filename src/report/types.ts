@@ -38,20 +38,21 @@ export interface ScanInfo {
   coverageNote: string | null;     // "Based on 4 of 5 AI tools. Gemini didn't respond."; null = every tool answered
 }
 
-/** One ingredient of the overall score. Points earned = round(score * weight / 100). */
+/** One ingredient of the overall score. Points earned = round(score * weight / 100), on top of the 30 every business starts with. */
 export interface ScoreComponent {
   id: 'named_often' | 'rank_high' | 'tool_reach' | 'accuracy';
   label: string;          // "How often you're named"
   definition: string;     // plain-English one-liner
-  weight: number;         // max points out of 100; the parts always sum to 100
-  score: number;          // 0–100 sub-score
+  weight: number;         // max points; the parts always sum to 70 (30 more are everyone's starting points)
+  score: number;          // 0–100 sub-score, raw (not shifted onto 30–100)
   detail: string;         // "10 of 75 answers"
 }
 
 export interface Scores {
+  // Headline scores are as shown, 30–100 (see shownScore in core/scoring).
   overall: { value: number; min: number; max: number; explanation: string }; // min/max across runs
-  visibility: number;           // 0–100
-  factAccuracy: number | null;  // 0–100; null = nothing was fact-checked (show "N/A")
+  visibility: number;           // 30–100
+  factAccuracy: number | null;  // 30–100; null = nothing was fact-checked (show "N/A")
   components: ScoreComponent[];
 }
 
@@ -69,7 +70,7 @@ export interface LeaderboardEntry {
 
 export interface Competitor {
   name: string;
-  visibility: number;     // 0–100 (accuracy is never measured for competitors)
+  visibility: number;     // 30–100, as shown (accuracy is never measured for competitors)
   namedCount: number;
 }
 

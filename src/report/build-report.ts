@@ -6,7 +6,7 @@ import { buildCompetitorReport } from "@/lib/competitor-report";
 import { buildSourcesReport, type SourceKind } from "@/core/citations";
 import { buildSearchReport } from "@/core/search-queries";
 import { fixAdvice } from "@/core/fix-list";
-import { computeVisibility, displayScores, explainOverall } from "@/core/scoring";
+import { computeVisibility, displayScores, explainOverall, shownScore } from "@/core/scoring";
 import { coverageLabel } from "@/core/coverage";
 import { extractSnippet } from "@/core/mention";
 import { nameKey } from "@/core/competitors";
@@ -171,7 +171,8 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
   });
   const topCompetitor = {
     name: top?.name ?? "No competitor named",
-    visibility: top ? computeVisibility(competitorChecks, tools.length) : 0,
+    // On the shown scale, like the business's own score beside it.
+    visibility: shownScore(top ? computeVisibility(competitorChecks, tools.length) : 0)!,
     namedCount: competitorChecks.filter(c => c.mentioned).length,
   };
 
@@ -340,11 +341,15 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
   const explanation = scan.visibilityScore === null ? "" : explainOverall({
     visibility: visibilityScore, factScore, hasCritical: open.some(f => f.severity === "critical"),
   });
-  // Points out of 100 each part can earn: visibility's 50/20/15 split scaled
-  // into its 70% share (or the whole 100 when facts weren't checked), facts 30.
+  // Points each part can earn. Every business starts at 30 (see shownScore),
+  // so the parts share the other 70: visibility's 50/20/15 split scaled into
+  // its 70% share (41/17/12, or 59/23/18 when facts weren't checked), facts
+  // 30, each times 0.7 and rounded to sum to 70.
   const w = factScore === null
-    ? { named: 59, rank: 23, reach: 18 }
-    : { named: 41, rank: 17, reach: 12 };
+    ? { named: 41, rank: 16, reach: 13, facts: 0 }
+    : { named: 29, rank: 12, reach: 8, facts: 21 };
+  // Headline scores go into the report as a person sees them; sub-scores stay raw.
+  const overall = scan.score ?? 0;
 
   return {
     business: {
@@ -363,10 +368,10 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
     },
     scores: {
       overall: {
-        value: scan.score ?? 0, min: scan.scoreLow ?? scan.score ?? 0, max: scan.scoreHigh ?? scan.score ?? 0, explanation,
+        value: shownScore(overall)!, min: shownScore(scan.scoreLow ?? overall)!, max: shownScore(scan.scoreHigh ?? overall)!, explanation,
       },
-      visibility: visibilityScore,
-      factAccuracy: factScore,
+      visibility: shownScore(visibilityScore)!,
+      factAccuracy: shownScore(factScore),
       components: [
         { id: "named_often", label: "How often you're named", definition: "How many answers mention you at all.",
           weight: w.named, score: scan.citationRate ?? 0, detail: `${clientCount} of ${earnedTotal}` },
@@ -377,7 +382,7 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
         ...(factScore === null ? [] : [{
           id: "accuracy" as const, label: "How accurate AI is about you",
           definition: "Whether what AI says about you matches your confirmed facts.",
-          weight: 30, score: factScore, detail: `${open.length} wrong fact${open.length === 1 ? "" : "s"}`,
+          weight: w.facts, score: factScore, detail: `${open.length} wrong fact${open.length === 1 ? "" : "s"}`,
         }]),
       ],
     },

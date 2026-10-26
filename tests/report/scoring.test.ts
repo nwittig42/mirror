@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import sample from "@/report/sample-audit.json";
 import type { AuditReport } from "@/report/types";
 import * as s from "@/report/scoring";
+import { shownScore } from "@/core/scoring";
 
 // The design kit's own sanity checks against its sample data, kept passing.
 const r = sample as unknown as AuditReport;
@@ -10,9 +11,13 @@ describe("design kit scoring (sample data)", () => {
   it("matches the sample's scores", () => {
     expect(s.overallScore(r.scores.components)).toBe(r.scores.overall.value);
     expect(s.visibilityScore(r.scores.components)).toBe(r.scores.visibility);
-    expect(s.componentPoints(r.scores.components)).toEqual([5, 5, 10, 21]);
-    expect(s.factAccuracy(r.facts)).toBe(r.scores.factAccuracy);
-    expect([34, 29, 70, 61].map(s.scoreBand)).toEqual(["needs_work", "needs_work", "strong", "fair"]);
+    expect(s.componentPoints(r.scores.components)).toEqual([4, 4, 6, 15]);
+    expect(shownScore(s.factAccuracy(r.facts))).toBe(r.scores.factAccuracy);
+    expect(r.scores.components.reduce((a, c) => a + c.weight, s.STARTING_POINTS)).toBe(100);
+  });
+  it("bands a shown score where the raw score's band was", () => {
+    // Raw 70 and 40 are the bars; shown, they are 79 and 58.
+    expect([30, 57, 58, 78, 79, 100].map(s.scoreBand)).toEqual(["needs_work", "needs_work", "fair", "fair", "strong", "strong"]);
   });
   it("sorts and counts", () => {
     expect(s.sortedWrongFacts(r.facts).map(f => f.id)).toEqual(["f1", "f2", "f3"]);
@@ -51,25 +56,25 @@ describe("the four reports", () => {
     expect(s.planActions("factcheck", r).length).toBeGreaterThan(0);
   });
   it("names the scores the way the reports do", () => {
-    expect(s.plainScoreNames(r.scores.overall.explanation)).toBe("Overall = 70% Recommended by AI (29) + 30% Accuracy (70) = 41.");
+    expect(s.plainScoreNames(r.scores.overall.explanation)).toBe("Overall = 70% Recommended by AI (50) + 30% Accuracy (79) = 59.");
   });
 });
 
 describe("componentPoints against the stored overall", () => {
   const comp = (id: "named_often" | "rank_high" | "tool_reach" | "accuracy", weight: number, score: number) =>
     ({ id, label: id, definition: "", weight, score, detail: "" });
-  it("gives no points when the overall is 0, even with perfect facts", () => {
-    const comps = [comp("named_often", 41, 0), comp("rank_high", 17, 0), comp("tool_reach", 12, 0), comp("accuracy", 30, 100)];
-    expect(s.componentPoints(comps, 0)).toEqual([0, 0, 0, 0]);
+  it("gives no points beyond the starting 30 when the overall is 30, even with perfect facts", () => {
+    const comps = [comp("named_often", 29, 0), comp("rank_high", 12, 0), comp("tool_reach", 8, 0), comp("accuracy", 21, 100)];
+    expect(s.componentPoints(comps, 30)).toEqual([0, 0, 0, 0]);
   });
   it("scales down to a capped overall", () => {
-    const comps = [comp("named_often", 41, 100), comp("rank_high", 17, 100), comp("tool_reach", 12, 100), comp("accuracy", 30, 60)];
-    const pts = s.componentPoints(comps, 70);
-    expect(pts.reduce((a, b) => a + b, 0)).toBe(70);
+    const comps = [comp("named_often", 29, 100), comp("rank_high", 12, 100), comp("tool_reach", 8, 100), comp("accuracy", 21, 60)];
+    const pts = s.componentPoints(comps, 79);
+    expect(pts.reduce((a, b) => a + b, 0)).toBe(49);
   });
   it("absorbs a one-point rounding gap", () => {
-    const comps = [comp("named_often", 41, 13), comp("rank_high", 17, 32), comp("tool_reach", 12, 80), comp("accuracy", 30, 70)];
-    expect(s.componentPoints(comps, 42).reduce((a, b) => a + b, 0)).toBe(42);
-    expect(s.componentPoints(comps, 40).reduce((a, b) => a + b, 0)).toBe(40);
+    const comps = [comp("named_often", 29, 13), comp("rank_high", 12, 32), comp("tool_reach", 8, 80), comp("accuracy", 21, 70)];
+    expect(s.componentPoints(comps, 60).reduce((a, b) => a + b, 0)).toBe(30);
+    expect(s.componentPoints(comps, 58).reduce((a, b) => a + b, 0)).toBe(28);
   });
 });

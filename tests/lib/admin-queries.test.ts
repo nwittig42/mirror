@@ -20,7 +20,8 @@ describe("listPracticeRows", () => {
     await scan(db, a, { status: "blocked", startedAt: new Date("2026-09-15") });
     const rows = await listPracticeRows(db);
     const glow = rows.find(r => r.id === a)!;
-    expect(glow).toMatchObject({ overall: 72, visibility: 66, facts: 88 });
+    // As the customer sees them, on the 30-100 scale (raw 72, 66, 88).
+    expect(glow).toMatchObject({ overall: 80, visibility: 76, facts: 92 });
     expect(glow.lastScanStatus).toBe("blocked");
     expect(glow.lastScanAt?.toISOString().slice(0, 10)).toBe("2026-09-15");
     const skin = rows.find(r => r.id === b)!;
@@ -71,7 +72,7 @@ describe("getSupportForPractice and getWorkLog", () => {
 });
 
 describe("getScoreHistory and scoreTrend", () => {
-  it("lists published scans oldest first with all three scores, and compares the last two", async () => {
+  it("lists published scans oldest first with all three scores as shown, and compares the last two", async () => {
     const { getScoreHistory } = await import("@/lib/queries");
     const { scoreTrend } = await import("@/core/scoring");
     const db = await makeTestDb();
@@ -80,9 +81,10 @@ describe("getScoreHistory and scoreTrend", () => {
     await scan(db, practiceId, { status: "blocked", startedAt: new Date("2026-09-05") });
     await scan(db, practiceId, { status: "complete", score: 58, visibilityScore: 50, factScore: 76, startedAt: new Date("2026-09-08") });
     const h = await getScoreHistory(db, practiceId, 12);
-    expect(h.map(p => p.overall)).toEqual([50, 58]);
-    expect(scoreTrend(h, "overall")).toEqual({ now: 58, change: 8 });
-    expect(scoreTrend(h, "facts")).toEqual({ now: 76, change: -4 });
-    expect(scoreTrend(h.slice(0, 1), "visibility")).toEqual({ now: 40, change: null });
+    // Raw 50 and 58 show as 65 and 71; the change is between the shown numbers.
+    expect(h.map(p => p.overall)).toEqual([65, 71]);
+    expect(scoreTrend(h, "overall")).toEqual({ now: 71, change: 6 });
+    expect(scoreTrend(h, "facts")).toEqual({ now: 83, change: -3 });
+    expect(scoreTrend(h.slice(0, 1), "visibility")).toEqual({ now: 58, change: null });
   });
 });

@@ -5,7 +5,9 @@ import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests } from "@/db";
 import type { Db } from "@/db";
-import { practices } from "@/db/schema";
+import { practices, scans } from "@/db/schema";
+import { engineScores, shownScore } from "@/core/scoring";
+import { getChecksForScan } from "@/lib/queries";
 import { runScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
 
@@ -80,6 +82,12 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).toContain('href="/dashboard/harbor/reports/pdf?variant=summary"');
   });
 
+  it("shows the ranking on the 30-100 scale", async () => {
+    const [scan] = await db.select().from(scans);
+    const page = await html(DashboardPage({ params }));
+    expect(page).toContain(`aria-label="Score ${shownScore(scan.visibilityScore)} out of 100"`);
+  });
+
   it("keeps the unconfirmed fact check out of the summary", async () => {
     const page = await html(DashboardPage({ params }));
     // The "Wrong facts" tab is in the header for everyone; the count card under it is what must stay out.
@@ -135,6 +143,17 @@ describe("a prospect's dashboard before their call", () => {
     expect(competitors).toContain("secret-source.example");
     expect(await html(ReportsPage({ params }))).toContain("variant=master");
     expect((await pdf("master")).status).toBe(200);
+  });
+
+  it("shows every headline score, the maths line and each AI tool's score on the 30-100 scale once unlocked", async () => {
+    await db.update(practices).set({ active: true });
+    const [scan] = await db.select().from(scans);
+    const page = await html(DashboardPage({ params }));
+    const rings = `Overall ${shownScore(scan.score)} out of 100, Recommended by AI ${shownScore(scan.visibilityScore)} out of 100, Accuracy ${shownScore(scan.factScore)} out of 100`;
+    expect(page).toContain(rings);
+    expect(page).toContain(`= ${shownScore(scan.score)}`);
+    const tool = engineScores(await getChecksForScan(db, scan.id))[0];
+    expect(await html(AnswersPage({ params }))).toContain(`ChatGPT ${shownScore(tool.score)} out of 100`);
   });
 
   it("never locks an operator out", async () => {

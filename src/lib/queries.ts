@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gt, inArray } from "drizzle-orm";
 import type { Db } from "@/db";
-import { displayScores } from "@/core/scoring";
+import { displayScores, shownScore, shownScores } from "@/core/scoring";
 import { activities, checks, facts, findings, prompts, scans } from "@/db/schema";
 import { SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
 
@@ -78,13 +78,17 @@ export async function getScoreTrend(
     .map(s => ({ date: s.startedAt.toISOString(), score: s.score ?? 0 }));
 }
 
-/** The last `limit` published scans, oldest first, with all three scores (older scans rebuilt). */
+/**
+ * The last `limit` published scans, oldest first, with all three scores as
+ * shown (30-100; older scans rebuilt). For display only: trends are worked
+ * out from these, so a change matches the numbers on screen.
+ */
 export async function getScoreHistory(db: Db, practiceId: string, limit: number) {
   const rows = await db.select().from(scans)
     .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
     .orderBy(desc(scans.startedAt))
     .limit(limit);
-  return rows.reverse().map(s => ({ date: s.startedAt, ...displayScores(s) }));
+  return rows.reverse().map(s => ({ date: s.startedAt, ...shownScores(displayScores(s)) }));
 }
 
 /** Every check from a scan, joined with its prompt's text and kind, oldest first. */
@@ -194,13 +198,13 @@ export async function getCompetitorPressure(
 }
 
 /**
- * Score-band line for a scan: "Range 38-46 across 3 runs", or null for a
- * single-run scan (or one from before runs were recorded).
+ * Score-band line for a scan: "Range 57-62 across 3 runs", or null for a
+ * single-run scan (or one from before runs were recorded). As shown (30-100).
  */
 export function describeBand(scan: { runs: number; scoreLow: number | null; scoreHigh: number | null }): string | null {
   if (scan.runs <= 1 || scan.scoreLow === null || scan.scoreHigh === null) return null;
   if (scan.scoreLow === scan.scoreHigh) return `Same score on all ${scan.runs} runs`;
-  return `Range ${scan.scoreLow}-${scan.scoreHigh} across ${scan.runs} runs`;
+  return `Range ${shownScore(scan.scoreLow)}-${shownScore(scan.scoreHigh)} across ${scan.runs} runs`;
 }
 
 /** Findings about price first, then by severity, so the most damaging reads first. */

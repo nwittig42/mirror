@@ -100,10 +100,11 @@ describe("buildReportData", () => {
       { engine: "Gemini", cited: 0, total: 0 },
       { engine: "Perplexity", cited: 0, total: 0 },
     ]));
-    expect(report.score).toBe(60);
+    // As shown, on the 30-100 scale (raw 40 and 60).
+    expect(report.score).toBe(72);
     expect(report.trend).toEqual([
-      { date: scan1.startedAt.toISOString(), score: 40 },
-      { date: scan2.startedAt.toISOString(), score: 60 },
+      { date: scan1.startedAt.toISOString(), score: 58 },
+      { date: scan2.startedAt.toISOString(), score: 72 },
     ]);
   });
 
@@ -165,7 +166,7 @@ describe("buildReportData", () => {
     expect(report.verdict).toBe(
       "AI engines named Glow MedSpa in 75% of answers to questions that didn't name them, in July 2026, up from 50% last month.",
     );
-    expect(report.prevMonthScore).toBe(30);
+    expect(report.prevMonthScore).toBe(51); // raw 30, as shown
   });
 
   it("verdict omits the comparison clause when there is no prior month", async () => {
@@ -300,9 +301,10 @@ describe("the month-by-month history and the review", () => {
     const r = await buildReportData(db, practiceId, "2026-07");
     expect(r.months.map(m => m.month)).toEqual(["2026-02", "2026-03", "2026-04", "2026-05", "2026-06", "2026-07"]);
     expect(r.months.map(m => m.label)).toEqual(["Feb", "Mar", "Apr", "May", "Jun", "Jul"]);
-    expect(r.months.map(m => m.overall)).toEqual([null, null, null, 20, 31, 28]);
+    // Raw 20, 31 and 28, as shown.
+    expect(r.months.map(m => m.overall)).toEqual([null, null, null, 44, 52, 50]);
     const overall = r.changes.find(c => c.key === "overall")!;
-    expect([overall.before, overall.now]).toEqual([31, 28]);
+    expect([overall.before, overall.now]).toEqual([52, 50]);
     expect(r.comparedTo).toBe("Jun");
   });
 
@@ -314,7 +316,7 @@ describe("the month-by-month history and the review", () => {
 
     const r = await buildReportData(db, practiceId, "2026-07");
     const overall = r.changes.find(c => c.key === "overall")!;
-    expect([overall.before, overall.now, r.comparedTo]).toEqual([35, 8, "May"]);
+    expect([overall.before, overall.now, r.comparedTo]).toEqual([55, 36, "May"]); // raw 35 and 8
     // The share of answers is only compared with the month right before.
     expect(r.changes.find(c => c.key === "named")!.before).toBeNull();
 

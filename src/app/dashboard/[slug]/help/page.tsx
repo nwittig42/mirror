@@ -16,7 +16,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: "What do the three scores mean?",
-    a: "Recommended by AI is how often and how high AI names you when customers ask without using your name. Accuracy is how much of what AI says about you is true, checked against the Fact Sheet you confirmed. It starts at 100 and loses points for each wrong fact, and wrong prices cost extra. Overall combines the two.",
+    a: "Recommended by AI is how often and how high AI names you when customers ask without using your name. Accuracy is how much of what AI says about you is true, checked against the Fact Sheet you confirmed. It starts at 100 and loses points for each wrong fact, and wrong prices cost extra. Overall combines the two. Each score runs from 30 to 100: every business starts at 30.",
   },
   {
     q: "AI said something wrong about us. What now?",

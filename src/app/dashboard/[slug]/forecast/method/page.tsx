@@ -9,7 +9,7 @@ import { Card, Note, PageBody, Table, Tag, buttonClass, type Tone } from "@/comp
 import { areaWords, loadForecast } from "@/services/forecast";
 import { loadAccuracyForecast } from "@/services/accuracy-forecast";
 import { FIXED_BY, FIX_SOURCES, FIX_SOURCE_LABEL, FORECAST_MONTHS, type FixSource } from "@/core/accuracy-forecast";
-import { FACT_PENALTY } from "@/core/scoring";
+import { FACT_PENALTY, SHOWN_CAP, SHOWN_FLOOR, shownPoints } from "@/core/scoring";
 import { PACE_RANGE_MONTHS } from "@/core/score-forecast";
 import {
   BENCHMARKS_AS_OF, CHURN_SOURCES, FORECAST_MODEL_VERSION, MONTHLY_CHURN, ORIGIN_LABEL, PACE_MONTHS, PACE_SOURCES,
@@ -179,9 +179,9 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
         {acc && (
           <Card title="The Accuracy forecast">
             <p className="text-[15px] leading-relaxed text-ink-soft">
-              Accuracy starts at 100 and loses points for every wrong fact AI stated in your latest scan: {FACT_PENALTY.critical} for a
-              serious one, {FACT_PENALTY.major} for an important one, {FACT_PENALTY.minor} for a minor one, and half as much again when it
-              is a price. That part is exact. When AI stops saying a wrong fact, its points come back.
+              Accuracy starts at 100 and loses points for every wrong fact AI stated in your latest scan: {shownPoints(FACT_PENALTY.critical)} for a
+              serious one, {shownPoints(FACT_PENALTY.major)} for an important one, {shownPoints(FACT_PENALTY.minor)} for a minor one, and half as much again when it
+              is a price. It never goes below {SHOWN_FLOOR}, where every business starts. That part is exact. When AI stops saying a wrong fact, its points come back.
             </p>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
               What we estimate is how long that takes once the source is corrected, and it depends on where AI read the mistake. The forecast
@@ -232,7 +232,7 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
             </li>
             <li>
               <span className="font-semibold text-ink">Overall</span> is worked out from those two the way every scan does it: 70% Recommended
-              by AI and 30% Accuracy, zero while AI never names you, and held at 70 while a serious wrong fact is still around.
+              by AI and 30% Accuracy, {SHOWN_FLOOR} while AI never names you, and held at {SHOWN_CAP} while a serious wrong fact is still around.
             </li>
           </ul>
         </Card>

@@ -5,7 +5,7 @@ import "../../landing.css";
 import { getDb } from "@/db";
 import { leads } from "@/db/schema";
 import { LandingFooter, LandingNav } from "@/components/landing/chrome";
-import { displayScores } from "@/core/scoring";
+import { displayScores, shownScore } from "@/core/scoring";
 import { getChecksForScan, getCompetitorPressure, getLatestScan } from "@/lib/queries";
 import { auditProgress, isUuid } from "@/services/audit-progress";
 import { isRepeatSite } from "@/services/leads";
@@ -66,7 +66,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
             {scan && (
               <ResultsTeaser
                 leadId={id}
-                ranking={displayScores(scan).visibility}
+                ranking={shownScore(displayScores(scan).visibility)}
                 checks={checks}
                 topCompetitor={competitors[0] ?? null}
                 askEmail={!lead.email}

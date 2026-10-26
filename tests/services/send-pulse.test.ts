@@ -133,6 +133,22 @@ describe("sendPulse", () => {
     expect(html).not.toContain("1 of 2");
   });
 
+  it("shows the overall and its change on the 30-100 scale", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain", members: ["dale@harbor-plumbing.example"] });
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    await db.insert(schema.scans).values([
+      { practiceId, status: "complete", score: 42, startedAt: lastWeek, finishedAt: lastWeek },
+      { practiceId, status: "complete", score: 60, startedAt: new Date(), finishedAt: new Date() },
+    ]);
+    const transport = vi.fn().mockResolvedValue(undefined);
+    await sendPulse(db, practiceId, transport);
+    const html: string = transport.mock.calls[0][0].html;
+    // Raw 42 then 60 show as 59 then 72: up 13 on screen, not the raw 18.
+    expect(html).toMatch(/>72</);
+    expect(html).toContain("+13 since your last scan");
+  });
+
   it("skips the week when no scan ran this week, instead of resending last week's", async () => {
     const db = await makeTestDb();
     const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing and Drain", members: ["dale@harbor-plumbing.example"] });

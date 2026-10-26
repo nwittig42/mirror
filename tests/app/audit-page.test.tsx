@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests } from "@/db";
 import type { Db } from "@/db";
-import { leads, practices } from "@/db/schema";
+import { leads, practices, scans } from "@/db/schema";
+import { shownScore } from "@/core/scoring";
 import { eq } from "drizzle-orm";
 import { runScan } from "@/services/scan-runner";
 import { createInvite } from "@/services/account-invites";
@@ -151,6 +152,14 @@ describe("the audit page", () => {
       // A branded answer can carry unconfirmed facts, so it is nowhere on the page.
       expect(page).not.toContain(SECRET_ANSWER);
       expect(page).not.toContain("$49");
+    });
+
+    it("shows the Recommended by AI score on the 30-100 scale", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const [scan] = await db.select().from(scans).where(eq(scans.practiceId, practiceId));
+      expect(scan.visibilityScore).not.toBe(100);
+      expect(text(await audit(lead.id))).toContain(`aria-label="Score ${shownScore(scan.visibilityScore)} out of 100"`);
     });
 
     it("asks for an email to create the account only when the lead has none", async () => {

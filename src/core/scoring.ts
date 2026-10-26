@@ -112,17 +112,47 @@ export function computeOverall(a: OverallInput): { score: number; uncapped: numb
   return { score: capped ? CRITICAL_CAP : uncapped, uncapped, capped };
 }
 
-/** One plain line that shows the overall's maths, shown under the score. */
+/**
+ * Every headline score a person sees runs from 30 to 100: shown = 30 + 0.7 x
+ * raw. The floor keeps a struggling business from seeing a crushing number;
+ * rescaling rather than clamping keeps a better business scoring higher.
+ * Stored scores stay raw; this is applied only where a number is displayed.
+ */
+export const SHOWN_FLOOR = 30;
+
+export function shownScore(raw: number | null): number | null {
+  // Whole-number maths (x7/10), so 75 gives 52.5 exactly and rounds up to 83.
+  return raw === null ? null : Math.round(SHOWN_FLOOR + (raw * 7) / 10);
+}
+
+/** The serious-error cap as a person sees it (raw 70). */
+export const SHOWN_CAP = shownScore(CRITICAL_CAP)!;
+
+/** `displayScores`' three numbers as shown. */
+export function shownScores<T extends { overall: number | null; visibility: number | null; facts: number | null }>(s: T): T {
+  return { ...s, overall: shownScore(s.overall), visibility: shownScore(s.visibility), facts: shownScore(s.facts) };
+}
+
+/** A number of points gained or lost, on the shown scale (0.7x), to one decimal. */
+export function shownPoints(points: number): number {
+  return Math.round(points * 7) / 10;
+}
+
+/**
+ * One plain line that shows the overall's maths, shown under the score.
+ * Takes the raw scores and quotes them as shown: the weights sum to 1, so the
+ * sum still holds on the 30-100 scale, give or take a point of rounding.
+ */
 export function explainOverall(a: OverallInput): string {
   if (a.visibility === 0) {
-    return "Overall is 0 because AI never named you when buyers asked. Accurate facts can't lift a business AI doesn't mention.";
+    return `Overall is ${SHOWN_FLOOR} because AI never named you when buyers asked. Accurate facts can't lift a business AI doesn't mention.`;
   }
   if (a.factScore === null) {
-    return `Overall = your visibility (${a.visibility}). No facts were checked this scan, so accuracy isn't counted yet.`;
+    return `Overall = your visibility (${shownScore(a.visibility)}). No facts were checked this scan, so accuracy isn't counted yet.`;
   }
   const o = computeOverall(a);
-  const sum = `Overall = 70% visibility (${a.visibility}) + 30% fact accuracy (${a.factScore}) = ${o.uncapped}`;
-  return o.capped ? `${sum}, capped at ${CRITICAL_CAP} because AI stated a serious wrong fact about you.` : `${sum}.`;
+  const sum = `Overall = 70% visibility (${shownScore(a.visibility)}) + 30% fact accuracy (${shownScore(a.factScore)}) = ${shownScore(o.uncapped)}`;
+  return o.capped ? `${sum}, capped at ${SHOWN_CAP} because AI stated a serious wrong fact about you.` : `${sum}.`;
 }
 
 /**

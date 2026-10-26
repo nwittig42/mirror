@@ -7,10 +7,12 @@ import { loadEnv } from "@/lib/env";
 import { escapeHtml } from "@/lib/html";
 import { logActivity } from "@/services/activity";
 import { extractSnippet } from "@/core/mention";
+import { shownScore } from "@/core/scoring";
 import { emailButton, emailLabel, emailNote, emailNumber, emailQuote, emailShell, emailText } from "@/services/email-shell";
 
 export interface PulseArgs {
   practiceName: string;
+  /** Overall this scan and last, as shown (30-100). */
   score: number;
   prevScore: number | null;
   cited: number;
@@ -151,7 +153,8 @@ export async function sendPulse(
     db.select().from(nameVariations).where(eq(nameVariations.practiceId, practiceId)),
   ]);
 
-  const prevScore = recentScans.length > 1 ? (recentScans[1].score ?? null) : null;
+  // As shown (30-100), so the change is between the numbers the customer sees.
+  const prevScore = recentScans.length > 1 ? shownScore(recentScans[1].score ?? null) : null;
 
   // Branded prompts name the practice in the question, so the answer names it
   // back whether or not anyone could actually find them. Counting those would
@@ -184,7 +187,7 @@ export async function sendPulse(
 
   const { subject, html } = composePulse({
     practiceName: practice.name,
-    score: latest.score ?? 0,
+    score: shownScore(latest.score ?? 0)!,
     prevScore,
     cited,
     total,

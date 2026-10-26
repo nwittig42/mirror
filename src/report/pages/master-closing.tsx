@@ -1,4 +1,5 @@
 import { CheckIcon, EmptyState, PageTitle, ReportPage, card, clamp, joinNames, panel, text, type PageProps } from "@/report/components";
+import { STARTING_POINTS } from "@/report/scoring";
 import { color, statusColor } from "@/report/tokens";
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
@@ -31,14 +32,17 @@ export function ClosingPage({ r, ctx }: PageProps) {
   ];
 
   const words = [
-    { term: "Overall", def: `Out of 100 points: ${joinNames(comps.map(c => `${c.weight} for ${PART_SHORT[c.id] ?? c.label.toLowerCase()}`))}.` },
+    {
+      term: "Overall",
+      def: `Out of 100 points. Every business starts at ${STARTING_POINTS}. The other ${100 - STARTING_POINTS} points come from ${joinNames(comps.map(c => `${c.weight} for ${PART_SHORT[c.id] ?? c.label.toLowerCase()}`))}.`,
+    },
     {
       term: "Recommended by AI",
-      def: `How often and how high AI names you, from 0 to 100. It comes from the ${buyerAnswers} answers to the ${buyerQ} ${plural(buyerQ, "question that does not", "questions that do not")} use your name.`,
+      def: `How often and how high AI names you, from ${STARTING_POINTS} to 100: every business starts at ${STARTING_POINTS}. It comes from the ${buyerAnswers} answers to the ${buyerQ} ${plural(buyerQ, "question that does not", "questions that do not")} use your name.`,
     },
     {
       term: "Accuracy",
-      def: `Starts at 100 and loses points for each wrong fact. Serious mistakes and wrong prices cost the most. It comes from the ${brandedAnswers} answers to the ${brandedQ} ${plural(brandedQ, "question", "questions")} about you by name.`,
+      def: `Starts at 100 and loses points for each wrong fact, down to ${STARTING_POINTS} at the lowest. Serious mistakes and wrong prices cost the most. It comes from the ${brandedAnswers} answers to the ${brandedQ} ${plural(brandedQ, "question", "questions")} about you by name.`,
     },
   ];
 

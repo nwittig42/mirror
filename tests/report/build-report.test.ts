@@ -6,6 +6,7 @@ import * as s from "@/report/scoring";
 import type { EngineAdapter } from "@/engines/types";
 import type { WebsiteCheckResult } from "@/core/website-check";
 import { practices, scans } from "@/db/schema";
+import { shownScore } from "@/core/scoring";
 
 async function scanned() {
   const db = await makeTestDb();
@@ -86,10 +87,25 @@ describe("buildAuditReportData", () => {
     expect(r.topFixIds).toHaveLength(3);
 
     // Score components add up to the headline number through the design's maths.
-    expect(r.scores.components.map(c => [c.id, c.weight])).toEqual([["named_often", 41], ["rank_high", 17], ["tool_reach", 12], ["accuracy", 30]]);
+    // Every business starts at 30; the parts share the other 70.
+    expect(r.scores.components.map(c => [c.id, c.weight])).toEqual([["named_often", 29], ["rank_high", 12], ["tool_reach", 8], ["accuracy", 21]]);
     expect(Math.abs(s.overallScore(r.scores.components) - r.scores.overall.value)).toBeLessThanOrEqual(1);
-    expect(r.scores.factAccuracy).toBe(82);
-    expect(r.scores.overall.explanation).toMatch(/^Overall = 70% visibility \(\d+\) \+ 30% fact accuracy \(82\) = \d+\.$/);
+    expect(r.scores.factAccuracy).toBe(87); // raw 82
+    expect(r.scores.overall.explanation).toMatch(/^Overall = 70% visibility \(\d+\) \+ 30% fact accuracy \(87\) = \d+\.$/);
+  });
+
+  it("puts every headline score, its run-to-run range and the competitor's score on the shown 30-100 scale", async () => {
+    const { db, practiceId } = await scanned();
+    const [scan] = await db.select().from(scans);
+    const r = (await buildAuditReportData(db, practiceId))!;
+    expect(r.scores.overall).toMatchObject({
+      value: shownScore(scan.score), min: shownScore(scan.scoreLow), max: shownScore(scan.scoreHigh),
+    });
+    expect(r.scores.visibility).toBe(shownScore(scan.visibilityScore));
+    expect(r.scores.overall.explanation).toContain(`= ${r.scores.overall.value}`);
+    expect(r.topCompetitor.visibility).toBeGreaterThanOrEqual(30);
+    // Sub-scores stay true.
+    expect(r.scores.components[0].score).toBe(scan.citationRate);
   });
 
   it("shows N/A and visibility-only weights when nothing was fact-checked", async () => {
@@ -99,7 +115,7 @@ describe("buildAuditReportData", () => {
       async () => ({ wrong: [], right: [] }), async () => []);
     const r = (await buildAuditReportData(db, practiceId))!;
     expect(r.scores.factAccuracy).toBeNull();
-    expect(r.scores.components.map(c => c.weight)).toEqual([59, 23, 18]);
+    expect(r.scores.components.map(c => c.weight)).toEqual([41, 16, 13]);
     expect(r.scores.overall.explanation).toMatch(/No facts were checked/);
     expect(r.facts).toEqual([]);
   });
@@ -162,8 +178,8 @@ describe("buildAuditReportData", () => {
     const { db, practiceId } = await scanned();
     await db.update(scans).set({ visibilityScore: null, factScore: null, citationRate: 31, positionScore: 16, breadthScore: 75, accuracyScore: 33 });
     const r = (await buildAuditReportData(db, practiceId))!;
-    expect(r.scores.visibility).toBe(35);
-    expect(r.scores.factAccuracy).toBe(33);
+    expect(r.scores.visibility).toBe(55); // raw 35
+    expect(r.scores.factAccuracy).toBe(53); // raw 33
   });
 
   it("quotes a real answer that named a competitor but not them, and marks a paused account as a prospect", async () => {

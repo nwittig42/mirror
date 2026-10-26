@@ -1,9 +1,9 @@
 import type { Db } from "@/db";
 import { getChecksForScan, getFindingsForPractice, getLatestScan, getScoreHistory } from "@/lib/queries";
 import { mentionRates } from "@/core/forecast";
-import { competitorScore, forecastScores, type ScoreForecast } from "@/core/score-forecast";
-import { displayScores } from "@/core/scoring";
-import { fixSource, forecastAccuracy, type AccuracyForecast } from "@/core/accuracy-forecast";
+import { competitorScore, forecastScores, type ScoreForecast, type ScoreLine } from "@/core/score-forecast";
+import { displayScores, shownPoints, shownScore } from "@/core/scoring";
+import { fixSource, forecastAccuracy, type AccuracyForecast, type AccuracyPoint } from "@/core/accuracy-forecast";
 
 export interface LoadedAccuracy {
   forecast: AccuracyForecast | null;
@@ -17,10 +17,19 @@ export interface LoadedAccuracy {
   checked: boolean;
 }
 
+const shownPoint = (p: AccuracyPoint): AccuracyPoint =>
+  ({ month: p.month, low: shownScore(p.low)!, likely: shownScore(p.likely)!, high: shownScore(p.high)! });
+const shownLine = (line: ScoreLine | null): ScoreLine | null =>
+  line && { now: shownScore(line.now)!, points: line.points.map(shownPoint) };
+
 /**
  * The Accuracy forecast for a business, from the wrong facts its latest scan
  * repeated: the same ones that cost its score points. Older open findings the
  * scan did not see again cost nothing, so they are not forecast either.
+ *
+ * The forecast is worked out on raw scores, then every score and every
+ * points cost is put on the shown 30-100 scale here, so the Forecast pages
+ * show the same numbers as the Overview.
  */
 export async function loadAccuracyForecast(db: Db, practice: { id: string; website: string | null }): Promise<LoadedAccuracy> {
   const scan = await getLatestScan(db, practice.id);
@@ -37,14 +46,21 @@ export async function loadAccuracyForecast(db: Db, practice: { id: string; websi
     }));
   const forecast = forecastAccuracy({ judgedChecks: scan.factScore === null ? 0 : 1, wrong });
   const { competitor } = mentionRates(checks);
+  const lines = forecastScores({
+    now: { facts: scores.facts, visibility: scores.visibility }, accuracy: forecast,
+    target: competitor ? competitorScore(checks, competitor) : null,
+  });
   return {
-    forecast,
+    forecast: forecast && {
+      ...forecast,
+      now: shownScore(forecast.now)!, best: shownScore(forecast.best)!, points: forecast.points.map(shownPoint),
+      facts: forecast.facts.map(f => ({ ...f, points: shownPoints(f.points) })),
+      bySource: forecast.bySource.map(row => ({ ...row, points: shownPoints(row.points) })),
+    },
+    // Already shown: getScoreHistory is for display.
     history: history.map(h => ({ date: h.date, facts: h.facts, visibility: h.visibility, overall: h.overall })),
     checked: scan.factScore !== null,
-    scores: forecastScores({
-      now: { facts: scores.facts, visibility: scores.visibility }, accuracy: forecast,
-      target: competitor ? competitorScore(checks, competitor) : null,
-    }),
+    scores: { facts: shownLine(lines.facts), visibility: shownLine(lines.visibility), overall: shownLine(lines.overall) },
     competitor,
   };
 }

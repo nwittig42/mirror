@@ -5,7 +5,7 @@ import {
 } from "@/lib/queries";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { Card, HistoryBars, Note, PageBody, RingLegend, ScoreRings, Stat, TrendRow, type RingScore } from "@/components/ui";
-import { displayScores, explainOverall, scoreTrend, shareOfVoice } from "@/core/scoring";
+import { displayScores, explainOverall, scoreTrend, shareOfVoice, shownScores } from "@/core/scoring";
 import { ENGINE_NAMES, coverageLabel } from "@/core/coverage";
 import { BookCallButton } from "@/components/locked";
 import { PreviewSummary } from "./preview-summary";
@@ -70,7 +70,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
         <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
         <PreviewSummary
           slug={slug}
-          ranking={displayScores(latestScan).visibility}
+          ranking={shownScores(displayScores(latestScan)).visibility}
           scanDate={latestScan.startedAt}
           checks={checks}
           topCompetitor={competitorPressure[0] ?? null}
@@ -88,7 +88,9 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     getChecksForScan(db, latestScan.id),
   ]);
 
-  const shown = displayScores(latestScan);
+  const raw = displayScores(latestScan);
+  // What the rings show; the maths line below takes the raw scores and quotes them as shown.
+  const shown = shownScores(raw);
   // Only wrong facts the latest scan repeated count toward its fact score.
   const seenFindings = openFindings.filter(f => f.lastSeenScanId === latestScan.id);
   // Buyer questions only: questions that name the business name it back every time.
@@ -100,7 +102,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const topCompetitor = competitorPressure[0];
   const voice = shareOfVoice(checks);
   const explanation = shown.estimated ? null : explainOverall({
-    visibility: shown.visibility ?? 0, factScore: shown.facts, hasCritical: seenFindings.some(f => f.severity === "critical"),
+    visibility: raw.visibility ?? 0, factScore: raw.facts, hasCritical: seenFindings.some(f => f.severity === "critical"),
   });
   const coverage = coverageLabel(latestScan.coverage ?? null);
   const rings: RingScore[] = [

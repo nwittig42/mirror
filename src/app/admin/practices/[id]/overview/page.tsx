@@ -7,7 +7,7 @@ import { setDashboardUnlocked, setPracticeActive } from "@/app/admin/actions";
 import { getChecksForScan, getFindingsForPractice, getLatestScan } from "@/lib/queries";
 import { getPracticeLogins, getScanHistory, getSupportForPractice, getWorkLog } from "@/lib/admin-queries";
 import type { Engine } from "@/core/types";
-import { displayScores } from "@/core/scoring";
+import { displayScores, shownScores } from "@/core/scoring";
 import { PageBody } from "@/components/ui";
 import { Button, PrimaryLink, SecondaryLink, Tabs } from "@/app/admin/ui";
 import { BusinessHeader } from "../business-header";
@@ -128,9 +128,9 @@ export default async function CustomerOverviewPage({
 
       {tab === "account" && (
         <AccountTab practice={practice} openWrongFacts={openWrong} openSupport={openSupport} logins={logins}
-          latest={latest ? { startedAt: latest.startedAt, coverage: latest.coverage, shown: displayScores(latest) } : null} />
+          latest={latest ? { startedAt: latest.startedAt, coverage: latest.coverage, shown: shownScores(displayScores(latest)) } : null} />
       )}
-      {tab === "scores" && <ScoresTab scans={history.map(s => ({ ...s, shown: displayScores(s) }))} />}
+      {tab === "scores" && <ScoresTab scans={history.map(s => ({ ...s, shown: shownScores(displayScores(s)) }))} />}
       {tab === "reports" && <ReportsTab slug={practice.slug} latestDate={latest?.startedAt ?? null} />}
       {tab === "answers" && <AnswersTab date={latest?.startedAt ?? null} questions={questions} />}
       {tab === "facts" && <WrongFactsTab base={base} filter={filter} findings={wrongFacts} practiceId={id} />}

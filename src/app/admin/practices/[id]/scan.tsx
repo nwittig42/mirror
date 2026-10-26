@@ -7,6 +7,7 @@ import { blockedReason, coverageLabel } from "@/core/coverage";
 import { scanLooksStuck } from "@/services/scan-runner";
 import { Card, Meter, Note, ScoreDial } from "@/components/ui";
 import { Button, Notice, linkClass } from "@/app/admin/ui";
+import { displayScores, shownScores } from "@/core/scoring";
 import { businessHref } from "./tabs";
 
 /** Starts the scan, then lands back on the Scans tab with a "started" notice. */
@@ -36,6 +37,8 @@ export async function Scan({ practiceId, slug, scanStarted }: { practiceId: stri
     : latestAttempt.status === "failed" ? `Latest attempt ${attemptDate} failed. See diagnostics below.`
     : coverageLabel(latestAttempt.coverage ?? null);
   const band = latestScan ? describeBand(latestScan) : null;
+  // As the customer sees them.
+  const shown = latestScan ? shownScores(displayScores(latestScan)) : null;
   const audit = (variant: string) => `/dashboard/${slug}/audit?variant=${variant}`;
 
   return (
@@ -49,10 +52,10 @@ export async function Scan({ practiceId, slug, scanStarted }: { practiceId: stri
 
       {latestScan ? (
         <div className="flex flex-wrap items-center gap-x-8 gap-y-5">
-          <ScoreDial value={latestScan.score} label="Overall" size={132} />
+          <ScoreDial value={shown!.overall} label="Overall" size={132} />
           <div className="min-w-[240px] flex-1 space-y-4">
-            <Meter label="Recommended by AI" value={latestScan.visibilityScore} />
-            <Meter label="Accuracy" value={latestScan.factScore} />
+            <Meter label="Recommended by AI" value={shown!.visibility} />
+            <Meter label="Accuracy" value={shown!.facts} />
             <Note>
               Latest finished scan: {latestScan.startedAt.toISOString().slice(0, 10)}{band ? ` · ${band}` : ""}
             </Note>

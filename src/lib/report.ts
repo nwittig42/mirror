@@ -4,7 +4,7 @@ import { activities, checks, findings, nameVariations, practices, prompts, scans
 import { getChecksForScan } from "@/lib/queries";
 import { extractSnippet } from "@/core/mention";
 import { ENGINES, ENGINE_LABELS } from "@/core/types";
-import { displayScores } from "@/core/scoring";
+import { displayScores, shownScore, shownScores } from "@/core/scoring";
 
 export interface ReportData {
   verdict: string;
@@ -155,12 +155,13 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     )).orderBy(asc(scans.startedAt)),
   ]);
 
-  // One point per month: the scores of that month's last scan.
+  // One point per month: the scores of that month's last scan, as shown (30-100),
+  // so the changes below are between the numbers on screen.
   const months: MonthPoint[] = Array.from({ length: HISTORY_MONTHS }, (_, i) => {
     const from = new Date(Date.UTC(historyStart.getUTCFullYear(), historyStart.getUTCMonth() + i, 1));
     const to = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() + 1, 1));
     const last = historyScans.filter(sc => inRange(sc.startedAt, from, to)).pop();
-    const shown = last ? displayScores(last) : null;
+    const shown = last ? shownScores(displayScores(last)) : null;
     return {
       month: `${from.getUTCFullYear()}-${String(from.getUTCMonth() + 1).padStart(2, "0")}`,
       label: from.toLocaleString("en-US", { month: "short", timeZone: "UTC" }),
@@ -168,10 +169,10 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
     };
   });
 
-  const trend = inMonthScans.map(s => ({ date: s.startedAt.toISOString(), score: s.score ?? 0 }));
+  const trend = inMonthScans.map(s => ({ date: s.startedAt.toISOString(), score: shownScore(s.score ?? 0)! }));
   const latestInMonthScan = inMonthScans.length > 0 ? inMonthScans[inMonthScans.length - 1] : null;
-  const score = latestInMonthScan ? (latestInMonthScan.score ?? 0) : null;
-  const prevMonthScore = prevMonthScans.length > 0 ? (prevMonthScans[prevMonthScans.length - 1].score ?? 0) : null;
+  const score = latestInMonthScan ? shownScore(latestInMonthScan.score ?? 0) : null;
+  const prevMonthScore = prevMonthScans.length > 0 ? shownScore(prevMonthScans[prevMonthScans.length - 1].score ?? 0) : null;
 
   const [inMonthChecks, prevMonthChecks] = await Promise.all([
     checksForScans(db, inMonthScans.map(s => s.id)),

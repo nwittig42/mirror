@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores, shareOfVoice, engineScores } from "@/core/scoring";
+import {
+  computeVisibilityParts, computeVisibility, computeOverall, explainOverall, computeFactScore, scoreBand, displayScores, shareOfVoice, engineScores,
+  shownScore, shownScores, shownPoints, SHOWN_FLOOR, SHOWN_CAP,
+} from "@/core/scoring";
 import type { ScoreInput } from "@/core/scoring";
 
 const check = (engine: string, kind: string, mentioned: boolean, position: string) =>
@@ -48,22 +51,52 @@ describe("computeOverall", () => {
   });
 });
 
+describe("shownScore", () => {
+  it("maps 0-100 onto 30-100", () => {
+    expect(shownScore(0)).toBe(30);
+    expect(shownScore(50)).toBe(65);
+    expect(shownScore(100)).toBe(100);
+    expect(SHOWN_FLOOR).toBe(30);
+  });
+  it("rounds to a whole number", () => {
+    expect(shownScore(1)).toBe(31);
+    expect(shownScore(2)).toBe(31);
+    expect(shownScore(75)).toBe(83);
+    expect(shownScore(41)).toBe(59);
+  });
+  it("keeps a missing score missing", () => {
+    expect(shownScore(null)).toBeNull();
+  });
+  it("keeps the score bands exactly where they were", () => {
+    expect([shownScore(69), shownScore(70)]).toEqual([78, 79]);
+    expect([shownScore(39), shownScore(40)]).toEqual([57, 58]);
+    expect(SHOWN_CAP).toBe(79);
+  });
+  it("maps all three scores and keeps the estimate flag", () => {
+    expect(shownScores({ overall: 41, visibility: 29, facts: null, estimated: true }))
+      .toEqual({ overall: 59, visibility: 50, facts: null, estimated: true });
+  });
+  it("shows a points cost at 0.7x, to one decimal", () => {
+    expect([25, 12, 4, 37.5].map(shownPoints)).toEqual([17.5, 8.4, 2.8, 26.3]);
+  });
+});
+
 describe("explainOverall", () => {
-  it("spells out the weights", () => {
+  it("spells out the weights, in the scores a person sees", () => {
     expect(explainOverall({ visibility: 60, factScore: 80, hasCritical: false }))
-      .toBe("Overall = 70% visibility (60) + 30% fact accuracy (80) = 66.");
+      .toBe("Overall = 70% visibility (72) + 30% fact accuracy (86) = 76.");
   });
   it("says why when capped", () => {
     expect(explainOverall({ visibility: 100, factScore: 75, hasCritical: true }))
-      .toBe("Overall = 70% visibility (100) + 30% fact accuracy (75) = 93, capped at 70 because AI stated a serious wrong fact about you.");
+      .toBe("Overall = 70% visibility (100) + 30% fact accuracy (83) = 95, capped at 79 because AI stated a serious wrong fact about you.");
   });
   it("covers no facts checked", () => {
     expect(explainOverall({ visibility: 55, factScore: null, hasCritical: false }))
-      .toBe("Overall = your visibility (55). No facts were checked this scan, so accuracy isn't counted yet.");
+      .toBe("Overall = your visibility (69). No facts were checked this scan, so accuracy isn't counted yet.");
   });
   it("covers never named", () => {
     expect(explainOverall({ visibility: 0, factScore: 90, hasCritical: false }))
-      .toBe("Overall is 0 because AI never named you when buyers asked. Accurate facts can't lift a business AI doesn't mention.");
+      .toBe("Overall is 30 because AI never named you when buyers asked. Accurate facts can't lift a business AI doesn't mention.");
   });
 });
 

@@ -26,6 +26,17 @@ describe("full report", () => {
     expect(text).not.toMatch(/[—!]/);
   });
 
+  it("builds the score from the 30 every business starts with plus the parts, and says so", () => {
+    const text = words(html(base)).replace(/\s+/g, " ");
+    // Page 2: the rows add up to the 59 in the centre: 30 + 4 + 4 + 6 + 15.
+    expect(text).toContain("Starting points");
+    expect(text).toContain("30 of 30 points");
+    for (const [got, of] of [[4, 29], [4, 12], [6, 8], [15, 21]]) expect(text).toContain(`${got} of ${of} points`);
+    expect(text).toMatch(/59 of 100 points/);
+    // The glossary explains it plainly.
+    expect(text).toContain("Every business starts at 30. The other 70 points come from");
+  });
+
   it("shows every wrong fact with the truth and how to fix it", () => {
     const h = html(base);
     for (const f of sortedWrongFacts(base.facts)) {
