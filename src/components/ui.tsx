@@ -135,8 +135,8 @@ export interface RingScore { key: RingKey; label: string; value: number | null; 
 
 /**
  * Up to three scores as nested rings, outermost first, each on a faint track
- * of its own colour. A score of 0 shows as a dot at the top of its ring; a
- * missing score shows the empty track.
+ * of its own colour. A shown score is never below 30, so every ring has some
+ * fill; a missing score shows the empty track.
  */
 export function ScoreRings({ rings, size = 184 }: { rings: RingScore[]; size?: number }) {
   const stroke = size * 0.1;

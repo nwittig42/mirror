@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FIXED_BY, FORECAST_MONTHS, fixSource, forecastAccuracy, pointsFor, type FixSource, type WrongFact } from "@/core/accuracy-forecast";
+import { FIXED_BY, FORECAST_MONTHS, fixSource, forecastAccuracy, pointsFor, shownAccuracyForecast, type FixSource, type WrongFact } from "@/core/accuracy-forecast";
 import { competitorScore, forecastScores } from "@/core/score-forecast";
 
 const wrong = (over: Partial<WrongFact> = {}): WrongFact => ({ label: "Call-out fee", severity: "major", category: "pricing", source: "own_site", ...over });
@@ -74,6 +74,41 @@ describe("forecastAccuracy", () => {
   it("has nothing to forecast when no facts were checked or none was wrong", () => {
     expect(forecastAccuracy({ judgedChecks: 0, wrong: [wrong()] })).toBeNull();
     expect(forecastAccuracy({ judgedChecks: 5, wrong: [] })).toBeNull();
+  });
+});
+
+describe("shownAccuracyForecast", () => {
+  const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
+  const whole = (xs: number[]) => xs.every(Number.isInteger);
+
+  it("puts every score on the 30-100 scale and splits the visible gap into whole points per fact", () => {
+    const raw = forecastAccuracy({ judgedChecks: 10, wrong: [wrong(), wrong({ label: "Sunday hours", severity: "minor", category: "logistics", source: "memory" })] })!;
+    const f = shownAccuracyForecast(raw);
+    expect(f.now).toBe(85); // raw 78
+    expect(f.best).toBe(100);
+    expect(f.points[0]).toEqual({ month: 3, low: 92, likely: 94, high: 96 }); // raw 89, 92, 94
+    // The 15-point gap, split 18 : 4.
+    expect(f.facts.map(x => [x.label, x.points])).toEqual([["Call-out fee", 12], ["Sunday hours", 3]]);
+    expect(f.bySource).toEqual([{ source: "own_site", count: 1, points: 12 }, { source: "memory", count: 1, points: 3 }]);
+  });
+
+  it("gives whole rows that add up exactly to the visible gap, even when raw Accuracy is stuck at 0", () => {
+    const sources: FixSource[] = ["own_site", "listing", "elsewhere", "memory"];
+    const many = Array.from({ length: 9 }, (_, i) => wrong({
+      label: `Fact ${i}`, severity: (["critical", "major", "minor"] as const)[i % 3], category: i % 2 ? "pricing" : "services", source: sources[i % 4],
+    }));
+    const raw = forecastAccuracy({ judgedChecks: 5, wrong: many })!;
+    expect(raw.now).toBe(0);
+    const f = shownAccuracyForecast(raw);
+    const gap = f.best - f.now;
+    expect(gap).toBe(70);
+    expect(whole(f.facts.map(x => x.points))).toBe(true);
+    expect(sum(f.facts.map(x => x.points))).toBe(gap);
+    expect(whole(f.bySource.map(x => x.points))).toBe(true);
+    expect(sum(f.bySource.map(x => x.points))).toBe(gap);
+    for (const row of f.bySource) {
+      expect(row.points).toBe(sum(f.facts.filter(x => x.source === row.source).map(x => x.points)));
+    }
   });
 });
 

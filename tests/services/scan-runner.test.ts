@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { shownScore } from "@/core/scoring";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { runScan, SCAN_DEADLINE_MS, startScan, gatherStep, finishScan } from "@/services/scan-runner";
 import type { EngineAdapter } from "@/engines/types";
@@ -48,6 +49,8 @@ describe("runScan", () => {
     // The one automatic entry the client is meant to read: it keeps their work
     // log from being empty between the operator's hand-written lines.
     expect(completion?.visibility).toBe("client");
+    // The score in it is the one the client sees everywhere else, on the 30-100 scale.
+    expect(completion?.description).toContain(`score ${shownScore(scan!.score)} (`);
   });
 
   it("keeps engine-failure warnings out of the client's work log", async () => {
@@ -248,6 +251,9 @@ describe("runScan repeat runs and scores", () => {
     expect(scan!.score!).toBeGreaterThanOrEqual(scan!.scoreLow!);
     expect(scan!.score!).toBeLessThanOrEqual(scan!.scoreHigh!);
     expect(scan?.visibilityScore).toBeGreaterThan(0);
+    // The client's work log quotes the run-to-run range as shown, like the score.
+    const [log] = (await db.query.activities.findMany()).filter(a => a.description.startsWith("Weekly scan complete"));
+    expect(log.description).toContain(`, ${shownScore(scan!.scoreLow)}-${shownScore(scan!.scoreHigh)} across 3 runs`);
   });
 
   it("records one finding for a wrong claim repeated across runs", async () => {

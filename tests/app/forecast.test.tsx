@@ -128,12 +128,12 @@ describe("the forecast", () => {
     await db.update(schema.practices).set({ website: "https://www.harbor.example" }).where(eq(schema.practices.id, practiceId));
 
     const page = await text(ForecastPage({ params }));
-    // One wrong price costs 18 raw points (12.6 shown); read on their own site, three quarters of it is expected back in 3 months, nine tenths in 12.
+    // One wrong price costs 18 raw points: the whole 13-point gap on screen (87 to 100); read on their own site, three quarters of it is expected back in 3 months, nine tenths in 12.
     // Every number is on the shown 30-100 scale: raw 82, 96, 98, 96 to 99.
     expect(page).toContain("Accuracy: 87 today, about 97 in 3 months and 99 in 12 (range 97 to 99; 100 with every wrong fact gone)");
     // All three scores are on the chart, with today's value and where each is heading.
     for (const line of ["Overall", "Recommended by AI", "Accuracy 87 → 99"]) expect(page).toContain(line);
-    expect(page).toContain("Read on your own website · 1 wrong fact 12.6 points");
+    expect(page).toContain("Read on your own website · 1 wrong fact 13 points");
     expect(page).toContain("Not ready yet. We are still collecting how many people search");
     // Each score keeps its Overview colour.
     const markup = await html(ForecastPage({ params }));
@@ -142,9 +142,9 @@ describe("the forecast", () => {
     const method = await text(ForecastMethodPage({ params }));
     expect(method).toContain("The Accuracy forecast");
     expect(method).toContain("These chances are our estimates");
-    expect(method).toContain("Call-out fee Read on your own website 12.6");
+    expect(method).toContain("Call-out fee Read on your own website 13");
     // The penalties and the floor, on the same scale as the score.
-    expect(method).toContain("17.5 for a serious one, 8.4 for an important one, 2.8 for a minor one");
+    expect(method).toContain("about 18 points for a serious one, about 8 for an important one, about 3 for a minor one");
     expect(method).toContain("30 while AI never names you, and held at 79");
   });
 

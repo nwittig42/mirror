@@ -61,24 +61,6 @@ export async function getLatestScan(db: Db, practiceId: string) {
 }
 
 /**
- * Completed scans only, oldest to newest, capped to the `weeks` most recent
- * (i.e. if there are more completed scans than `weeks`, the oldest ones are
- * dropped, not the most recent).
- */
-export async function getScoreTrend(
-  db: Db, practiceId: string, weeks: number,
-): Promise<{ date: string; score: number }[]> {
-  const rows = await db.select().from(scans)
-    .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
-    .orderBy(desc(scans.startedAt))
-    .limit(weeks);
-
-  return rows
-    .reverse()
-    .map(s => ({ date: s.startedAt.toISOString(), score: s.score ?? 0 }));
-}
-
-/**
  * The last `limit` published scans, oldest first, with all three scores as
  * shown (30-100; older scans rebuilt). For display only: trends are worked
  * out from these, so a change matches the numbers on screen.

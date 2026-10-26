@@ -5,7 +5,7 @@ import {
 } from "@/db/schema";
 import { findMatches, mentionKind, type MentionKind } from "@/core/mention";
 import { classifyPosition } from "@/core/position";
-import { computeVisibility, computeVisibilityParts, computeOverall, computeFactScore, scoreBand } from "@/core/scoring";
+import { computeVisibility, computeVisibilityParts, computeOverall, computeFactScore, scoreBand, shownScore } from "@/core/scoring";
 import { findingKey, normalizeClaim, worseSeverity } from "@/core/finding-key";
 import { confirmedByScan } from "@/core/fix-list";
 import { blockedReason, summarizeCoverage, type Coverage } from "@/core/coverage";
@@ -760,12 +760,13 @@ export async function finishScan(
     }).where(and(eq(scans.id, scan.id), eq(scans.status, "running")));
 
     const mentionedCount = scoringChecks.filter(c => c.mentioned).length;
-    const range = runs > 1 && band.low !== null ? `, ${band.low}-${band.high} across ${runs} runs` : "";
+    const range = runs > 1 && band.low !== null ? `, ${shownScore(band.low)}-${shownScore(band.high)} across ${runs} runs` : "";
     // The only automatic entry the client sees. Every other logActivity() call
-    // in this file is a warning, and warnings stay internal.
+    // in this file is a warning, and warnings stay internal. Its numbers are
+    // as shown (30-100), like the score everywhere else the client looks.
     await logActivity(
       db, practiceId,
-      `Weekly scan complete: score ${score} (${mentionedCount}/${scoringChecks.length} checks cited${range})`,
+      `Weekly scan complete: score ${shownScore(score)} (${mentionedCount}/${scoringChecks.length} checks cited${range})`,
       "client",
     );
 

@@ -2,8 +2,8 @@ import type { Db } from "@/db";
 import { getChecksForScan, getFindingsForPractice, getLatestScan, getScoreHistory } from "@/lib/queries";
 import { mentionRates } from "@/core/forecast";
 import { competitorScore, forecastScores, type ScoreForecast, type ScoreLine } from "@/core/score-forecast";
-import { displayScores, shownPoints, shownScore } from "@/core/scoring";
-import { fixSource, forecastAccuracy, type AccuracyForecast, type AccuracyPoint } from "@/core/accuracy-forecast";
+import { displayScores, shownScore } from "@/core/scoring";
+import { fixSource, forecastAccuracy, shownAccuracyForecast, type AccuracyForecast, type AccuracyPoint } from "@/core/accuracy-forecast";
 
 export interface LoadedAccuracy {
   forecast: AccuracyForecast | null;
@@ -51,12 +51,7 @@ export async function loadAccuracyForecast(db: Db, practice: { id: string; websi
     target: competitor ? competitorScore(checks, competitor) : null,
   });
   return {
-    forecast: forecast && {
-      ...forecast,
-      now: shownScore(forecast.now)!, best: shownScore(forecast.best)!, points: forecast.points.map(shownPoint),
-      facts: forecast.facts.map(f => ({ ...f, points: shownPoints(f.points) })),
-      bySource: forecast.bySource.map(row => ({ ...row, points: shownPoints(row.points) })),
-    },
+    forecast: forecast && shownAccuracyForecast(forecast),
     // Already shown: getScoreHistory is for display.
     history: history.map(h => ({ date: h.date, facts: h.facts, visibility: h.visibility, overall: h.overall })),
     checked: scan.factScore !== null,

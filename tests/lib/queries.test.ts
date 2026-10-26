@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import * as schema from "@/db/schema";
 import {
-  getLatestScan, getScoreTrend, getChecksForScan, getOpenFindings,
+  getLatestScan, getChecksForScan, getOpenFindings,
   getFindingsForPractice, getActivities, getCompetitorPressure,
 } from "@/lib/queries";
 
@@ -43,42 +43,6 @@ describe("getLatestScan", () => {
     const result = await getLatestScan(db, practiceId);
     expect(result?.id).toBe(latest.id);
     expect(result?.score).toBe(55);
-  });
-});
-
-describe("getScoreTrend", () => {
-  it("returns only completed scans, ascending by date", async () => {
-    const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
-    await insertScan(db, practiceId, { score: 30, startedAt: new Date("2026-01-15") });
-    await insertScan(db, practiceId, { score: 10, startedAt: new Date("2026-01-01") });
-    await insertScan(db, practiceId, { status: "running", score: null, startedAt: new Date("2026-01-20") });
-    await insertScan(db, practiceId, { score: 20, startedAt: new Date("2026-01-08") });
-
-    const trend = await getScoreTrend(db, practiceId, 10);
-    expect(trend).toEqual([
-      { date: new Date("2026-01-01").toISOString(), score: 10 },
-      { date: new Date("2026-01-08").toISOString(), score: 20 },
-      { date: new Date("2026-01-15").toISOString(), score: 30 },
-    ]);
-  });
-
-  it("caps to the N most recent completed scans, dropping the oldest", async () => {
-    const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
-    await insertScan(db, practiceId, { score: 10, startedAt: new Date("2026-01-01") });
-    await insertScan(db, practiceId, { score: 20, startedAt: new Date("2026-01-08") });
-    await insertScan(db, practiceId, { score: 30, startedAt: new Date("2026-01-15") });
-
-    const trend = await getScoreTrend(db, practiceId, 2);
-    expect(trend.map(t => t.score)).toEqual([20, 30]);
-  });
-
-  it("returns an empty array when no scan has completed", async () => {
-    const db = await makeTestDb();
-    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa" });
-    await insertScan(db, practiceId, { status: "running", score: null });
-    expect(await getScoreTrend(db, practiceId, 12)).toEqual([]);
   });
 });
 

@@ -179,9 +179,9 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
         {acc && (
           <Card title="The Accuracy forecast">
             <p className="text-[15px] leading-relaxed text-ink-soft">
-              Accuracy starts at 100 and loses points for every wrong fact AI stated in your latest scan: {shownPoints(FACT_PENALTY.critical)} for a
-              serious one, {shownPoints(FACT_PENALTY.major)} for an important one, {shownPoints(FACT_PENALTY.minor)} for a minor one, and half as much again when it
-              is a price. It never goes below {SHOWN_FLOOR}, where every business starts. That part is exact. When AI stops saying a wrong fact, its points come back.
+              Accuracy starts at 100 and loses points for every wrong fact AI stated in your latest scan: about {shownPoints(FACT_PENALTY.critical)} points for a
+              serious one, about {shownPoints(FACT_PENALTY.major)} for an important one, about {shownPoints(FACT_PENALTY.minor)} for a minor one, and half as much again when it
+              is a price. It never goes below {SHOWN_FLOOR}, where every business starts. That part is worked out, not estimated. When AI stops saying a wrong fact, its points come back.
             </p>
             <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
               What we estimate is how long that takes once the source is corrected, and it depends on where AI read the mistake. The forecast

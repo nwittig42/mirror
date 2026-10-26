@@ -133,9 +133,24 @@ export function shownScores<T extends { overall: number | null; visibility: numb
   return { ...s, overall: shownScore(s.overall), visibility: shownScore(s.visibility), facts: shownScore(s.facts) };
 }
 
-/** A number of points gained or lost, on the shown scale (0.7x), to one decimal. */
+/** About how many shown points a raw points cost is worth (0.7x), as a whole number. For rules, not rows that must add up. */
 export function shownPoints(points: number): number {
-  return Math.round(points * 7) / 10;
+  return Math.round((points * 7) / 10);
+}
+
+/**
+ * `total` split into whole numbers in proportion to `weights`, adding up to
+ * exactly `total` (largest-remainder rounding, ties to the earlier one).
+ */
+export function wholeShares(weights: number[], total: number): number[] {
+  const sum = weights.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return weights.map(() => 0);
+  const exact = weights.map(w => (w * total) / sum);
+  const out = exact.map(Math.floor);
+  let left = total - out.reduce((a, b) => a + b, 0);
+  const order = exact.map((v, i) => ({ i, r: v - Math.floor(v) })).sort((a, b) => b.r - a.r || a.i - b.i);
+  for (const { i } of order) { if (left <= 0) break; out[i] += 1; left -= 1; }
+  return out;
 }
 
 /**

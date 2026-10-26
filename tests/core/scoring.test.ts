@@ -76,8 +76,8 @@ describe("shownScore", () => {
     expect(shownScores({ overall: 41, visibility: 29, facts: null, estimated: true }))
       .toEqual({ overall: 59, visibility: 50, facts: null, estimated: true });
   });
-  it("shows a points cost at 0.7x, to one decimal", () => {
-    expect([25, 12, 4, 37.5].map(shownPoints)).toEqual([17.5, 8.4, 2.8, 26.3]);
+  it("shows a points cost at about 0.7x, as a whole number", () => {
+    expect([25, 12, 4, 37.5].map(shownPoints)).toEqual([18, 8, 3, 26]);
   });
 });
 

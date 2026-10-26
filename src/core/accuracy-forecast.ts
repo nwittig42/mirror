@@ -1,5 +1,5 @@
 import { classifyDomain, domainOf } from "@/core/citations";
-import { FACT_PENALTY, PRICE_MULTIPLIER, computeFactScore } from "@/core/scoring";
+import { FACT_PENALTY, PRICE_MULTIPLIER, computeFactScore, shownScore, wholeShares } from "@/core/scoring";
 import type { Severity } from "@/core/types";
 import type { Range, Source } from "@/core/forecast";
 
@@ -143,5 +143,25 @@ export function forecastAccuracy(args: { judgedChecks: number; wrong: WrongFact[
     bySource: order
       .map(source => ({ source, count: facts.filter(f => f.source === source).length, points: facts.filter(f => f.source === source).reduce((s, f) => s + f.points, 0) }))
       .filter(row => row.count > 0),
+  };
+}
+
+/**
+ * The forecast as a person sees it: every score on the 30-100 scale, and the
+ * gap between today and every wrong fact gone split into whole points per
+ * fact, in proportion to each fact's raw cost. The rows then add up exactly
+ * to the gap on screen, even when raw Accuracy is held at 0 and the raw costs
+ * add up to more than 100.
+ */
+export function shownAccuracyForecast(f: AccuracyForecast): AccuracyForecast {
+  const now = shownScore(f.now)!;
+  const best = shownScore(f.best)!;
+  const shares = wholeShares(f.facts.map(x => x.points), best - now);
+  const facts = f.facts.map((x, i) => ({ ...x, points: shares[i] }));
+  return {
+    now, best,
+    points: f.points.map(p => ({ month: p.month, low: shownScore(p.low)!, likely: shownScore(p.likely)!, high: shownScore(p.high)! })),
+    facts,
+    bySource: f.bySource.map(row => ({ ...row, points: facts.filter(x => x.source === row.source).reduce((s, x) => s + x.points, 0) })),
   };
 }
