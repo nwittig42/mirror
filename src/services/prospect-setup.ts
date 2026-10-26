@@ -162,7 +162,13 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     const logo = website ? await deps.fetchLogo?.(website).catch(() => null) : null;
     if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
 
-    const pages = website ? await deps.fetchPages(website).catch(() => [] as SitePage[]) : [];
+    // Each step below falls back instead of failing the setup, but says why in
+    // the server log, since the lead's note can only say that it happened.
+    const failed = <T>(step: string, fallback: T) => (err: unknown): T => {
+      console.error(`prospect setup for lead ${leadId}: ${step} failed:`, err);
+      return fallback;
+    };
+    const pages = website ? await deps.fetchPages(website).catch(failed("reading the website", [] as SitePage[])) : [];
     if (!website) notes.push("No website, so there's no fact check.");
     else if (pages.length === 0) notes.push("Their website couldn't be read, so the fact sheet is empty and nothing was fact-checked.");
 
@@ -183,7 +189,7 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     }
 
     const drafted = pages.length
-      ? await deps.draftFacts({ businessName: name, pages }).catch(() => [] as DraftFact[])
+      ? await deps.draftFacts({ businessName: name, pages }).catch(failed("drafting facts", [] as DraftFact[]))
       : [];
     const seen = new Set<string>();
     const factRows = drafted.filter(f => !seen.has(f.label.toLowerCase()) && seen.add(f.label.toLowerCase()));
@@ -199,7 +205,7 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     const q = !website
       ? ({ category: null, location: null, questions: [] }) as DraftQuestions
       : await deps.draftQuestions({ businessName: name, pages, category: leadCategory, location: leadLocation })
-      .catch(() => ({ category: null, location: null, questions: [] }) as DraftQuestions);
+      .catch(failed("drafting questions", { category: null, location: null, questions: [] } as DraftQuestions));
     const category = leadCategory ?? known(q.category);
     const location = leadLocation ?? known(q.location);
     await db.update(practices).set({ category, location }).where(eq(practices.id, practice.id));
