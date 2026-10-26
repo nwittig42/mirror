@@ -141,6 +141,18 @@ describe("a prospect's dashboard before their call", () => {
     await expect(SourcesPage({ params })).rejects.toMatchObject({ digest: expect.stringContaining("/dashboard/harbor/competitors#sources") });
   });
 
+  it("ranks competitors over buyer questions only, on the same base as the summary, for everyone", async () => {
+    // Rose City is named in one of the two buyer answers; the branded answer names it too but is left out.
+    for (const active of [false, true]) {
+      await db.update(practices).set({ active });
+      const page = await html(CompetitorsPage({ params }));
+      expect(page).toContain("Out of 2 answers");
+      expect(page).not.toContain("Out of 3 answers");
+      expect(page).toMatch(/Rose City Plumbing.{0,400}1 of 2/);
+      expect(page).not.toContain("Is Harbor Plumbing any good?");
+    }
+  });
+
   it("gives a free account the step-by-step recommendations, leaving out every fix that rests on a wrong fact", async () => {
     const page = await html(FixListPage({ params }));
     expect(page).toContain("Your recommendations");

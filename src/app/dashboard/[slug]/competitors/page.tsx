@@ -99,14 +99,16 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
     );
   }
   const practiceNames = Array.from(new Set([practice.name, ...variationRows.map(v => v.text)]));
-  const report = buildCompetitorReport(checks, practiceNames);
+  // Buyer questions only, as the report's leaderboard and the summary count
+  // it: a question that names the business names it back every time.
+  const report = buildCompetitorReport(checks.filter(c => c.promptKind !== "branded"), practiceNames);
   const maxMentions = Math.max(1, ...report.shareOfVoice.map(s => s.mentions));
   // Never fold the business's own row away, even when it sits in the tail.
   const ownRank = report.shareOfVoice.findIndex(s => s.isPractice);
   const visibleCount = Math.max(LEADERBOARD_LIMIT, ownRank + 1);
   const leaders = report.shareOfVoice.slice(0, visibleCount);
   const tail = report.shareOfVoice.slice(visibleCount);
-  const nobodyNamed = report.shareOfVoice.length <= 1 && report.shareOfVoice[0]?.mentions === 0;
+  const nobodyNamed = report.shareOfVoice.every(s => s.mentions === 0);
 
   const sources = buildSourcesReport(checks, practice.website);
   const searches = buildSearchReport(checks);

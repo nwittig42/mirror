@@ -218,4 +218,13 @@ describe("topBuyerCompetitor", () => {
       .toEqual({ name: "Ace Plumbing", mentions: 1 });
     expect(topBuyerCompetitor([check("category", []), check("category", null), check("branded", ["Drain Kings"])])).toBeNull();
   });
+
+  it("counts spelling variants of one business together, under the first spelling seen", () => {
+    const checks = [
+      check("category", ["Rose City Plumbing (Portland)"]),
+      check("category", ["rose city plumbing"]),
+      check("category", ["Drain Kings"]),
+    ];
+    expect(topBuyerCompetitor(checks)).toEqual({ name: "Rose City Plumbing (Portland)", mentions: 2 });
+  });
 });

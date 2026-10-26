@@ -166,12 +166,30 @@ describe("the fix list", () => {
     expect(page).toContain("Let AI assistants read your site");
     expect(page).not.toContain("Fix your price everywhere it appears");
     expect(page).not.toContain("Correct the wrong facts at their source");
-    expect(page).not.toContain("Label your prices and FAQs for machines");
+    // A website-check fix, not a wrong fact: it doesn't wait for the call.
+    expect(page).toContain("Label your prices and FAQs for machines");
     // The wrong-fact list stays locked, and none of it is sent.
     expect(page).toContain("Unlocks after your call");
     expect(page).not.toContain("$49");
     expect(page).not.toContain("Sundays");
     expect(page).not.toContain("yelp.com");
     expect(page).not.toContain("Want us to fix these for you?");
+  });
+
+  it("says the scan is still running, not that nothing is urgent, while the latest scan has no answers", async () => {
+    await db.insert(schema.scans).values({ practiceId, status: "complete", startedAt: new Date(Date.now() + 60_000) });
+    for (const active of [true, false]) {
+      await db.update(schema.practices).set({ active }).where(eq(schema.practices.id, practiceId));
+      const page = await html(FixListPage({ params }));
+      expect(page).toContain("Your scan is still running. Your recommendations show up here when it finishes.");
+      expect(page).not.toContain("Nothing urgent");
+      expect(page).not.toContain("Let AI assistants read your site");
+    }
+  });
+
+  it("calls the tab the fix plan, since it holds the recommendations as well as the wrong facts", async () => {
+    const page = await html(FixListPage({ params }));
+    expect(page).toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">Fix plan<\/a>/);
+    expect(page).not.toMatch(/>Wrong facts<\/a>/);
   });
 });

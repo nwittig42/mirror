@@ -287,7 +287,8 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
     ai_allowed: { title: "Let AI assistants read your site", effort: "low", impact: "high", track: "both" },
     facts_page: { title: "Add a plain facts page", effort: "low", impact: "high", track: "both" },
     readable_text: { title: "Make your text load without special code", effort: "medium", impact: "high", track: "both" },
-    machine_labels: { title: "Label your prices and FAQs for machines", effort: "low", impact: "medium", track: "facts" },
+    // A website fix, not a wrong fact: it doesn't wait for confirmed facts.
+    machine_labels: { title: "Label your prices and FAQs for machines", effort: "low", impact: "medium", track: "both" },
     sitemap: { title: "Publish a sitemap", effort: "low", impact: "low", track: "both" },
     business_schema: { title: "Label your business for machines", effort: "low", impact: "medium", track: "both" },
     contact_visible: { title: "Put your phone, address and hours in plain text", effort: "low", impact: "high", track: "both" },

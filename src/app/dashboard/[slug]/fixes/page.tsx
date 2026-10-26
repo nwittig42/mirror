@@ -26,10 +26,12 @@ const SECTION: Record<Exclude<FixState, "dismissed">, { title: string; note: str
  * actions, most help for the work first. A gold number marks little effort
  * and big impact, as on the report's plan page.
  */
-function Recommendations({ actions }: { actions: Action[] }) {
+function Recommendations({ actions, answered }: { actions: Action[]; answered: boolean }) {
   return (
     <Card title="Your recommendations">
-      {actions.length === 0 ? (
+      {!answered ? (
+        <Note>Your scan is still running. Your recommendations show up here when it finishes.</Note>
+      ) : actions.length === 0 ? (
         <Note>Nothing urgent in the latest scan. We look again on the next one.</Note>
       ) : (
         <>
@@ -73,7 +75,10 @@ export default async function FixListPage({ params }: { params: Promise<{ slug: 
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
   const report = latestScan ? await buildAuditReportData(db, practice.id) : null;
-  const plan = report && <Recommendations actions={locked ? actionsFor("visibility", report) : report.actions} />;
+  const plan = report && (
+    // A scan with no answers yet has nothing to recommend from; its website check alone would read as the whole plan.
+    <Recommendations actions={locked ? actionsFor("visibility", report) : report.actions} answered={report.scan.tools.length > 0} />
+  );
 
   if (locked) {
     return (

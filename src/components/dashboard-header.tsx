@@ -27,7 +27,7 @@ const TABS: { key: Section; label: string; suffix: string }[] = [
   { key: "overview", label: "Overview", suffix: "" },
   { key: "forecast", label: "Forecast", suffix: "/forecast" },
   { key: "answers", label: "What AI says", suffix: "/answers" },
-  { key: "fixes", label: "Wrong facts", suffix: "/fixes" },
+  { key: "fixes", label: "Fix plan", suffix: "/fixes" },
   { key: "competitors", label: "Competitors", suffix: "/competitors" },
   { key: "reports", label: "Reports", suffix: "/reports" },
 ];

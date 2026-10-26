@@ -130,21 +130,26 @@ export function reconcileCompetitors(args: {
 }
 
 /**
- * The business AI named most in buyer-question answers, matched by exact
- * name and tie-broken by name as getCompetitorPressure does. Branded
- * questions are left out, so its count sits on the same base as "AI named
- * you in X of Y answers". Null when no buyer answer named anyone.
+ * The business AI named most in buyer-question answers. Spellings of one
+ * business are counted together by nameKey, as the Competitors page and the
+ * report do, under the first spelling seen; a tie goes to the name first in
+ * the alphabet. Branded questions are left out, so its count sits on the
+ * same base as "AI named you in X of Y answers". Null when no buyer answer
+ * named anyone.
  */
 export function topBuyerCompetitor(
   checks: { promptKind: string; competitorsMentioned: string[] | null }[],
 ): { name: string; mentions: number } | null {
-  const counts = new Map<string, number>();
+  const counts = new Map<string, { name: string; mentions: number }>();
   for (const c of checks) {
     if (c.promptKind === "branded") continue;
-    for (const name of c.competitorsMentioned ?? []) counts.set(name, (counts.get(name) ?? 0) + 1);
+    for (const name of c.competitorsMentioned ?? []) {
+      const key = nameKey(name);
+      const row = counts.get(key) ?? { name, mentions: 0 };
+      row.mentions += 1;
+      counts.set(key, row);
+    }
   }
-  const [top] = [...counts]
-    .map(([name, mentions]) => ({ name, mentions }))
-    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+  const [top] = [...counts.values()].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
   return top ?? null;
 }
