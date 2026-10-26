@@ -6,7 +6,7 @@ import { getDb } from "@/db";
 import { leads, practices } from "@/db/schema";
 import { LandingFooter, LandingNav } from "@/components/landing/chrome";
 import { displayScores, shownScore } from "@/core/scoring";
-import { getChecksForScan, getCompetitorPressure, getLatestScan } from "@/lib/queries";
+import { getChecksForScan, getLatestScan } from "@/lib/queries";
 import { auditProgress, isUuid } from "@/services/audit-progress";
 import { isRepeatSite } from "@/services/leads";
 import { AuditLive } from "./audit-live";
@@ -49,13 +49,12 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
   // The finished audit needs a complete scan; "done" a moment before that row
   // lands keeps the progress, which refreshes into it.
   const scan = progress.stage === "done" && lead.practiceId ? await getLatestScan(db, lead.practiceId) : null;
-  const [checks, competitors, [practice]] = scan && lead.practiceId
+  const [checks, [practice]] = scan && lead.practiceId
     ? await Promise.all([
       getChecksForScan(db, scan.id),
-      getCompetitorPressure(db, scan.id),
       db.select({ name: practices.name, logo: practices.logo }).from(practices).where(eq(practices.id, lead.practiceId)),
     ])
-    : [[], [], []];
+    : [[], []];
 
   // Read straight off process.env, as /book does: a missing scheduler is a fallback, not an error.
   const calendlyUrl = process.env.CALENDLY_URL || undefined;
@@ -76,7 +75,6 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
                 scanDate={scan.finishedAt ?? scan.startedAt}
                 ranking={shownScore(displayScores(scan).visibility)}
                 checks={checks}
-                topCompetitor={competitors[0] ?? null}
                 email={lead.email}
                 calendlyUrl={calendlyUrl}
                 prefill={{ contactName: lead.contactName ?? undefined, practiceName: lead.practiceName ?? undefined, websiteUrl }}

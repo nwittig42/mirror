@@ -32,13 +32,26 @@ function excerpt(text: string, max = 260): string {
 
 const engineName = (engine: string) => ENGINE_NAMES[engine as keyof typeof ENGINE_NAMES] ?? engine;
 
-/** The AI tool that named them in the most buyer questions, or null when none did. Ties go to the first asked. */
+/** The AI tool that named them in the most buyer questions, or null when none did or two tie. */
 function topEngine(earned: TeaserCheck[]): string | null {
   const counts = new Map<string, number>();
   for (const c of earned) if (c.mentioned) counts.set(c.engine, (counts.get(c.engine) ?? 0) + 1);
-  let best: string | null = null;
-  for (const [engine, n] of counts) if (best === null || n > counts.get(best)!) best = engine;
-  return best;
+  const [first, second] = [...counts].sort((a, b) => b[1] - a[1]);
+  return first && first[1] !== second?.[1] ? first[0] : null;
+}
+
+/**
+ * The business AI named most in the same buyer questions, matched by exact
+ * name and tie-broken by name as getCompetitorPressure does, so its count
+ * sits on the same base as "X of Y answers".
+ */
+function topCompetitor(earned: TeaserCheck[]): { name: string; mentions: number } | null {
+  const counts = new Map<string, number>();
+  for (const c of earned) for (const name of c.competitorsMentioned ?? []) counts.set(name, (counts.get(name) ?? 0) + 1);
+  const [top] = [...counts]
+    .map(([name, mentions]) => ({ name, mentions }))
+    .sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
+  return top ?? null;
 }
 
 /**
@@ -48,14 +61,13 @@ function topEngine(earned: TeaserCheck[]): string | null {
  * buyer questions only: a question that names the business can repeat facts
  * nobody has confirmed with them yet.
  */
-export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, checks, topCompetitor, email, calendlyUrl, prefill }: {
+export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, checks, email, calendlyUrl, prefill }: {
   leadId: string;
   businessName: string;
   logo: string | null;
   scanDate: Date;
   ranking: number | null;
   checks: TeaserCheck[];
-  topCompetitor: { name: string; mentions: number } | null;
   /** The lead's email, when they gave one: the account form asks only without it. */
   email: string | null;
   calendlyUrl?: string;
@@ -65,6 +77,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   const named = earned.filter(c => c.mentioned).length;
   const shown = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0) ?? earned[0];
   const engine = topEngine(earned);
+  const rival = topCompetitor(earned);
 
   return (
     <div className="mk-teaser">
@@ -89,10 +102,8 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
           <div className="mk-body">
             <p>AI named you in {named} of {earned.length} answers when customers asked without using your name.</p>
             {engine && <p>{engineName(engine)} named you most.</p>}
-            {topCompetitor && (
-              <p>
-                It named <strong>{topCompetitor.name}</strong> most instead, {topCompetitor.mentions} {topCompetitor.mentions === 1 ? "time" : "times"}.
-              </p>
+            {rival && (
+              <p>It named <strong>{rival.name}</strong> instead in {rival.mentions} of those {earned.length} answers.</p>
             )}
           </div>
         </div>

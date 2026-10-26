@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests } from "@/db";
 import type { Db } from "@/db";
-import { leads, practices, scans } from "@/db/schema";
+import { checks, leads, practices, scans } from "@/db/schema";
 import { shownScore } from "@/core/scoring";
 import { eq } from "drizzle-orm";
 import { runScan } from "@/services/scan-runner";
@@ -45,7 +45,7 @@ async function seedLead(values: Partial<typeof leads.$inferInsert> = {}) {
   return row;
 }
 
-async function scannedPractice() {
+async function scannedPractice(adapters: EngineAdapter[] = [adapter]) {
   const { practiceId } = await seedPractice(db, {
     name: "Harbor Plumbing", slug: "harbor",
     prompts: [
@@ -56,7 +56,7 @@ async function scannedPractice() {
     competitors: ["Rose City Plumbing"],
   });
   await db.update(practices).set({ active: false }).where(eq(practices.id, practiceId));
-  await runScan(db, practiceId, [adapter], judge, async () => ["Rose City Plumbing"]);
+  await runScan(db, practiceId, adapters, judge, async () => ["Rose City Plumbing"]);
   return practiceId;
 }
 
@@ -199,7 +199,26 @@ describe("the audit page", () => {
       expect(page.indexOf("Recommended by AI")).toBeLessThan(page.indexOf("An answer you were left out of"));
       expect(page).toContain("AI named you in 1 of 2 answers when customers asked without using your name.");
       expect(page).toContain("ChatGPT named you most.");
-      expect(page).toMatch(/It named <strong>Rose City Plumbing<\/strong> most instead, \d+ times?\./);
+      expect(page).toContain("It named <strong>Rose City Plumbing</strong> instead in 1 of those 2 answers.");
+    });
+
+    it("counts who AI named instead from buyer questions only, not one that used their name", async () => {
+      const practiceId = await scannedPractice();
+      const lead = await seedLead({ practiceId, status: "ready" });
+      // The branded answer names Rose City Plumbing too: 2 checks in all, 1 of them a buyer question.
+      const named = (await db.select().from(checks)).filter(c => c.competitorsMentioned.includes("Rose City Plumbing"));
+      expect(named).toHaveLength(2);
+      const page = text(await audit(lead.id));
+      expect(page).toContain("instead in 1 of those 2 answers.");
+      expect(page).not.toContain("instead in 2 of");
+    });
+
+    it("doesn't say which AI tool named them most when two tie", async () => {
+      const practiceId = await scannedPractice([adapter, { ...adapter, name: "anthropic" }]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      expect(page).toContain("AI named you in 2 of 4 answers");
+      expect(page).not.toContain("named you most.");
     });
 
     it("shows the logo beside the business name and the scan date, or the name alone without a logo", async () => {
