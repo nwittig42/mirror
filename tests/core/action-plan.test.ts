@@ -196,9 +196,79 @@ describe("buildActionPlan", () => {
     const plan = buildActionPlan(input());
     const impact = { high: 0, medium: 1, low: 2 };
     const effort = { low: 0, medium: 1, high: 2 };
-    for (const g of plan.groups) {
+    // Sources keep the data's order (biggest gap first); see below.
+    for (const g of plan.groups.filter(g => g.key !== "sources")) {
       const w = g.items.map(i => impact[i.impact] * 3 + effort[i.effort]);
       expect([...w].sort((x, y) => x - y)).toEqual(w);
     }
+  });
+
+  it("keeps sources biggest gap first, with impact from the data", () => {
+    const sources = items(buildActionPlan(input()), "sources");
+    expect(sources.map(i => i.key)).toEqual(["source:yelp.com", "source:cakeblog.example", "source:reddit.com", "source:theknot.com"]);
+    // Top 3 are high; theknot.com is 1 of 12 buyer answers, under a quarter.
+    expect(sources.map(i => i.impact)).toEqual(["high", "high", "high", "medium"]);
+    const big: PlanCheck[] = [];
+    for (let i = 0; i < 5; i++) big.push(check({ promptId: `s${i}`, competitorsMentioned: [HONEY], citations: [`https://s${i}.example/x`] }));
+    for (let i = 0; i < 3; i++) big.push(check({ promptId: "w", competitorsMentioned: [HONEY], citations: ["https://wide.example/x"] }));
+    for (let i = 0; i < 4; i++) big.push(check({ promptId: "won", mentioned: true }));
+    // wide.example: 3 of 12 buyer answers is a quarter, so high though it's 1st anyway; s0..s4 are 1 each.
+    const bigItems = items(buildActionPlan(input(big)), "sources");
+    expect(bigItems[0]).toMatchObject({ key: "source:wide.example", impact: "high" });
+    expect(bigItems.slice(3).every(i => i.impact === "medium")).toBe(true);
+  });
+
+  it("leaves out a competitor's own website", () => {
+    const checks = [
+      check({ promptId: "x", competitorsMentioned: [HILL], citations: ["https://www.hillcrestbakery.com/menu", "https://yelp.com/a"] }),
+      check({ promptId: "x", competitorsMentioned: [HONEY], citations: ["https://honeycrumb.com/"] }),
+      check({ promptId: "x", competitorsMentioned: ["Rose & Thorn Bakehouse"], citations: ["https://rose-thorn-bakehouse.net/"] }),
+    ];
+    const keys = items(buildActionPlan(input(checks)), "sources").map(i => i.key);
+    expect(keys).toEqual(["source:yelp.com"]);
+  });
+
+  it("doesn't claim the site lacks a page when it wasn't checked or partly has it", () => {
+    const unchecked = items(buildActionPlan(input(fixture(), { websiteCheck: null })), "pages");
+    const prices = unchecked.find(i => i.key === "page:a-current-price-list")!;
+    expect(prices.why).toBe("AI searched for \u201cbest birthday cake pasadena prices\u201d before answering. Make sure your site covers it.");
+    const partSite = { ...site, homepageText: "see our prices in store" };
+    const partial = items(buildActionPlan(input(fixture(), { websiteCheck: partSite })), "pages")
+      .find(i => i.key === "page:a-current-price-list")!;
+    expect(partial.why).toBe("AI searched for \u201cbest birthday cake pasadena prices\u201d before answering, and your site doesn't give it its own page.");
+    expect(items(buildActionPlan(input()), "pages").find(i => i.key === "page:a-current-price-list")!.why)
+      .toContain("your site doesn't have this");
+  });
+
+  it("says \"gives\" for one caveat and \"repeats\" for two or more", () => {
+    expect(items(buildActionPlan(input()), "reputation")[0].title).toBe("Answer the caveat AI gives");
+    const two = fixture().map(c => c.promptId === "q4" ? { ...c, tone: "mixed", toneReason: "Pricey." } : c);
+    expect(items(buildActionPlan(input(two)), "reputation")[0].title).toBe("Answer the caveat AI repeats");
+  });
+
+  it("quotes the sentence naming the business when it is listed with a competitor", () => {
+    // Only namedOrder knows Hillcrest here; without it "Sweet Rise Bakery and
+    // Hillcrest Bakery" reads as one longer name and the sentence is skipped.
+    const c = check({
+      promptId: "t", mentioned: true, tone: "mixed", toneReason: "Fallback reason",
+      competitorsMentioned: [], namedOrder: [ME, HILL],
+      answerText: "Sweet Rise Bakery and Hillcrest Bakery is slow on weekends. Plan ahead.",
+    });
+    const [rep] = items(buildActionPlan(input([c])), "reputation");
+    expect(rep.evidence[0]).toContain("slow on weekends");
+  });
+
+  it("suggests a question's domains only from answers that left the business out", () => {
+    const checks = [
+      check({ promptId: "z", promptText: "Cupcakes", mentioned: false, competitorsMentioned: [HONEY], citations: ["https://lost.example/a"] }),
+      check({ promptId: "z", promptText: "Cupcakes", mentioned: false, competitorsMentioned: [HONEY], citations: ["https://lost.example/b"] }),
+      check({ promptId: "z", promptText: "Cupcakes", mentioned: true, competitorsMentioned: [HONEY],
+        citations: ["https://won1.example/a", "https://won2.example/b"] }),
+      check({ promptId: "z", promptText: "Cupcakes", mentioned: false, competitorsMentioned: [], citations: ["https://empty.example/a"] }),
+      check({ promptId: "z", promptText: "Cupcakes", mentioned: false, competitorsMentioned: [], citations: ["https://empty.example/a"] }),
+    ];
+    const [q] = items(buildActionPlan(input(checks)), "questions");
+    expect(q.how).toContain("lost.example");
+    expect(q.how).not.toMatch(/won1|won2|empty/);
   });
 });

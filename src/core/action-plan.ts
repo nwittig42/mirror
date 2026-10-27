@@ -98,6 +98,9 @@ const CAP = 8;
 // business with the client's name) with this prefix on the tone reason.
 const isNamesake = (c: PlanCheck) => c.toneReason?.startsWith("Different business:") ?? false;
 
+/** Every other business the scan found in a check, for the matcher's longer-name guard. */
+const othersOf = (c: PlanCheck) => Array.from(new Set([...c.competitorsMentioned, ...(c.namedOrder ?? [])]));
+
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 const quote = (s: string) => `“${s}”`;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
@@ -134,36 +137,64 @@ function domainsOf(c: PlanCheck): Set<string> {
 }
 
 // What to do about a site, by the kind of site it is.
-const SOURCE_HOW: Record<SourceKind, { how: string; effort: Level; impact: Level }> = {
+const SOURCE_HOW: Record<SourceKind, { how: string; effort: Level }> = {
   reviews: {
     how: "Claim your listing, fill in every detail (services, prices, hours, photos), and ask a few happy customers to leave a review.",
-    effort: "low", impact: "high",
+    effort: "low",
   },
   google: {
     how: "Claim and complete your Google Business Profile: services, prices, hours and photos. Then ask happy customers for reviews.",
-    effort: "low", impact: "high",
+    effort: "low",
   },
   social: {
     how: "Post there as yourself and link to your site. Where people ask for recommendations, answer honestly and say what you do.",
-    effort: "medium", impact: "medium",
+    effort: "medium",
   },
   reference: {
     how: "Check whether you have an entry, and that it's accurate and complete. Add your business where the site allows it.",
-    effort: "medium", impact: "medium",
+    effort: "medium",
   },
   other: {
     how: "Find who wrote the page AI read and pitch them: a short note on what makes you different and why you belong on it.",
-    effort: "medium", impact: "high",
+    effort: "medium",
   },
-  own_site: { how: "", effort: "low", impact: "low" },
+  own_site: { how: "", effort: "low" },
 };
 
+/** Answers that named a competitor and not the client. */
+const lostTo = (c: PlanCheck) => !c.mentioned && c.competitorsMentioned.length > 0;
+
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/**
+ * Whether a domain is a competitor's own website: "hillcrestbakery.com" for
+ * Hillcrest Bakery, "honeycrumb.com" for Honey Crumb Cake Studio. Its first
+ * label, punctuation gone, against each name's key with spaces gone; either
+ * containing the other is a match. Very short labels are never matched, so
+ * "ab.com" can't knock out a source.
+ */
+function isCompetitorSite(domain: string, names: string[]): boolean {
+  const label = squash(domain.split(".")[0]);
+  if (label.length < 4) return false;
+  return names.some(n => {
+    const key = squash(nameKey(n));
+    return key.length >= 4 && (key.includes(label) || label.includes(key));
+  });
+}
+
 function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
-  return input.sources.gaps.slice(0, CAP).map(gap => {
+  const gaps = input.sources.gaps.map(gap => {
     // The answers that read this site and named a competitor, not the client.
-    const lost = buyer.filter(c => !c.mentioned && c.competitorsMentioned.length > 0 && domainsOf(c).has(gap.domain));
-    const named = competitorCounts(lost).slice(0, 3);
+    const lost = buyer.filter(c => lostTo(c) && domainsOf(c).has(gap.domain));
+    return { gap, lost, counts: competitorCounts(lost) };
+  }).filter(g => !isCompetitorSite(g.gap.domain, g.counts.map(n => n.name)));
+  // Kept in the data's order, biggest gap first: a site's kind says how to get
+  // on it, not how much it matters. The top three, or any that took a quarter
+  // of buyer answers, are high impact.
+  return gaps.slice(0, CAP).map(({ gap, lost, counts }, i) => {
+    const named = counts.slice(0, 3);
     const advice = SOURCE_HOW[gap.kind];
+    const big = i < 3 || (buyer.length > 0 && gap.competitorOnly / buyer.length >= 0.25);
     return {
       key: `source:${gap.domain}`,
       title: `Get on ${gap.domain}`,
@@ -171,7 +202,7 @@ function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
       how: advice.how,
       evidence: [...new Set(lost.map(c => c.promptText))].slice(0, 3).map(quote),
       effort: advice.effort,
-      impact: advice.impact,
+      impact: big ? "high" : "medium",
     };
   });
 }
@@ -203,7 +234,8 @@ function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[]
   return rows.slice(0, CAP).map(r => {
     const named = competitorCounts(r.answers).slice(0, 3).map(n => n.name);
     const cited = new Map<string, number>();
-    for (const c of r.answers) {
+    // Only the answers it lost: those are the sites that sent AI elsewhere.
+    for (const c of r.answers.filter(lostTo)) {
       for (const d of domainsOf(c)) {
         if (classifyDomain(d, ownDomain) !== "own_site") cited.set(d, (cited.get(d) ?? 0) + 1);
       }
@@ -267,12 +299,16 @@ function pageItems(input: ActionPlanInput): ActionItem[] {
   const words = input.search.addedWords.slice(0, 8).map(w => w.word);
   return pagesWanted(words, input.websiteCheck).filter(p => p.status !== "have").map(p => {
     const searches = input.search.queries.filter(q => q.query.split(/[^a-z0-9]+/).includes(p.word)).slice(0, 2).map(q => quote(q.query));
+    // Only say the site lacks it when the site was checked and it isn't there.
+    const verdict = !input.websiteCheck ? ". Make sure your site covers it."
+      : p.status === "partial" ? ", and your site doesn't give it its own page."
+      : ", and your site doesn't have this.";
     return {
       key: `page:${slug(p.page)}`,
       title: `Add ${p.page.charAt(0).toLowerCase()}${p.page.slice(1)}`,
       why: searches.length
-        ? `AI searched for ${listOf(searches)} before answering, and your site doesn't have this.`
-        : `AI kept adding "${p.word}" to its searches, and your site doesn't have this.`,
+        ? `AI searched for ${listOf(searches)} before answering${verdict}`
+        : `AI kept adding "${p.word}" to its searches${verdict}`,
       how: p.status === "partial"
         ? `${p.why} Your homepage mentions it; give it its own page, linked from the homepage.`
         : `${p.why} Put it on its own page, in plain text, linked from your homepage.`,
@@ -308,13 +344,13 @@ function reputationItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem
   const warned = buyer.filter(c => c.mentioned && (c.tone === "negative" || c.tone === "mixed") && !isNamesake(c));
   if (!warned.length) return [];
   const quotes = [...new Set(warned.map(c => {
-    const snippet = (c.answerText && extractSnippet(c.answerText, input.names ?? [], c.competitorsMentioned)) || c.toneReason;
+    const snippet = (c.answerText && extractSnippet(c.answerText, input.names ?? [], othersOf(c))) || c.toneReason;
     return snippet ? snippet.trim().slice(0, 200) : null;
   }).filter((q): q is string => !!q))].slice(0, 2);
   const negative = warned.filter(c => c.tone === "negative").length;
   return [{
     key: "reputation:caveats",
-    title: "Answer the caveat AI repeats",
+    title: warned.length === 1 ? "Answer the caveat AI gives" : "Answer the caveat AI repeats",
     why: `AI named you with a caveat in ${plural(warned.length, "answer")}${negative ? `, and warned people off in ${negative}` : ""}.`,
     how: "Find the review or page the caveat comes from. Reply to the review calmly, or update the page, and say plainly on your site what has changed.",
     evidence: quotes.map(quote),
