@@ -371,10 +371,13 @@ export function buildActionPlan(input: ActionPlanInput): ActionPlan {
     website: websiteItems(input),
     reputation: reputationItems(input, buyer),
   };
-  // Stable sort: equal items keep the order each builder gave them.
+  // Stable sort: equal items keep the order each builder gave them. Sources
+  // stay in the data's order, biggest gap first: an easy listing must not
+  // jump a site that cost the business more answers.
   const groups = ORDER.filter(k => built[k].length).map(key => ({
     key, ...GROUPS[key],
-    items: [...built[key]].sort((a, b) => IMPACT[a.impact] - IMPACT[b.impact] || EFFORT[a.effort] - EFFORT[b.effort]),
+    items: key === "sources" ? built[key]
+      : [...built[key]].sort((a, b) => IMPACT[a.impact] - IMPACT[b.impact] || EFFORT[a.effort] - EFFORT[b.effort]),
   }));
   const all = groups.flatMap(g => g.items);
   return { groups, total: all.length, quickWins: all.filter(i => i.effort === "low" && i.impact === "high").length };

@@ -271,4 +271,16 @@ describe("buildActionPlan", () => {
     expect(q.how).toContain("lost.example");
     expect(q.how).not.toMatch(/won1|won2|empty/);
   });
+
+  it("keeps a bigger gap above an easier one in sources", () => {
+    const checks: PlanCheck[] = [];
+    for (let i = 0; i < 3; i++) checks.push(check({ promptId: `b${i}`, competitorsMentioned: [HONEY], citations: ["https://cakeblog.example/x"] }));
+    for (let i = 0; i < 2; i++) checks.push(check({ promptId: `y${i}`, competitorsMentioned: [HONEY], citations: ["https://yelp.com/x"] }));
+    const sources = items(buildActionPlan(input(checks)), "sources");
+    expect(sources.map(i => [i.key, i.effort, i.impact])).toEqual([
+      ["source:cakeblog.example", "medium", "high"],
+      ["source:yelp.com", "low", "high"],
+    ]);
+  });
 });
+
