@@ -34,15 +34,23 @@ export function LockedSection({ title, what }: { title: string; what: string }) 
  */
 export function CallBanner() {
   return (
-    <div className="border-b border-line bg-gold-soft text-ink print:hidden">
-      <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6">
-        <p className="text-[14px] leading-snug">
-          Get the full picture in 30 minutes: we&apos;ll confirm your facts, unlock your fact check and walk you through your plan.
-        </p>
-        <a href={bookingUrl()}
-          className="whitespace-nowrap rounded-full bg-gold px-4 py-1.5 text-[13px] font-semibold text-paper hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
-          Book a call
-        </a>
+    <div className="call-banner print:hidden">
+      <div className="call-banner-inner">
+        <div className="min-w-0">
+          <p className="call-banner-eyebrow"><span className="call-banner-dot" aria-hidden="true" />Free 30-minute walkthrough</p>
+          <p className="call-banner-title">See the full picture of how AI talks about you.</p>
+          <ul className="call-banner-perks">
+            <li>We confirm your facts</li>
+            <li>We unlock your fact check</li>
+            <li>We walk you through your plan</li>
+          </ul>
+        </div>
+        <div className="call-banner-cta">
+          <a href={bookingUrl()} className="call-banner-button">
+            Book your free call <span aria-hidden="true">&rarr;</span>
+          </a>
+          <span className="call-banner-note">Pick a time in under a minute</span>
+        </div>
       </div>
     </div>
   );
