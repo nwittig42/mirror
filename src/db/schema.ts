@@ -363,3 +363,15 @@ export const supportRequests = pgTable("support_requests", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   closedAt: timestamp("closed_at"),
 });
+
+// Action plan items a business has marked done (src/core/action-plan.ts).
+// Keyed by the item's stable key, so a tick carries over to next week's plan
+// while the same item is still on it. An item that drops off the plan just
+// isn't shown; its tick stays, harmlessly.
+export const actionTicks = pgTable("action_ticks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  practiceId: uuid("practice_id").notNull().references(() => practices.id),
+  itemKey: text("item_key").notNull(),
+  doneAt: timestamp("done_at").defaultNow().notNull(),
+  doneBy: uuid("done_by").references(() => users.id),
+}, t => [uniqueIndex("action_ticks_item").on(t.practiceId, t.itemKey)]);

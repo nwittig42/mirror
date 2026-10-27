@@ -6,16 +6,16 @@ import { buildCompetitorReport } from "@/lib/competitor-report";
 import { buildSourcesReport, type SourceKind } from "@/core/citations";
 import { buildSearchReport } from "@/core/search-queries";
 import { fixAdvice } from "@/core/fix-list";
+import { pagesWanted, WEBSITE_FIXES } from "@/core/action-plan";
 import { computeVisibility, displayScores, explainOverall, shownScore } from "@/core/scoring";
 import { coverageLabel } from "@/core/coverage";
 import { extractSnippet } from "@/core/mention";
 import { nameKey } from "@/core/competitors";
 import type { Engine, Position } from "@/core/types";
-import type { WebsiteCheckResult } from "@/core/website-check";
 import { runWebsiteCheck } from "@/services/website-check";
 import { toolMeta } from "@/report/tokens";
 import type {
-  Action, AuditReport, BuyerQuestion, ClosestWin, FactCheck, Level, OutreachSite, PageWanted, Quote, SourceType, ToolId,
+  Action, AuditReport, BuyerQuestion, ClosestWin, FactCheck, OutreachSite, Quote, SourceType, ToolId,
 } from "@/report/types";
 
 /**
@@ -93,35 +93,6 @@ function positionOf(index: number): Position {
   if (index === 0) return "first";
   if (index < 3) return "top3";
   return "mentioned";
-}
-
-// What a word AI adds to its searches says about the page it wants.
-const PAGE_FOR_WORD: { test: RegExp; page: string; why: string }[] = [
-  { test: /^(price|prices|pricing|cost|costs|cheap|affordable|rates?)$/, page: "A current price list", why: "AI looks up prices before recommending anyone." },
-  { test: /^(reviews?|rated|ratings?|testimonials?)$/, page: "A reviews and results page", why: "AI checks what customers say before it recommends you." },
-  { test: /^(hours|open|saturday|sunday|weekend|today|appointment|booking|book)$/, page: "Hours and booking details", why: "AI answers \"open now\" and \"book\" questions from this." },
-  { test: /^(near|nearby|location|address|parking|directions)$/, page: "A location page", why: "AI matches you to local questions from your address and area." },
-  { test: /^20\d\d$/, page: "Pages with this year's details", why: "AI prefers recent pages. Dated, updated info reads as current." },
-  { test: /^(vs|versus|alternative|alternatives|compare|comparison)$/, page: "A comparison page", why: "AI is weighing options. Say plainly how you differ." },
-];
-
-function pagesWanted(words: string[], site: WebsiteCheckResult | null): PageWanted[] {
-  const out: PageWanted[] = [];
-  const seen = new Set<string>();
-  for (const word of words) {
-    const rule = PAGE_FOR_WORD.find(r => r.test.test(word));
-    const page = rule?.page ?? `A page that covers "${word}"`;
-    if (seen.has(page)) continue;
-    seen.add(page);
-    const onPage = site?.pages.some(p => `${p.url} ${p.title ?? ""}`.toLowerCase().includes(word)) ?? false;
-    const inText = site?.homepageText.includes(word) ?? false;
-    out.push({
-      word, page, why: rule?.why ?? "AI kept adding this word when it searched for businesses like yours.",
-      status: onPage ? "have" : inText ? "partial" : "missing",
-    });
-    if (out.length >= 4) break;
-  }
-  return out;
 }
 
 export async function buildAuditReportData(db: Db, practiceId: string): Promise<AuditReport | null> {
@@ -283,19 +254,10 @@ export async function buildAuditReportData(db: Db, practiceId: string): Promise<
     fixes: `${otherWrong.length} wrong fact${otherWrong.length === 1 ? "" : "s"}`, effort: "medium", impact: "high", track: "facts",
   });
   const failing = websiteChecks.filter(c => c.status !== "pass");
-  const CHECK_ACTION: Record<string, { title: string; effort: Level; impact: Level; track: Action["track"] }> = {
-    ai_allowed: { title: "Let AI assistants read your site", effort: "low", impact: "high", track: "both" },
-    facts_page: { title: "Add a plain facts page", effort: "low", impact: "high", track: "both" },
-    readable_text: { title: "Make your text load without special code", effort: "medium", impact: "high", track: "both" },
-    // A website fix, not a wrong fact: it doesn't wait for confirmed facts.
-    machine_labels: { title: "Label your prices and FAQs for machines", effort: "low", impact: "medium", track: "both" },
-    sitemap: { title: "Publish a sitemap", effort: "low", impact: "low", track: "both" },
-    business_schema: { title: "Label your business for machines", effort: "low", impact: "medium", track: "both" },
-    contact_visible: { title: "Put your phone, address and hours in plain text", effort: "low", impact: "high", track: "both" },
-  };
   for (const c of failing) {
-    const meta = CHECK_ACTION[c.id];
-    if (meta) add({ ...meta, why: c.why, fixes: `website check: ${c.label.toLowerCase()}` });
+    // The same titles as the action plan's; a website fix doesn't wait for confirmed facts.
+    const meta = WEBSITE_FIXES[c.id];
+    if (meta) add({ ...meta, track: "both", why: c.why, fixes: `website check: ${c.label.toLowerCase()}` });
   }
   if (sources.gaps.length) add({
     title: `Get featured on ${sources.gaps.slice(0, 2).map(g => g.domain).join(" and ")}`,
