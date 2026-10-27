@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildActionPlan, type PlanCheck, type ActionPlanInput } from "@/core/action-plan";
+import { buildActionPlan, sitesToGetOn, type PlanCheck, type ActionPlanInput } from "@/core/action-plan";
 import { buildSourcesReport } from "@/core/citations";
 import { buildSearchReport } from "@/core/search-queries";
 import type { WebsiteCheckResult } from "@/core/website-check";
@@ -284,3 +284,19 @@ describe("buildActionPlan", () => {
   });
 });
 
+
+describe("sitesToGetOn", () => {
+  it("is the gaps in order, without competitors' own sites, each with who AI named from it", () => {
+    const checks = [
+      check({ promptId: "x", competitorsMentioned: [HILL, HONEY], citations: ["https://www.hillcrestbakery.com/menu", "https://yelp.com/a", "https://reddit.com/r/x"] }),
+      check({ promptId: "y", competitorsMentioned: [HONEY], citations: ["https://yelp.com/b"] }),
+      check({ promptId: "z", mentioned: true, competitorsMentioned: [PIER], citations: ["https://reddit.com/r/y"] }),
+      check({ promptId: "b", promptKind: "branded", competitorsMentioned: [PIER], citations: ["https://brandedonly.example/x"] }),
+    ];
+    const sites = sitesToGetOn(buildSourcesReport(checks, "https://sweetrise.example"), checks);
+    expect(sites.map(s => s.domain)).toEqual(["yelp.com", "reddit.com"]);
+    expect(sites[0].named).toEqual([{ name: HONEY, count: 2 }, { name: HILL, count: 1 }]);
+    // Only answers that left the business out: the answer naming it and Pier Pastry doesn't count.
+    expect(sites[1].named.map(n => n.name)).toEqual([HILL, HONEY]);
+  });
+});

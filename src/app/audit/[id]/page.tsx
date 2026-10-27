@@ -6,6 +6,7 @@ import { getDb } from "@/db";
 import { leads, practices } from "@/db/schema";
 import { LandingFooter, LandingNav } from "@/components/landing/chrome";
 import { displayScores, shownScore } from "@/core/scoring";
+import { loadActionPlan } from "@/lib/action-plan";
 import { getChecksForScan, getLatestScan } from "@/lib/queries";
 import { auditProgress, isUuid } from "@/services/audit-progress";
 import { isRepeatSite } from "@/services/leads";
@@ -49,12 +50,18 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
   // The finished audit needs a complete scan; "done" a moment before that row
   // lands keeps the progress, which refreshes into it.
   const scan = progress.stage === "done" && lead.practiceId ? await getLatestScan(db, lead.practiceId) : null;
-  const [checks, [practice]] = scan && lead.practiceId
+  // The action plan teases what an account gets. No ticks: a visitor has none.
+  // A plan that can't be built is left out, never a broken page for a visitor.
+  const [checks, [practice], loaded] = scan && lead.practiceId
     ? await Promise.all([
       getChecksForScan(db, scan.id),
       db.select({ name: practices.name, logo: practices.logo }).from(practices).where(eq(practices.id, lead.practiceId)),
+      loadActionPlan(db, lead.practiceId, { ticks: false }).catch(err => {
+        console.error("audit page: action plan", err);
+        return null;
+      }),
     ])
-    : [[], []];
+    : [[], [], null];
 
   // Read straight off process.env, as /book does: a missing scheduler is a fallback, not an error.
   const calendlyUrl = process.env.CALENDLY_URL || undefined;
@@ -75,6 +82,8 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
                 scanDate={scan.startedAt}
                 ranking={shownScore(displayScores(scan).visibility)}
                 checks={checks}
+                plan={loaded?.plan ?? null}
+                sources={loaded?.sources ?? null}
                 email={lead.email}
                 calendlyUrl={calendlyUrl}
                 prefill={{ contactName: lead.contactName ?? undefined, practiceName: lead.practiceName ?? undefined, websiteUrl }}

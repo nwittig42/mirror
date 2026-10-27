@@ -116,7 +116,7 @@ function listOf(items: string[]): string {
  * its spellings together (nameKey), under the first spelling seen. Most named
  * first; a tie goes to the name first in the alphabet.
  */
-function competitorCounts(checks: PlanCheck[]): { name: string; count: number }[] {
+function competitorCounts(checks: Pick<PlanCheck, "competitorsMentioned">[]): { name: string; count: number }[] {
   const counts = new Map<string, { name: string; count: number }>();
   for (const c of checks) {
     const seen = new Set<string>();
@@ -132,7 +132,7 @@ function competitorCounts(checks: PlanCheck[]): { name: string; count: number }[
   return [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
 }
 
-function domainsOf(c: PlanCheck): Set<string> {
+function domainsOf(c: Pick<PlanCheck, "citations">): Set<string> {
   return new Set(c.citations.map(domainOf).filter((d): d is string => d !== null));
 }
 
@@ -162,7 +162,7 @@ const SOURCE_HOW: Record<SourceKind, { how: string; effort: Level }> = {
 };
 
 /** Answers that named a competitor and not the client. */
-const lostTo = (c: PlanCheck) => !c.mentioned && c.competitorsMentioned.length > 0;
+const lostTo = (c: Pick<PlanCheck, "mentioned" | "competitorsMentioned">) => !c.mentioned && c.competitorsMentioned.length > 0;
 
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -182,16 +182,26 @@ function isCompetitorSite(domain: string, names: string[]): boolean {
   });
 }
 
-function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
-  const gaps = input.sources.gaps.map(gap => {
-    // The answers that read this site and named a competitor, not the client.
+/**
+ * The sites to get on: the sources report's gaps, biggest first, with
+ * competitors' own websites left out. Each carries the buyer answers that read
+ * it and named a competitor, not the client, and who those answers named.
+ */
+export function sitesToGetOn<C extends Pick<PlanCheck, "promptKind" | "mentioned" | "competitorsMentioned" | "citations">>(
+  sources: SourcesReport, checks: C[],
+) {
+  const buyer = checks.filter(c => c.promptKind !== "branded");
+  return sources.gaps.map(gap => {
     const lost = buyer.filter(c => lostTo(c) && domainsOf(c).has(gap.domain));
-    return { gap, lost, counts: competitorCounts(lost) };
-  }).filter(g => !isCompetitorSite(g.gap.domain, g.counts.map(n => n.name)));
+    return { domain: gap.domain, gap, lost, named: competitorCounts(lost) };
+  }).filter(g => !isCompetitorSite(g.domain, g.named.map(n => n.name)));
+}
+
+function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
   // Kept in the data's order, biggest gap first: a site's kind says how to get
   // on it, not how much it matters. The top three, or any that took a quarter
   // of buyer answers, are high impact.
-  return gaps.slice(0, CAP).map(({ gap, lost, counts }, i) => {
+  return sitesToGetOn(input.sources, buyer).slice(0, CAP).map(({ gap, lost, named: counts }, i) => {
     const named = counts.slice(0, 3);
     const advice = SOURCE_HOW[gap.kind];
     const big = i < 3 || (buyer.length > 0 && gap.competitorOnly / buyer.length >= 0.25);

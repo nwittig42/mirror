@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ScoreDial } from "@/components/ui";
+import { sitesToGetOn, type ActionPlan } from "@/core/action-plan";
+import type { SourcesReport } from "@/core/citations";
 import { ENGINE_NAMES } from "@/core/coverage";
-import { topBuyerCompetitor } from "@/core/competitors";
+import { nameKey, topBuyerCompetitor } from "@/core/competitors";
 import { topEngine } from "@/core/top-engine";
 import { CalendlyEmbed, type CalendlyPrefill } from "@/app/book/calendly-embed";
 import { AccountForm } from "./account-form";
@@ -12,19 +14,14 @@ interface TeaserCheck {
   promptText: string;
   mentioned: boolean;
   answerText: string;
-  competitorsMentioned: string[] | null;
+  competitorsMentioned: string[];
+  citations: string[];
 }
 
-/**
- * Stand-ins for the rest of the report, blurred below the sign-up card.
- * Fixed text on purpose: nothing real is ever in this part of the page, so
- * nothing real can be read from its source.
- */
-const PLACEHOLDER = [
-  { title: "Every AI answer", lines: ["24 answers, word for word", "Where you were named", "Where you were left out"] },
-  { title: "Competitors", lines: ["Named 9 times", "Named 6 times", "Named 4 times"] },
-  { title: "Your fix plan", lines: ["First: update your hours", "Next: add a services page", "Then: answer common questions"] },
-];
+// How many real titles or domains each card blurs after the one it shows.
+const BLURRED = 3;
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 function excerpt(text: string, max = 260): string {
   const flat = text.replace(/\s+/g, " ").trim();
@@ -35,18 +32,25 @@ const engineName = (engine: string) => ENGINE_NAMES[engine as keyof typeof ENGIN
 
 /**
  * The finished audit, top to bottom: the business and the scan date, the
- * score, one real answer, the sign-up card, the rest blurred, then the call.
- * Fed by the same queries as the dashboard's PreviewSummary, and like it uses
- * buyer questions only: a question that names the business can repeat facts
- * nobody has confirmed with them yet.
+ * score, one real answer, a taste of the action plan and of where AI read,
+ * the sign-up card, then the call. Fed by the same queries as the dashboard's
+ * PreviewSummary, and like it uses buyer questions only: a question that
+ * names the business can repeat facts nobody has confirmed with them yet.
+ *
+ * The teaser cards show one real step and one real site in full, and blur the
+ * next few titles or domains (aria-hidden): real, so the tease is honest, but
+ * titles only, never the why or the how.
  */
-export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, checks, email, calendlyUrl, prefill }: {
+export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, checks, plan, sources, email, calendlyUrl, prefill }: {
   leadId: string;
   businessName: string;
   logo: string | null;
   scanDate: Date;
   ranking: number | null;
   checks: TeaserCheck[];
+  /** The action plan for the scan, or null when it couldn't be built. */
+  plan: ActionPlan | null;
+  sources: SourcesReport | null;
   /** The lead's email, when they gave one: the account form asks only without it. */
   email: string | null;
   calendlyUrl?: string;
@@ -57,6 +61,12 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   const shown = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0) ?? earned[0];
   const best = topEngine(earned);
   const rival = topBuyerCompetitor(earned);
+
+  const steps = plan?.groups.flatMap(g => g.items) ?? [];
+  const first = steps[0];
+  const sites = sources ? sitesToGetOn(sources, earned) : [];
+  // Sites to get on whose answers named the top competitor.
+  const rivalOn = rival ? sites.filter(s => s.named.some(n => nameKey(n.name) === nameKey(rival.name))).length : 0;
 
   return (
     <div className="mk-teaser">
@@ -98,24 +108,56 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
         </div>
       )}
 
+      {plan && first && (
+        <div className="mk-form-card mk-teaser-plan">
+          <span className="mk-eyebrow">Your action plan</span>
+          <p className="mk-body" style={{ marginTop: 14 }}>
+            {`We found ${plural(plan.total, "fix", "fixes")} for ${businessName}${plan.quickWins ? `, ${plan.quickWins} of them quick wins` : ""}.`}
+          </p>
+          <ul className="mk-teaser-groups">
+            {plan.groups.map(g => (
+              <li key={g.key}><span>{g.title}</span><span className="mk-teaser-count">{g.items.length}</span></li>
+            ))}
+          </ul>
+          <div className="mk-teaser-step">
+            <strong>{first.title}</strong>
+            <p>{first.why}</p>
+          </div>
+          {steps.length > 1 && (
+            <ul className="mk-teaser-blurred" aria-hidden="true" data-blurred>
+              {steps.slice(1, 1 + BLURRED).map(i => <li key={i.key}>{i.title}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {sources && sites.length > 0 && (
+        <div className="mk-form-card mk-teaser-sources">
+          <span className="mk-eyebrow">Where AI is reading</span>
+          <p className="mk-body" style={{ marginTop: 14 }}>
+            {`AI read ${plural(sources.sources.length, "website")} to answer your customers.`}
+            {rival && rivalOn > 0 && ` ${rival.name} is on ${rivalOn} of them and you're not.`}
+          </p>
+          <div className="mk-teaser-step">
+            <strong>{sites[0].domain}</strong>
+          </div>
+          {sites.length > 1 && (
+            <ul className="mk-teaser-blurred" aria-hidden="true" data-blurred>
+              {sites.slice(1, 1 + BLURRED).map(s => <li key={s.domain}>{s.domain}</li>)}
+            </ul>
+          )}
+        </div>
+      )}
+
       <div className="mk-form-card mk-teaser-account">
-        <h2 className="mk-display mk-h3">Create your free account to see your full audit</h2>
+        <h2 className="mk-display mk-h3">Create your free account to get your full action plan</h2>
         <p className="mk-body" style={{ marginTop: 12 }}>
-          Every AI answer word for word, who AI recommends instead of you, and your step-by-step recommendations.
+          Every step, with the competitors and websites behind it, plus every AI answer word for word.
         </p>
         <AccountForm leadId={leadId} askEmail={!email} />
         <p className="mk-field-hint" style={{ marginTop: 14 }}>
           Already have an account? <Link href="/login">Log in</Link>
         </p>
-      </div>
-
-      <div className="mk-teaser-blur" aria-hidden="true" data-blurred>
-        {PLACEHOLDER.map(card => (
-          <div key={card.title} className="mk-form-card">
-            <span className="mk-eyebrow">{card.title}</span>
-            <ul>{card.lines.map(line => <li key={line}>{line}</li>)}</ul>
-          </div>
-        ))}
       </div>
 
       <div className="mk-form-card mk-teaser-book">

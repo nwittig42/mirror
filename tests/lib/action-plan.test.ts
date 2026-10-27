@@ -3,6 +3,7 @@ import { makeTestDb, seedPractice } from "../helpers/db";
 import { loadActionPlan } from "@/lib/action-plan";
 import { setTick } from "@/services/action-ticks";
 import { checks, practices, scans } from "@/db/schema";
+import { sql } from "drizzle-orm";
 import type { WebsiteCheckResult } from "@/core/website-check";
 
 const site: WebsiteCheckResult = {
@@ -50,5 +51,21 @@ describe("loadActionPlan", () => {
     const keys = loaded!.plan.groups.flatMap(g => g.items.map(i => i.key));
     expect(keys).toEqual(["source:yelp.com", `question:${promptIds[0]}`, "site:sitemap"]);
     expect(JSON.stringify(loaded!.plan)).not.toMatch(/oldsite|brandedonly|Pier Pastry/);
+  });
+
+  it("can leave the ticks out, so it works without the ticks table, and gives the sources it read", async () => {
+    const db = await makeTestDb();
+    const { practiceId, promptIds } = await seedPractice(db, { name: "Sweet Rise Bakery", prompts: [{ text: "Best cake", kind: "category" }] });
+    const [scan] = await db.insert(scans).values({ practiceId, status: "complete" }).returning();
+    await db.insert(checks).values({
+      scanId: scan.id, promptId: promptIds[0], engine: "openai", mentioned: false, position: "absent",
+      answerText: "Honey Crumb.", citations: ["https://yelp.com/a"], competitorsMentioned: ["Honey Crumb"],
+    });
+    await db.execute(sql`drop table action_ticks`);
+    await expect(loadActionPlan(db, practiceId)).rejects.toThrow();
+    const loaded = await loadActionPlan(db, practiceId, { ticks: false });
+    expect(loaded!.ticks).toEqual(new Set());
+    expect(loaded!.plan.total).toBeGreaterThan(0);
+    expect(loaded!.sources.gaps.map(g => g.domain)).toEqual(["yelp.com"]);
   });
 });

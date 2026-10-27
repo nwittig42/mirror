@@ -5,7 +5,7 @@ import { setDbForTests } from "@/db";
 import type { Db } from "@/db";
 import { checks, leads, practices, scans } from "@/db/schema";
 import { shownScore } from "@/core/scoring";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { runScan } from "@/services/scan-runner";
 import { createInvite } from "@/services/account-invites";
 import { NOT_PREPARED_NOTE } from "@/services/leads";
@@ -40,6 +40,13 @@ const answers: Record<string, string> = {
 const adapter: EngineAdapter = { name: "openai", run: async p => ({ answer: answers[p], citations: [] }) };
 const judge = async () => ({ wrong: [], right: [] });
 
+// Where each answer read. rosecityplumbing.com is the competitor's own site, never one to get on.
+const cited: Record<string, string[]> = {
+  "Best plumber in Portland": ["https://angi.com/x", "https://yelp.com/a", "https://reddit.com/r/pdx", "https://rosecityplumbing.com/"],
+  "Who fixes water heaters in Portland?": ["https://yelp.com/b"],
+};
+const citing: EngineAdapter = { name: "openai", run: async p => ({ answer: answers[p], citations: cited[p] ?? [] }) };
+
 async function seedLead(values: Partial<typeof leads.$inferInsert> = {}) {
   const [row] = await db.insert(leads).values({ websiteUrl: "https://harbor.example", practiceName: "Harbor Plumbing", ...values }).returning();
   return row;
@@ -60,13 +67,20 @@ async function scannedPractice(adapters: EngineAdapter[] = [adapter]) {
   return practiceId;
 }
 
-/** The blurred block, from its opening tag to the call offer below it. */
-function blurredRegion(page: string): string {
-  const start = page.lastIndexOf("<div", page.indexOf("data-blurred"));
-  const end = page.indexOf("mk-teaser-book");
+/** One teaser card, from its class to the next card's. */
+function card(page: string, name: string): string {
+  const start = page.indexOf(name);
   expect(start).toBeGreaterThan(-1);
-  expect(end).toBeGreaterThan(start);
-  return page.slice(start, end);
+  const end = page.indexOf("mk-form-card", start + name.length);
+  return page.slice(start, end > -1 ? end : undefined);
+}
+
+/** A card's blurred list, from its opening tag to its close. */
+function blurredIn(markup: string): string {
+  const at = markup.indexOf("data-blurred");
+  expect(at).toBeGreaterThan(-1);
+  const start = markup.lastIndexOf("<", at);
+  return markup.slice(start, markup.indexOf("</ul>", at));
 }
 
 beforeEach(async () => {
@@ -146,17 +160,12 @@ describe("the audit page", () => {
   });
 
   describe("when the audit is done", () => {
-    it("shows the score and one real answer, and blurs only placeholder content", async () => {
+    it("shows the score and one real answer, and nothing from a branded one", async () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
       expect(page).toContain("Recommended by AI");
       expect(page).toContain(LEFT_OUT);
-      const blurred = blurredRegion(page);
-      expect(blurred).toContain('aria-hidden="true"');
-      expect(blurred).not.toContain(LEFT_OUT);
-      expect(blurred).not.toContain("Rose City Plumbing");
-      expect(blurred).not.toContain("Harbor Plumbing");
       // A branded answer can carry unconfirmed facts, so it is nowhere on the page.
       expect(page).not.toContain(SECRET_ANSWER);
       expect(page).not.toContain("$49");
@@ -174,30 +183,106 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice();
       const anonymous = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(anonymous.id));
-      const card = (markup: string) => markup.slice(markup.indexOf("mk-teaser-account"), markup.indexOf("Already have an account?"));
-      expect(page).toContain("Create your free account to see your full audit");
-      expect(page).toContain("Every AI answer word for word, who AI recommends instead of you, and your step-by-step recommendations.");
-      expect(card(page)).toContain('name="email"');
+      const account = (markup: string) => markup.slice(markup.indexOf("mk-teaser-account"), markup.indexOf("Already have an account?"));
+      expect(page).toContain("Create your free account to get your full action plan");
+      expect(page).toContain("Every step, with the competitors and websites behind it, plus every AI answer word for word.");
+      expect(account(page)).toContain('name="email"');
       expect(page).toContain("Create account");
       expect(page).toContain("Already have an account?");
       expect(page).toContain('href="/login"');
 
       await db.update(leads).set({ email: "dale@harbor.example" }).where(eq(leads.id, anonymous.id));
       const known = text(await audit(anonymous.id));
-      expect(card(known)).not.toContain('name="email"');
-      expect(card(known)).toContain('name="password"');
+      expect(account(known)).not.toContain('name="email"');
+      expect(account(known)).toContain('name="password"');
     });
 
-    it("puts the account card above the blur, with nothing laid over the blur", async () => {
+    it("puts the action plan and where AI read between the answer and the account card, and drops the placeholder blur", async () => {
+      const practiceId = await scannedPractice([citing]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      const at = ["An answer you were left out of", "mk-teaser-plan", "mk-teaser-sources", "mk-teaser-account", "mk-teaser-book"]
+        .map(t => page.indexOf(t));
+      expect(at[0]).toBeGreaterThan(-1);
+      for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1]);
+      expect(page).not.toContain("24 answers, word for word");
+      expect(page).not.toContain("Your fix plan");
+    });
+
+    it("counts the real plan, names its groups, and shows the first step in full", async () => {
+      const practiceId = await scannedPractice([citing]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
+      expect(plan).toContain("Your action plan");
+      expect(plan).toContain("We found 4 fixes for Harbor Plumbing, 2 of them quick wins.");
+      expect(plan).toMatch(/Get listed where AI looks<\/span><span class="mk-teaser-count">3</);
+      expect(plan).toMatch(/Win the questions you're losing<\/span><span class="mk-teaser-count">1</);
+      expect(plan).toContain("Get on yelp.com");
+      expect(plan).toContain("AI read yelp.com in 1 answer and named Rose City Plumbing (1) from it, not you.");
+      expect(blurredIn(plan)).not.toContain("Get on yelp.com");
+    });
+
+    it("blurs the next three step titles, and only their titles, out of reach of screen readers", async () => {
+      const practiceId = await scannedPractice([citing]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
+      const blurred = blurredIn(plan);
+      expect(blurred).toContain('aria-hidden="true"');
+      expect(blurred).toContain("mk-teaser-blurred");
+      const titles = ["Get on angi.com", "Get on reddit.com", "\u201cBest plumber in Portland\u201d"];
+      for (const t of titles) {
+        expect(blurred).toContain(t);
+        expect(plan.replace(blurred, "")).not.toContain(t);
+      }
+      expect(blurred).not.toContain("AI read");
+      expect(blurred).not.toContain("Claim your listing");
+    });
+
+    it("says how many websites AI read and how many the top competitor is on, naming the first one", async () => {
+      const practiceId = await scannedPractice([citing]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      const sources = card(page, "mk-teaser-sources");
+      expect(sources).toContain("Where AI is reading");
+      expect(sources).toContain("AI read 4 websites to answer your customers. Rose City Plumbing is on 3 of them and you're not.");
+      const blurred = blurredIn(sources);
+      expect(blurred).toContain('aria-hidden="true"');
+      expect(sources.replace(blurred, "")).toContain("yelp.com");
+      expect(blurred).not.toContain("yelp.com");
+      expect(blurred).toContain("angi.com");
+      expect(blurred).toContain("reddit.com");
+      // The competitor's own website is never a site to get on.
+      expect(page).not.toContain("rosecityplumbing.com");
+    });
+
+    it("leaves both cards out when there's no plan and nowhere to get on", async () => {
+      const practiceId = await scannedPractice();
+      await db.delete(checks);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const page = text(await audit(lead.id));
+      expect(page).not.toContain("mk-teaser-plan");
+      expect(page).not.toContain("mk-teaser-sources");
+      expect(page).toContain("Create your free account to get your full action plan");
+    });
+
+    it("leaves the sources card out when no answer read a site, keeping the plan", async () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page.indexOf("mk-teaser-account")).toBeGreaterThan(-1);
-      expect(page.indexOf("mk-teaser-account")).toBeLessThan(page.indexOf("data-blurred"));
-      const blurred = blurredRegion(page);
-      expect(blurred).not.toContain("mk-teaser-overlay");
-      expect(blurred).not.toContain("<form");
-      expect(blurred).not.toContain("Create your free account");
+      expect(page).toContain("We found 1 fix for Harbor Plumbing.");
+      expect(page).not.toContain("mk-teaser-sources");
+    });
+
+    it("never fails for a visitor: no ticks table is fine, and a plan that can't load is left out", async () => {
+      const practiceId = await scannedPractice([citing]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      await db.execute(sql`drop table action_ticks`);
+      expect(text(await audit(lead.id))).toContain("We found 4 fixes for Harbor Plumbing");
+      await db.execute(sql`drop table name_variations`);
+      const page = text(await audit(lead.id));
+      expect(page).not.toContain("mk-teaser-plan");
+      expect(page).toContain("Recommended by AI");
+      expect(page).toContain("mk-teaser-account");
     });
 
     it("leads with the score: the dial, how often they were named, by which AI tool, and who was named instead", async () => {
@@ -227,17 +312,6 @@ describe("the audit page", () => {
       const page = text(await audit(lead.id));
       expect(page).toContain("AI named you in 2 of 4 answers");
       expect(page).not.toContain("named you most.");
-    });
-
-    it("blurs the cards for what a free account gets, in order, without a fact check card", async () => {
-      const practiceId = await scannedPractice();
-      const lead = await seedLead({ practiceId, status: "ready" });
-      const blurred = blurredRegion(text(await audit(lead.id)));
-      const at = ["Every AI answer", "Competitors", "Your fix plan"].map(t => blurred.indexOf(t));
-      expect(at[0]).toBeGreaterThan(-1);
-      expect(at[1]).toBeGreaterThan(at[0]);
-      expect(at[2]).toBeGreaterThan(at[1]);
-      expect(blurred).not.toContain("Fact check");
     });
 
     it("shows the logo beside the business name and the scan date, or the name alone without a logo", async () => {
@@ -272,7 +346,7 @@ describe("the audit page", () => {
         expect(page).not.toContain("Send me my audit");
         expect(page).not.toContain("Thank you. We'll email your audit to");
         expect(page).toContain("Want us to walk you through it? Book 30 minutes");
-        expect(page.indexOf("mk-teaser-book")).toBeGreaterThan(page.indexOf("data-blurred"));
+        expect(page.indexOf("mk-teaser-book")).toBeGreaterThan(page.indexOf("mk-teaser-account"));
       }
     });
 
@@ -280,8 +354,8 @@ describe("the audit page", () => {
       const { practiceId } = await seedPractice(db, { name: "Harbor Plumbing", slug: "harbor" });
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page).not.toContain("data-blurred");
-      expect(page).not.toContain("Create your free account to see your full audit");
+      expect(page).not.toContain("mk-teaser-plan");
+      expect(page).not.toContain("Create your free account");
       expect(page).toContain("mk-audit-steps");
     });
   });
