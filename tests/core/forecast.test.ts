@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  MONTHLY_CHURN, buildForecast, growthPath, mentionRates, rangeWords, roughDollars, wholeNumber,
-  type ForecastCheck, type ForecastInput, type MentionRates,
+  MONTHLY_CHURN, buildForecast, growthPath, mentionRates, rangeWords, roughDollars, valueWords, wholeNumber,
+  type ForecastCheck, type ForecastInput, type MentionRates, type ValueEstimate,
 } from "@/core/forecast";
 
 const check = (engine: string, mentioned: boolean, competitors: string[] = [], promptKind = "category"): ForecastCheck =>
@@ -158,6 +158,21 @@ describe("growthPath", () => {
     expect(path[12].revenue!.likely).toBeCloseTo(6.5 * 500, 5);
   });
 
+  it("carries the revenue range, value uncertainty included, into the year ahead", () => {
+    const path = growthPath({ ...full, revenue: { low: 1000, likely: 6000, high: 30_000 } }, { customerValue: 500, billing: "once" });
+    // 6.5 / 12 of a full year's worth by month 12, as for customers.
+    expect(path[12].revenue!.low).toBeCloseTo(1000 * 6.5 / 12, 5);
+    expect(path[12].revenue!.likely).toBeCloseTo(6000 * 6.5 / 12, 5);
+    expect(path[12].revenue!.high).toBeCloseTo(30_000 * 6.5 / 12, 5);
+  });
+
+  it("keeps the year ahead of a setup saved before value ranges as it was", () => {
+    const f = ready(input({ own: { customerValue: 1500, valueFrom: "prices" } }));
+    const path = growthPath(f, { customerValue: 1500, billing: "once" });
+    expect(path[12].revenue!.low).toBeCloseTo(path[12].customers.low * 1500, 5);
+    expect(path[12].revenue!.high).toBeCloseTo(path[12].customers.high * 1500, 5);
+  });
+
   it("builds monthly revenue from subscribers gained, less those who cancel", () => {
     const path = growthPath(full, { customerValue: 10, billing: "monthly" });
     // Month 1: a twelfth of one customer a month, nobody has had time to cancel.
@@ -186,7 +201,88 @@ describe("software with a free plan", () => {
   });
 });
 
+describe("restaurants, cafés and shops people visit", () => {
+  const estimate = (over: Partial<ValueEstimate> = {}): ValueEstimate => ({
+    spend: { low: 8, likely: 14, high: 20 }, visits: { low: 2, likely: 4, high: 8 },
+    basis: "Most orders are pastries and coffee at $8 to $20.", confidence: "high", ...over,
+  });
+
+  it("forecasts with its own defaults", () => {
+    const f = ready(input({ businessType: "local_shop" }));
+    expect(f.customers.likely).toBeCloseTo(f.visits.likely * 0.03 * 0.4, 5);
+    expect(f.steps.map(s => s.label)).toEqual(expect.arrayContaining([
+      "Visits that become an order, a call or a direction request", "Of those, people who come in or buy",
+    ]));
+    expect(f.steps.filter(s => s.origin === "assumption").every(s => s.sources.length > 0)).toBe(true);
+  });
+
+  it("works out a customer's first-year value from spend and visits, and carries its range into revenue", () => {
+    const f = ready(input({ businessType: "local_shop", own: { valueEstimate: estimate() } }));
+    expect(f.value!.likely).toBe(56);
+    expect(f.value!.low).toBeLessThan(56);
+    expect(f.value!.high).toBeGreaterThan(56);
+    expect(f.revenue!.likely).toBeCloseTo(f.customers.likely * 56, 5);
+    // Wider than the customer range alone, since the value is uncertain too.
+    expect(f.revenue!.low).toBeLessThan(f.customers.low * 56);
+    expect(f.revenue!.high).toBeGreaterThan(f.customers.high * 56);
+    expect(f.revenueTrusted).toBe(true);
+    const step = f.steps.find(s => s.label === "What a new customer is worth in their first year")!;
+    expect(step.origin).toBe("prices");
+    expect(step.note).toBe("Most orders are pastries and coffee at $8 to $20. Read from the prices on your website.");
+  });
+
+  it("still works out revenue from a low-confidence value, but does not trust it", () => {
+    const f = ready(input({ businessType: "local_shop", own: { valueEstimate: estimate({ confidence: "low" }) } }));
+    expect(f.revenueTrusted).toBe(false);
+    expect(f.revenue!.likely).toBeCloseTo(f.customers.likely * 56, 5);
+  });
+
+  it("lets a value the owner typed win over the drafted one", () => {
+    const f = ready(input({ own: { customerValue: 500, valueFrom: "owner", valueEstimate: estimate({ confidence: "low" }) } }));
+    // The owner's own number is taken as given, with no range around it.
+    expect(f.value).toEqual({ low: 500, likely: 500, high: 500 });
+    expect(f.revenueTrusted).toBe(true);
+    expect(f.revenue!.likely).toBeCloseTo(f.customers.likely * 500, 5);
+  });
+
+  it("keeps a value read off the prices before estimates existed, untrusted", () => {
+    const legacy = ready(input({ own: { customerValue: 1500, valueFrom: "prices" } }));
+    expect(legacy.value!.likely).toBe(1500);
+    expect(legacy.revenueTrusted).toBe(false);
+    expect(legacy.revenue).toEqual({ low: legacy.customers.low * 1500, likely: legacy.customers.likely * 1500, high: legacy.customers.high * 1500 });
+  });
+
+  it("has no value and no trusted revenue without one", () => {
+    const f = ready(input());
+    expect(f.value).toBeNull();
+    expect(f.revenueTrusted).toBe(false);
+  });
+
+  it("gives a subscription's monthly price as the value and leaves revenue to the year ahead", () => {
+    const f = ready(input({ businessType: "freemium", own: { billing: "monthly", valueEstimate: estimate({ spend: { low: 9.99, likely: 9.99, high: 9.99 }, visits: { low: 1, likely: 1, high: 1 } }) } }));
+    expect(f.value).toEqual({ low: 9.99, likely: 9.99, high: 9.99 });
+    expect(f.revenue).toBeNull();
+    expect(f.steps.some(s => s.label === "What a new customer pays each month")).toBe(true);
+  });
+
+  it("does not move the customer range when a value is added", () => {
+    const without = ready(input({ businessType: "local_shop" }));
+    const withValue = ready(input({ businessType: "local_shop", own: { valueEstimate: estimate() } }));
+    expect(withValue.customers).toEqual(without.customers);
+  });
+
+  it("prints the same forecast for the same inputs", () => {
+    const i = input({ businessType: "local_shop", own: { valueEstimate: estimate() } });
+    expect(buildForecast(i)).toEqual(buildForecast(i));
+  });
+});
+
 describe("the words", () => {
+  it("says a customer value as a dollar range", () => {
+    expect(valueWords({ low: 38, likely: 56, high: 94 })).toBe("$40 to $90");
+    expect(valueWords({ low: 9.99, likely: 9.99, high: 9.99 })).toBe("$10");
+  });
+
   it("rounds hard and never prints a decimal", () => {
     expect(wholeNumber(0.3)).toBe("fewer than 1");
     expect(wholeNumber(11.3)).toBe("11");

@@ -4,7 +4,6 @@ import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { forecastSnapshots } from "@/db/schema";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { LockedSection } from "@/components/locked";
 import { Card, Note, PageBody, Table, Tag, buttonClass, type Tone } from "@/components/ui";
 import { areaWords, loadForecast } from "@/services/forecast";
 import { loadAccuracyForecast } from "@/services/accuracy-forecast";
@@ -13,7 +12,7 @@ import { FACT_PENALTY, SHOWN_CAP, SHOWN_FLOOR, shownPoints } from "@/core/scorin
 import { PACE_RANGE_MONTHS } from "@/core/score-forecast";
 import {
   BENCHMARKS_AS_OF, CHURN_SOURCES, FORECAST_MODEL_VERSION, MONTHLY_CHURN, ORIGIN_LABEL, PACE_MONTHS, PACE_SOURCES,
-  rangeWords, wholeNumber, type Origin,
+  noteForFree, rangeWords, wholeNumber, type Origin,
 } from "@/core/forecast";
 
 const ORIGIN_TONE: Record<Origin, Tone> = { measured: "ok", bought: "neutral", yours: "gold", prices: "gold", assumption: "neutral" };
@@ -32,21 +31,14 @@ const day = (d: Date | string) => new Date(d).toLocaleDateString("en-US", { mont
 /**
  * How the forecast was worked out: every step with the value used, where it
  * came from and its source, the searches counted, what is left out, and how
- * the forecast will be checked. A prospect before their call sees none of it.
+ * the forecast will be checked. A prospect before their call (`locked`) sees
+ * the leads and revenue working, but not the Accuracy forecast or Overall,
+ * which rest on facts not yet confirmed.
  */
 export default async function ForecastMethodPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
   const header = <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="forecast" />;
-  if (locked) {
-    return (
-      <PageBody>
-        {header}
-        <LockedSection title="How we got this number" what="Every step of your forecast, with the value used and where it came from." />
-      </PageBody>
-    );
-  }
-
   const db = getDb();
   const [{ setup, result, scanDate }, accuracy, [kept]] = await Promise.all([
     loadForecast(db, practice),
@@ -55,7 +47,7 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
   ]);
   const back = <Link href={`/dashboard/${slug}/forecast`} className={buttonClass("outline")}>Back to the forecast</Link>;
   const forecast = result.ready ? result.forecast : null;
-  const acc = accuracy.forecast;
+  const acc = locked ? null : accuracy.forecast;
   if (!forecast && !acc) {
     return (
       <PageBody>
@@ -69,6 +61,9 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
   }
   const counted = setup.keywords.filter(k => (k.searches ?? 0) > 0).sort((a, b) => (b.searches ?? 0) - (a.searches ?? 0));
   const left = setup.keywords.length - counted.length;
+  // Dollars only from a customer value we can stand behind.
+  const trusted = !!forecast?.revenueTrusted;
+  const steps = forecast ? forecast.steps.filter(step => trusted || !step.value.includes("$")) : [];
 
   return (
     <PageBody>
@@ -90,11 +85,11 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
 
         <Card title="The working">
           <ol className="divide-y divide-line">
-            {forecast.steps.map((step, i) => (
+            {steps.map((step, i) => (
               <li key={step.label} className="grid grid-cols-1 gap-x-6 gap-y-1 py-4 first:pt-0 last:pb-0 sm:grid-cols-[1fr_auto]">
                 <div>
                   <p className="text-[15px] font-semibold text-ink">{i + 1}. {step.label}</p>
-                  <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{step.note}</p>
+                  <p className="mt-1 text-[14px] leading-relaxed text-ink-soft">{locked ? noteForFree(step.note) : step.note}</p>
                   {step.sources.length > 0 && (
                     <p className="mt-1 text-[13px] text-muted">
                       Source: {step.sources.map((s, n) => (
@@ -139,7 +134,7 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
             takes to close a gap with a competitor in AI answers. Agencies report a first rise after 45 to 75 days, and which sites AI
             cites changes by 40 to 60% from month to month, so movement is possible within a year. How much is what your weekly scans will show.
           </p>
-          {setup.customerValue !== null && (
+          {trusted && setup.customerValue !== null && (
             <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
               <span className="font-semibold text-ink">Revenue.</span>{" "}
               {setup.billing === "monthly"
@@ -148,7 +143,7 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
             </p>
           )}
           <p className="mt-3 text-[13px] text-muted">
-            Sources: {[...PACE_SOURCES, ...(setup.customerValue !== null && setup.billing === "monthly" ? CHURN_SOURCES : [])].map((s, n) => (
+            Sources: {[...PACE_SOURCES, ...(trusted && setup.customerValue !== null && setup.billing === "monthly" ? CHURN_SOURCES : [])].map((s, n) => (
               <span key={s.url}>{n > 0 && ", "}<a href={s.url} target="_blank" rel="noreferrer" className="underline hover:text-gold">{s.name}</a></span>
             ))}
           </p>
@@ -221,19 +216,19 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
           </Card>
         )}
 
-        <Card title="The three lines on the chart">
+        <Card title={locked ? "The line on the chart" : "The three lines on the chart"}>
           <ul className="space-y-3 text-[15px] leading-relaxed text-ink-soft">
-            <li><span className="font-semibold text-ink">Accuracy</span> rises as wrong facts are fixed, as worked out above.</li>
+            {!locked && <li><span className="font-semibold text-ink">Accuracy</span> rises as wrong facts are fixed, as worked out above.</li>}
             <li>
               <span className="font-semibold text-ink">Recommended by AI</span> is drawn rising from your score toward the score
               {accuracy.competitor ? ` ${accuracy.competitor} gets from the same answers` : " of the competitor AI names most"}, at the pace of
               closing that gap in {PACE_RANGE_MONTHS.likely} months. The shaded range runs from {PACE_RANGE_MONTHS.low} months to {PACE_RANGE_MONTHS.high}.
               The pace is our assumption: nobody has measured it. It stays level when no competitor is ahead of you.
             </li>
-            <li>
+            {!locked && <li>
               <span className="font-semibold text-ink">Overall</span> is worked out from those two the way every scan does it: 70% Recommended
               by AI and 30% Accuracy, {SHOWN_FLOOR} while AI never names you, and held at {SHOWN_CAP} while a serious wrong fact is still around.
-            </li>
+            </li>}
           </ul>
         </Card>
 

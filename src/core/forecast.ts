@@ -49,6 +49,9 @@ const LOCALIQ: Source = { name: "LocaliQ search advertising benchmarks (2026)", 
 const FIRST_PAGE_SAGE: Source = { name: "First Page Sage conversion rates by industry", url: "https://firstpagesage.com/reports/b2b-conversion-rates-by-industry-fc/" };
 const FIRST_PAGE_SAGE_FREEMIUM: Source = { name: "First Page Sage freemium conversion rates (September 2026)", url: "https://firstpagesage.com/seo-blog/saas-freemium-conversion-rates/" };
 const INVOCA: Source = { name: "Invoca lead conversion benchmarks", url: "https://www.invoca.com/blog/lead-conversion-rate-benchmarks" };
+const SAASHERO: Source = { name: "SaasHero, restaurant website conversion rates", url: "https://saashero.net/competitor/restaurant-tech-conversion-optimization/" };
+const BRIGHTLOCAL: Source = { name: "BrightLocal, Google Business Profile insights study", url: "https://www.brightlocal.com/research/google-my-business-insights-study/" };
+const ECONSULTANCY_STORE_VISITS: Source = { name: "Google store-visit figures via Econsultancy (nearest available)", url: "https://econsultancy.com/google-adwords-new-metric-helps-measure-in-store-conversion/" };
 
 /**
  * AI answers per Google search on the same topic, for the chat assistants
@@ -77,8 +80,8 @@ export const ASSISTANT_WEIGHT: Record<string, number> = {
  */
 export const VISITS_PER_MENTION: Range = { low: 0.005, likely: 0.02, high: 0.04 };
 
-export type BusinessType = "home_services" | "clinic" | "legal" | "b2b_software" | "freemium" | "ecommerce" | "other";
-export const BUSINESS_TYPES: BusinessType[] = ["home_services", "clinic", "legal", "b2b_software", "freemium", "ecommerce", "other"];
+export type BusinessType = "home_services" | "clinic" | "legal" | "b2b_software" | "freemium" | "ecommerce" | "local_shop" | "other";
+export const BUSINESS_TYPES: BusinessType[] = ["home_services", "clinic", "legal", "b2b_software", "freemium", "ecommerce", "local_shop", "other"];
 export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
   home_services: "Home and local services",
   clinic: "Clinic, dental or med spa",
@@ -86,6 +89,7 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
   b2b_software: "Software sold to businesses",
   freemium: "App or software with a free plan",
   ecommerce: "Online store",
+  local_shop: "Restaurant, café or shop people visit",
   other: "Something else",
 };
 
@@ -121,6 +125,14 @@ export const RATE_DEFAULTS: Record<Exclude<BusinessType, "other">, { visitToLead
   ecommerce: {
     visitToLead: { range: { low: 0.01, likely: 0.025, high: 0.05 }, sources: [{ name: "Speed Commerce store benchmarks", url: "https://www.speedcommerce.com/insights/ecommerce-benchmarks-conversion-rates-by-industry-over-by-year/" }] },
     leadToCustomer: { range: { low: 1, likely: 1, high: 1 }, sources: [] },
+  },
+  // Walk-in food and retail: the lead is an order, a call or a direction
+  // request; the customer is the person who then comes in or buys. Published
+  // figures here are thin (vendor and agency numbers), so the ranges are wide.
+  local_shop: {
+    visitToLead: { range: { low: 0.01, likely: 0.03, high: 0.06 }, sources: [SAASHERO, BRIGHTLOCAL] },
+    // No study measures this step; Google's click-to-store-visit figures are the nearest.
+    leadToCustomer: { range: { low: 0.2, likely: 0.4, high: 0.6 }, sources: [ECONSULTANCY_STORE_VISITS] },
   },
 };
 
@@ -202,6 +214,16 @@ export function mentionRates(checks: ForecastCheck[]): MentionRates {
 
 export interface DemandKeyword { keyword: string; searches: number | null; cpc: number | null }
 
+/**
+ * What a new customer is worth, worked out from the prices on the website:
+ * what they spend on a visit (each month when billing is monthly) times how
+ * many times they buy in their first year (1 for a one-off job and for a
+ * subscription). `basis` says in one sentence which prices it rests on;
+ * `confidence` is "high" only when the website states prices for what most
+ * customers buy.
+ */
+export interface ValueEstimate { spend: Range; visits: Range; basis: string; confidence: "high" | "low" }
+
 export interface ForecastInput {
   keywords: DemandKeyword[];
   rates: MentionRates;
@@ -211,10 +233,12 @@ export interface ForecastInput {
    * customer value is what one new customer pays: each month when `billing`
    * is "monthly", otherwise in their first year. `valueFrom` says whether the
    * owner typed it or it was read off the prices on their Fact Sheet.
+   * `valueEstimate` is the ranged value drafted from the prices; a value the
+   * owner typed wins over it.
    */
   own: {
     visitToLead?: number | null; leadToCustomer?: number | null; customerValue?: number | null;
-    billing?: Billing | null; valueFrom?: "owner" | "prices" | null;
+    billing?: Billing | null; valueFrom?: "owner" | "prices" | null; valueEstimate?: ValueEstimate | null;
   };
 }
 
@@ -250,8 +274,12 @@ export interface Forecast {
   visits: Estimate;
   leads: Estimate;
   customers: Estimate;
+  /** What a new customer is worth in their first year, or pays each month for a subscription. Null without a value. */
+  value: Estimate | null;
   /** Customers x what a customer is worth in their first year. Null without a value, and for subscriptions (see growthPath). */
   revenue: Estimate | null;
+  /** True when the value came from the owner, or from prices that cover what most customers buy. Show dollars only then. */
+  revenueTrusted: boolean;
   /** What the extra visits would cost to buy as Google ads, from the local price per click. Null without prices. */
   adCost: Estimate | null;
   /** AI visits per month the same sums imply the business gets today, to hold against its analytics. */
@@ -351,11 +379,51 @@ export function buildForecast(input: ForecastInput): ForecastResult {
     return { low: Math.min(percentile(sorted, 0.1), likely[key]), likely: likely[key], high: Math.max(percentile(sorted, 0.9), likely[key]) };
   };
 
-  const value = input.own.customerValue ?? null;
   const monthly = input.own.billing === "monthly";
   const customerEstimate = spread("customers");
   const visitEstimate = spread("visits");
   const scale = (e: Estimate, by: number): Estimate => ({ low: e.low * by, likely: e.likely * by, high: e.high * by });
+
+  // What a customer is worth. A value the owner typed wins; then the ranged
+  // estimate drafted from the prices; then a single value read off the
+  // prices before estimates existed, which is kept but not trusted.
+  // A value with no stated origin counts as the owner's, as it always has.
+  const owned = input.own.valueFrom !== "prices" ? input.own.customerValue ?? null : null;
+  const estimate = owned === null ? input.own.valueEstimate ?? null : null;
+  const single = owned ?? (estimate ? null : input.own.customerValue ?? null);
+  let value: Estimate | null = null;
+  let revenue: Estimate | null = null;
+  if (single !== null) {
+    // The owner's own number is taken as given; one read off a single price is loose.
+    value = owned !== null
+      ? { low: single, likely: single, high: single }
+      : { low: single * 0.5, likely: single, high: single * 1.5 };
+    // Revenue keeps the sums it had before value ranges, so a setup saved then forecasts as it did.
+    revenue = monthly ? null : scale(customerEstimate, single);
+  } else if (estimate) {
+    // The value gets its own draws, so adding it never moves the customer range.
+    const valueRandom = seeded(20261027);
+    const valueNormal = () => {
+      const u = Math.max(valueRandom(), 1e-12);
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * valueRandom());
+    };
+    const values = runs.map(() => draw(estimate.spend, valueNormal()) * draw(estimate.visits, valueNormal()));
+    const likelyValue = estimate.spend.likely * estimate.visits.likely;
+    const sortedValues = [...values].sort((a, b) => a - b);
+    value = {
+      low: Math.min(percentile(sortedValues, 0.1), likelyValue), likely: likelyValue,
+      high: Math.max(percentile(sortedValues, 0.9), likelyValue),
+    };
+    if (!monthly) {
+      const sortedRevenue = runs.map((r, i) => r.customers * values[i]).sort((a, b) => a - b);
+      const likelyRevenue = likely.customers * likelyValue;
+      revenue = {
+        low: Math.min(percentile(sortedRevenue, 0.1), likelyRevenue), likely: likelyRevenue,
+        high: Math.max(percentile(sortedRevenue, 0.9), likelyRevenue),
+      };
+    }
+  }
+  const revenueTrusted = value !== null && (owned !== null || estimate?.confidence === "high");
 
   const steps: StepRow[] = [
     {
@@ -399,7 +467,10 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       sources: [PROFOUND_LIFT],
     },
     {
-      label: input.businessType === "ecommerce" ? "Visits that become an order" : input.businessType === "freemium" ? "Visits that become a free sign-up" : "Visits that become a lead",
+      label: input.businessType === "ecommerce" ? "Visits that become an order"
+        : input.businessType === "freemium" ? "Visits that become a free sign-up"
+        : input.businessType === "local_shop" ? "Visits that become an order, a call or a direction request"
+        : "Visits that become a lead",
       value: rangeText(visitToLead, pct),
       origin: ownLead !== null ? "yours" : "assumption",
       note: ownLead !== null
@@ -408,7 +479,9 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       sources: ownLead !== null ? [] : defaults!.visitToLead.sources,
     },
     ...(input.businessType === "ecommerce" && ownClose === null ? [] : [{
-      label: input.businessType === "freemium" ? "Sign-ups that become paying customers" : "Leads that become a customer",
+      label: input.businessType === "freemium" ? "Sign-ups that become paying customers"
+        : input.businessType === "local_shop" ? "Of those, people who come in or buy"
+        : "Leads that become a customer",
       value: rangeText(leadToCustomer, pct),
       origin: ownClose !== null ? "yours" as const : "assumption" as const,
       note: ownClose !== null
@@ -416,11 +489,18 @@ export function buildForecast(input: ForecastInput): ForecastResult {
         : "A typical range, and the weakest benchmark here. Your own rate is better: add it on the Forecast page.",
       sources: ownClose !== null ? [] : defaults!.leadToCustomer.sources,
     }]),
-    ...(value !== null ? [{
+    ...(estimate && value ? [{
       label: monthly ? "What a new customer pays each month" : "What a new customer is worth in their first year",
-      value: `$${Math.round(value).toLocaleString("en-US")}`,
-      origin: input.own.valueFrom === "prices" ? "prices" as const : "yours" as const,
-      note: input.own.valueFrom === "prices"
+      value: rangeText(value, roughDollars),
+      origin: "prices" as const,
+      note: `${estimate.basis} Read from the prices on your website.`,
+      sources: [],
+    }] : []),
+    ...(single !== null ? [{
+      label: monthly ? "What a new customer pays each month" : "What a new customer is worth in their first year",
+      value: `$${Math.round(single).toLocaleString("en-US")}`,
+      origin: owned === null ? "prices" as const : "yours" as const,
+      note: owned === null
         ? "Read from the prices on your Fact Sheet. Correct it on the Forecast page if a typical customer pays something else."
         : "Your number. No reliable benchmark exists for this, so revenue is only shown when there is one.",
       sources: [],
@@ -448,7 +528,9 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       visits: visitEstimate,
       leads: spread("leads"),
       customers: customerEstimate,
-      revenue: value === null || monthly ? null : scale(customerEstimate, value),
+      value,
+      revenue,
+      revenueTrusted,
       adCost: cpc === null ? null : scale(visitEstimate, cpc),
       visitsTodayPerMonth: spread("today"),
       steps,
@@ -499,9 +581,11 @@ export interface GrowthPoint {
  * steady pace over PACE_MONTHS. In month m the business gets m/12 of the
  * extra visits it would get with the gap fully closed, so the running totals
  * curve upward and reach just over half a full year's worth by month 12.
+ * Revenue for one-off payments follows the forecast's revenue range when it
+ * has one; a subscription's is built from `customerValue`, less cancellations.
  */
 export function growthPath(
-  forecast: Pick<Forecast, "visits" | "leads" | "customers">,
+  forecast: Pick<Forecast, "visits" | "leads" | "customers"> & { revenue?: Estimate | null },
   own: { customerValue?: number | null; billing?: Billing | null },
 ): GrowthPoint[] {
   const value = own.customerValue ?? null;
@@ -523,7 +607,9 @@ export function growthPath(
         low: recurring(forecast.customers.low, month, MONTHLY_CHURN.high),
         likely: recurring(forecast.customers.likely, month, MONTHLY_CHURN.likely),
         high: recurring(forecast.customers.high, month, MONTHLY_CHURN.low),
-      } : { low: customers.low * value, likely: customers.likely * value, high: customers.high * value },
+      // The forecast's own revenue range carries the value's uncertainty; without one, customers x value.
+      } : forecast.revenue ? totals(forecast.revenue, month)
+        : { low: customers.low * value, likely: customers.likely * value, high: customers.high * value },
     };
   });
 }
@@ -543,6 +629,21 @@ export function rangeWords(e: Estimate): string {
   if (e.low < 0.5) return `up to ${wholeNumber(e.high)}`;
   const low = wholeNumber(e.low), high = wholeNumber(e.high);
   return low === high ? low : `${low} to ${high}`;
+}
+
+/** A customer value as a dollar range, rounded hard: "$40 to $90", or one figure when the ends round the same. */
+export function valueWords(v: Estimate): string {
+  const low = roughDollars(v.low), high = roughDollars(v.high);
+  return low === high ? low : `${low} to ${high}`;
+}
+
+/** What a free account is told in place of a sentence sending them to the Forecast page's form, which waits for their call. */
+export const ON_THE_CALL = "We'll put in your real numbers on the call.";
+
+/** A step's note for a free account: any sentence pointing to the Forecast page's form becomes ON_THE_CALL. */
+export function noteForFree(note: string): string {
+  const kept = note.replace(/[^.]*on the Forecast page[^.]*\./g, "").trim();
+  return kept === note.trim() ? note : `${kept} ${ON_THE_CALL}`.trim();
 }
 
 /** Dollars rounded hard: to the ten under $1,000, to the hundred under $10,000, to the thousand above. */

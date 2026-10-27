@@ -8,7 +8,7 @@ import { practices } from "@/db/schema";
 import { requireOperator } from "@/lib/auth";
 import { BUSINESS_TYPES, type BusinessType } from "@/core/forecast";
 import {
-  EMPTY_SETUP, cleanArea, cleanKeywords, draftForecastSetup, fetchSearchVolume, saveForecastSnapshot,
+  EMPTY_SETUP, buyDemand, cleanArea, cleanKeywords, draftForecastSetup, saveForecastSnapshot,
   type ForecastSetup,
 } from "@/services/forecast";
 import { businessHref } from "@/app/admin/practices/[id]/tabs";
@@ -69,15 +69,16 @@ export async function suggestForecastSetup(practiceId: string): Promise<void> {
 /** Buys the monthly search count for every term in the area. One DataForSEO request, about 9 cents. */
 export async function buyForecastDemand(practiceId: string): Promise<void> {
   await requireOperator();
-  const { setup } = await load(practiceId);
+  const { db, setup } = await load(practiceId);
   if (!setup.area) return back(practiceId, "Set the area first.");
   if (setup.keywords.length === 0) return back(practiceId, "Add search terms first.");
-  let keywords;
   try {
-    keywords = await fetchSearchVolume(setup.keywords.map(k => k.keyword), setup.area);
+    // Bought again even when numbers were bought before: the operator asked.
+    await buyDemand(db, practiceId, fetch, { force: true });
   } catch (err) {
     return back(practiceId, err instanceof Error ? err.message : "Could not get the search numbers.");
   }
-  await store(practiceId, { ...setup, keywords, demandAt: new Date().toISOString() });
+  await saveForecastSnapshot(db, practiceId);
+  revalidatePath(`/admin/practices/${practiceId}`);
   back(practiceId);
 }

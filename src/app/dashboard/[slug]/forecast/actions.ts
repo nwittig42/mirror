@@ -28,16 +28,21 @@ export async function saveOwnNumbers(slug: string, formData: FormData): Promise<
   if (locked) return;
   const db = getDb();
   const before = { ...EMPTY_SETUP, ...(practice.forecast ?? {}) };
-  const value = dollars(formData.get("customerValue"));
+  const billing = formData.get("billing") === "monthly" ? "monthly" : "once";
+  const typed = dollars(formData.get("customerValue"));
+  // A drafted value changed to the other way of paying, with no new figure, is dropped rather than read the other way.
+  const value = before.valueFrom === "prices" && typed === before.customerValue && billing !== before.billing ? null : typed;
   await db.update(practices).set({
     forecast: {
       ...before,
       visitToLead: rate(formData.get("visitToLead")),
       leadToCustomer: rate(formData.get("leadToCustomer")),
       customerValue: value,
-      billing: formData.get("billing") === "monthly" ? "monthly" : "once",
+      billing,
       // Unchanged from what was read off their prices, it stays marked as that.
       valueFrom: value === null ? null : before.valueFrom === "prices" && value === before.customerValue ? "prices" : "owner",
+      // Cleared, the value goes with its drafted working, so a trusted figure cannot come back unseen.
+      valueEstimate: value === null ? null : before.valueEstimate,
     },
   }).where(eq(practices.id, practice.id));
   await saveForecastSnapshot(db, practice.id);

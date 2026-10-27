@@ -3,7 +3,7 @@ import { getDb } from "@/db";
 import { fetchSitePages, draftFactsFromPages } from "@/services/fact-drafter";
 import { draftQuestionsFromPages } from "@/services/question-drafter";
 import { fetchLogo } from "@/services/logo";
-import { draftForecastSetup } from "@/services/forecast";
+import { prepareForecast } from "@/services/forecast";
 import { sendProspectAlert } from "@/services/alert-email";
 import { prepareProspect } from "@/services/prospect-setup";
 import { startScanChain } from "@/services/scan-chain";
@@ -24,7 +24,8 @@ export function startProspectSetup(leadId: string): void {
       fetchLogo: website => fetchLogo(website),
       draftFacts: args => draftFactsFromPages(args),
       draftQuestions: args => draftQuestionsFromPages(args),
-      draftForecast: (db, practiceId) => draftForecastSetup(db, practiceId),
+      // Drafts the setup and buys the search numbers; a failed purchase is logged and the audit carries on.
+      draftForecast: (db, practiceId) => prepareForecast(db, practiceId),
       // Runs as a chain of steps; the first counts the setup above against
       // its budget. The chain finishes the lead (see completionFor).
       scan: async (db, practiceId) => {

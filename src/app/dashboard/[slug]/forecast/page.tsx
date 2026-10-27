@@ -2,7 +2,6 @@ import Link from "next/link";
 import { requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { LockedSection } from "@/components/locked";
 import { Card, Note, PageBody, buttonClass } from "@/components/ui";
 import { GrowthTile, ScoreForecastChart, scoreLines } from "@/components/forecast-charts";
 import { fieldClass } from "@/app/admin/ui";
@@ -10,7 +9,7 @@ import { loadForecast } from "@/services/forecast";
 import { loadAccuracyForecast } from "@/services/accuracy-forecast";
 import { FIX_SOURCE_LABEL } from "@/core/accuracy-forecast";
 import {
-  BUSINESS_TYPE_LABEL, PACE_MONTHS, RATE_DEFAULTS, growthPath, leadNoun, rangeWords, roughDollars, wholeNumber,
+  BUSINESS_TYPE_LABEL, ON_THE_CALL, PACE_MONTHS, RATE_DEFAULTS, growthPath, leadNoun, rangeWords, roughDollars, wholeNumber,
   type Estimate, type NotReady,
 } from "@/core/forecast";
 import { saveOwnNumbers } from "./actions";
@@ -30,22 +29,14 @@ const plural = (n: number, word: string) => (Math.round(n) === 1 ? word : `${wor
  * revenue if AI came to name them as often as the competitor it names most,
  * and where their Accuracy score goes as wrong facts are fixed. Every figure
  * is a likely value with a range beside it and its condition above it, never
- * a promise. A prospect before their call gets the locked card and no data.
+ * a promise. A prospect before their call (`locked`) sees the leads and
+ * revenue, and the Recommended-by-AI line on the chart, but nothing that rests
+ * on facts not yet confirmed (Overall, Accuracy) and not the form for their
+ * own numbers, which waits for the call.
  */
 export default async function ForecastPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { practice, locked } = await requirePracticeView(slug);
-  if (locked) {
-    return (
-      <PageBody>
-        <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="forecast" />
-        <LockedSection
-          title="Forecast"
-          what="A rough estimate of how many more leads and customers you could get if AI named you as often as your top competitor, with every step of the working shown."
-        />
-      </PageBody>
-    );
-  }
 
   const db = getDb();
   const [{ setup, result }, accuracy] = await Promise.all([loadForecast(db, practice), loadAccuracyForecast(db, practice)]);
@@ -58,14 +49,17 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
   // The year, month by month, and where it ends.
   const path = forecast && !forecast.ahead ? growthPath(forecast, setup) : null;
   const year = path?.[path.length - 1];
+  // Revenue only from a customer value we can stand behind.
+  const revenue = forecast?.revenueTrusted ? year?.revenue ?? null : null;
   const adYear = forecast?.adCost && year && forecast.visits.likely > 0
     ? { low: forecast.adCost.low * (year.visits.low / forecast.visits.low || 0), likely: forecast.adCost.likely * (year.visits.likely / forecast.visits.likely), high: forecast.adCost.high * (year.visits.high / forecast.visits.high || 0) }
     : null;
   const growthColour = { stroke: "stroke-ring-visibility", fill: "fill-ring-visibility" };
 
-  const acc = accuracy.forecast;
+  // Before the call, nothing that rests on unconfirmed facts: no Accuracy forecast, no Overall.
+  const acc = locked ? null : accuracy.forecast;
   const final = acc?.points[acc.points.length - 1];
-  const lines = scoreLines(accuracy.history, accuracy.scores);
+  const lines = scoreLines(accuracy.history, accuracy.scores).filter(line => !locked || line.key === "visibility");
   const shortDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
   return (
@@ -90,19 +84,19 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
                 <GrowthTile label="Visits from AI" value={wholeNumber(year.visits.likely)} range={`Range ${rangeWords(year.visits)}`} points={path.map(p => p.visits)} {...growthColour} />
                 <GrowthTile label={`${noun[0].toUpperCase()}${noun.slice(1)}s`} value={wholeNumber(year.leads.likely)} range={`Range ${rangeWords(year.leads)}`} points={path.map(p => p.leads)} {...growthColour} />
                 {!store && <GrowthTile label="New customers" value={wholeNumber(year.customers.likely)} range={`Range ${rangeWords(year.customers)}`} points={path.map(p => p.customers)} {...growthColour} />}
-                {year.revenue ? (
+                {revenue ? (
                   <GrowthTile
                     label={setup.billing === "monthly" ? `Monthly revenue by month ${PACE_MONTHS}` : "Revenue"}
-                    value={year.revenue.likely < 10 ? "Under $10" : roughDollars(year.revenue.likely)}
-                    range={`Range ${dollarRange(year.revenue)}`}
+                    value={revenue.likely < 10 ? `${dollarRange(revenue)[0].toUpperCase()}${dollarRange(revenue).slice(1)}` : roughDollars(revenue.likely)}
+                    range={revenue.likely < 10 ? "" : `Range ${dollarRange(revenue)}`}
                     points={path.map(p => p.revenue!)} {...growthColour} />
-                ) : adYear && (
+                ) : adYear && !locked && (
                   <GrowthTile label="Worth as Google ads" value={roughDollars(adYear.likely)} range={`Range ${dollarRange(adYear)}`}
                     points={path.map(p => ({ low: p.visits.low, likely: p.visits.likely, high: p.visits.high }))} {...growthColour} />
                 )}
               </div>
               <Note className="mt-4">
-                Totals for the next {PACE_MONTHS} months{year.revenue && setup.billing === "monthly" ? ", except monthly revenue, which is what the customers gained would be paying each month by then" : ""}.
+                Totals for the next {PACE_MONTHS} months{revenue && setup.billing === "monthly" ? ", except monthly revenue, which is what the customers gained would be paying each month by then" : ""}.
                 An estimate from {forecast.monthlySearches.toLocaleString("en-US")} searches a month, your latest scan and industry averages. It is not a promise of what you will get, or of what our work will deliver.
               </Note>
             </>
@@ -111,13 +105,15 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
             <>
               <p className="text-[22px] font-semibold tracking-tight text-ink">AI already names you as often as {forecast.competitor}.</p>
               <Note className="mt-2">
-                This forecast measures the gap between you and the competitor AI names most. There is no gap today, so there is nothing to add. Holding that position is the job now.
+                This forecast measures the gap between you and the competitor AI names most. There is no gap today, so there is nothing to add. The work now is keeping it that way.
               </Note>
             </>
           )}
           {!result.ready && (
             <Note>
-              {result.reason === "need_rates"
+              {result.reason === "need_rates" && locked
+                ? `We have no reliable average for your kind of business. ${ON_THE_CALL}`
+                : result.reason === "need_rates"
                 ? "We have no reliable average for your kind of business, so this needs two numbers from you: how many website visits become a lead, and how many leads become a customer. Add them below."
                 : WAITING[result.reason]}
             </Note>
@@ -134,7 +130,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
                   accuracy.competitor && "AI comes to name you as often as " + accuracy.competitor + " over the year",
                 ].filter(Boolean).map((part, i) => (i === 0 ? `If ${part}` : `and ${part}`)).join(", ") || "Nothing is set to change your scores right now"}
               </p>
-              {accuracy.scores.overall && (
+              {!locked && accuracy.scores.overall && (
                 <p className="mt-1 text-[28px] font-semibold leading-tight tracking-tight text-ink">
                   Overall {accuracy.scores.overall.now} today, about <span className="text-ring-overall">{accuracy.scores.overall.points.at(-1)!.likely}</span> in 12 months
                 </p>
@@ -171,6 +167,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
           )}
         </Card>
 
+        {!locked && (
         <details className="group rounded-[20px] border border-line bg-paper p-5" open={!result.ready && result.reason === "need_rates"}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold uppercase tracking-[0.12em] text-muted">
             Make it more accurate with your real numbers
@@ -209,6 +206,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
             <div className="sm:col-span-2"><button type="submit" className={buttonClass("primary")}>Update forecast</button></div>
           </form>
         </details>
+        )}
       </div>
     </PageBody>
   );
