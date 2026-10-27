@@ -37,12 +37,12 @@ export function CallBanner() {
     <div className="call-banner print:hidden">
       <div className="call-banner-inner">
         <div className="min-w-0">
-          <p className="call-banner-title">Want us to walk you through it?</p>
+          <p className="call-banner-title">Schedule a call to unlock your full audit.</p>
           <p className="call-banner-text">
             30 minutes, free. We check your facts with you, unlock your fact check and go through your plan step by step.
           </p>
         </div>
-        <a href={bookingUrl()} className="call-banner-button">Book a call</a>
+        <a href={bookingUrl()} className="call-banner-button">Schedule a call</a>
       </div>
     </div>
   );
