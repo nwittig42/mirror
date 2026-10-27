@@ -16,6 +16,7 @@ let role: "client" | "operator" = "client";
 // The same rule as the real requirePracticeView: a paused business is locked
 // for everyone but an operator. Access itself is tested with the real one.
 vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(async () => ({ user: { id: "u1", role } })),
   requirePracticeView: vi.fn(async (slug: string) => {
     const [practice] = await db.select().from(practices).where(eq(practices.slug, slug));
     return { practice, locked: !practice.active && role !== "operator" };
@@ -32,7 +33,7 @@ import AnswersPage from "@/app/dashboard/[slug]/answers/page";
 import CompetitorsPage from "@/app/dashboard/[slug]/competitors/page";
 import SourcesPage from "@/app/dashboard/[slug]/sources/page";
 import AccuracyPage from "@/app/dashboard/[slug]/accuracy/page";
-import FixListPage from "@/app/dashboard/[slug]/fixes/page";
+import ActionPlanPage from "@/app/dashboard/[slug]/fixes/page";
 import FactSheetPage from "@/app/dashboard/[slug]/fact-sheet/page";
 import ForecastPage from "@/app/dashboard/[slug]/forecast/page";
 import MonthlyPage from "@/app/dashboard/[slug]/report/page";
@@ -120,7 +121,7 @@ describe("a prospect's dashboard before their call", () => {
     const page = await html(DashboardPage({ params }));
     expect(page).toMatch(/href="\/dashboard\/harbor\/answers"[^>]*>[^<]*Every AI answer/);
     expect(page).toMatch(/href="\/dashboard\/harbor\/competitors"[^>]*>[^<]*Competitors and sources/);
-    expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your recommendations/);
+    expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your action plan/);
     // The fact check is the one thing still listed as locked.
     expect(page).toMatch(/Locked<\/span>.*Fact check/);
     for (const title of ["Overall score", "Fact sheet", "Forecast", "Full reports"]) expect(page).toMatch(new RegExp(`Locked</span>.*${title}`));
@@ -164,17 +165,14 @@ describe("a prospect's dashboard before their call", () => {
     }
   });
 
-  it("gives a free account the step-by-step recommendations, leaving out every fix that rests on a wrong fact", async () => {
-    const page = await html(FixListPage({ params }));
-    expect(page).toContain("Your recommendations");
-    expect(page).toContain("Get featured on secret-source.example");
-    expect(page).toContain("Make your site a source AI quotes");
-    expect(page).not.toContain("Correct the wrong facts at their source");
-    expect(page).not.toContain("Fix your price everywhere it appears");
+  it("gives a free account the whole action plan, with nothing from the fact check", async () => {
+    const page = await html(ActionPlanPage({ params }));
+    expect(page).toContain("Your action plan");
+    expect(page).toContain("Get on secret-source.example");
+    expect(page).toContain("Rose City Plumbing");
+    expect(page).not.toContain("Unlocks after your call");
     expect(page).not.toContain("$49");
     expect(page).not.toContain("Service call fee");
-    // The wrong-fact list itself is still locked.
-    expect(page).toContain("Unlocks after your call");
   });
 
   it("keeps the fact check, the fact sheet, the forecast and the monthly report locked, with none of their data", async () => {
@@ -194,7 +192,7 @@ describe("a prospect's dashboard before their call", () => {
 
   it("starts no scan when a free account opens the unlocked pages", async () => {
     const before = await db.select().from(scans);
-    for (const page of [AnswersPage({ params }), CompetitorsPage({ params }), FixListPage({ params })]) await html(page);
+    for (const page of [AnswersPage({ params }), CompetitorsPage({ params }), ActionPlanPage({ params })]) await html(page);
     expect(await db.select().from(scans)).toHaveLength(before.length);
   });
 

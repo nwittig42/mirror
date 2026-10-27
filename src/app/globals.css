@@ -102,6 +102,42 @@
   --color-plum: #b88dc4;
   --color-sun: #ebb640;
 }
+/* The action plan's content area: dark grey in either look, with the
+   Partner palette's brightened accents. Only the colour variables change, so
+   the shared components inside it follow. Body text on it passes 4.5:1. */
+.app .plan-dark {
+  --color-ink: #f3f0e9;
+  --color-ink-soft: #d3cec4;
+  --color-ink-raised: #ffffff;
+  --color-muted: #a8a399;
+  --color-ivory: #171717;
+  --color-bone: #2a2927;
+  --color-paper: #1f1f1e;
+  --color-line: #34322f;
+  --color-gold: #d3a065;
+  --color-gold-soft: #3a2c18;
+  --color-flag: #e8806c;
+  --color-flag-soft: #3d1f1a;
+  --color-ok: #8fbb86;
+  --color-ok-soft: #1f2e1c;
+  background: var(--color-ivory);
+  color: var(--color-ink);
+}
+/* A ticked box pops once and its check draws itself in. */
+@keyframes plan-tick-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes plan-tick-draw {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+.plan-box[data-fresh][aria-checked="true"] { animation: plan-tick-pop 0.28s ease-out; }
+.plan-box[data-fresh][aria-checked="true"] path { stroke-dasharray: 24; animation: plan-tick-draw 0.3s ease-out 0.05s both; }
+@media (prefers-reduced-motion: reduce) {
+  .plan-box[data-fresh][aria-checked="true"], .plan-box[data-fresh][aria-checked="true"] path { animation: none; }
+}
 /* The header's dark/light switch: a pill with a sun at one end, a moon at the
    other and a knob that slides to whichever look is on. */
 .theme-switch {

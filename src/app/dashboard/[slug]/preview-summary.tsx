@@ -17,7 +17,7 @@ interface PreviewCheck {
 const OPEN = [
   { path: "answers", title: "Every AI answer", what: "Each answer word for word, with where you were named and where you were left out." },
   { path: "competitors", title: "Competitors and sources", what: "Who AI recommends instead of you, and the websites it reads to decide." },
-  { path: "fixes", title: "Your recommendations", what: "The changes that would help most, step by step, in order." },
+  { path: "fixes", title: "Your action plan", what: "Every step to get recommended by AI more often, with a box to tick each off." },
 ];
 
 /** What waits for the call: everything that rests on facts confirmed with the owner. */

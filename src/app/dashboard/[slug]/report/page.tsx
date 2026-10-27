@@ -217,7 +217,7 @@ export default async function ReportPage({
                 {openFindings.length > OPEN_FACTS_SHOWN && (
                   <p className="mt-3 text-[14px] text-muted">
                     And {openFindings.length - OPEN_FACTS_SHOWN} more.{" "}
-                    <Link href={`/dashboard/${slug}/fixes`} className="font-semibold text-ink underline decoration-gold underline-offset-4 hover:text-gold print:hidden">See them all</Link>
+                    <Link href={`/dashboard/${slug}/answers#wrong-facts`} className="font-semibold text-ink underline decoration-gold underline-offset-4 hover:text-gold print:hidden">See them all</Link>
                   </p>
                 )}
               </>
