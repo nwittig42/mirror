@@ -37,20 +37,12 @@ export function CallBanner() {
     <div className="call-banner print:hidden">
       <div className="call-banner-inner">
         <div className="min-w-0">
-          <p className="call-banner-eyebrow"><span className="call-banner-dot" aria-hidden="true" />Free 30-minute walkthrough</p>
-          <p className="call-banner-title">See the full picture of how AI talks about you.</p>
-          <ul className="call-banner-perks">
-            <li>We confirm your facts</li>
-            <li>We unlock your fact check</li>
-            <li>We walk you through your plan</li>
-          </ul>
+          <p className="call-banner-title">Want us to walk you through it?</p>
+          <p className="call-banner-text">
+            30 minutes, free. We check your facts with you, unlock your fact check and go through your plan step by step.
+          </p>
         </div>
-        <div className="call-banner-cta">
-          <a href={bookingUrl()} className="call-banner-button">
-            Book your free call <span aria-hidden="true">&rarr;</span>
-          </a>
-          <span className="call-banner-note">Pick a time in under a minute</span>
-        </div>
+        <a href={bookingUrl()} className="call-banner-button">Book a call</a>
       </div>
     </div>
   );

@@ -1085,128 +1085,49 @@ body {
   }
 }
 
-/* The free account's "book a call" strip: dark, with a slow gold glow drifting
-   behind it and a button that keeps catching the eye. Fixed colours, so it
-   reads the same on the ivory and the dark themes. */
+/* The free account's "book a call" strip: a solid ink bar across the top
+   with one plain offer and one button. Fixed colours, so it reads the same
+   on the ivory and the dark themes. */
 .call-banner {
-  position: relative;
-  overflow: hidden;
-  background: #151311;
-  color: #f5f2ea;
-  border-bottom: 1px solid #3a2c18;
-}
-.call-banner::before {
-  content: "";
-  position: absolute;
-  inset: -60% -20%;
-  background: radial-gradient(40% 60% at 20% 50%, rgba(211, 160, 101, 0.28), transparent 70%),
-    radial-gradient(30% 50% at 80% 50%, rgba(211, 160, 101, 0.18), transparent 70%);
-  animation: call-glow 9s ease-in-out infinite alternate;
-  pointer-events: none;
+  background: #1a1a18;
+  color: #f7f5f0;
 }
 .call-banner-inner {
-  position: relative;
   margin: 0 auto;
   max-width: 56rem;
-  padding: 18px 24px;
+  padding: 20px 24px;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 16px 28px;
-}
-.call-banner-eyebrow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #d3a065;
-}
-.call-banner-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: #e8b878;
-  box-shadow: 0 0 0 0 rgba(232, 184, 120, 0.7);
-  animation: call-dot 1.8s ease-out infinite;
+  gap: 16px 32px;
 }
 .call-banner-title {
-  margin-top: 6px;
-  font-size: 20px;
-  font-weight: 700;
-  line-height: 1.25;
-  letter-spacing: -0.01em;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 24px;
+  line-height: 1.2;
 }
-.call-banner-perks {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  font-size: 13.5px;
-  color: #d6d1c6;
-}
-.call-banner-perks li::before {
-  content: "\2713";
-  margin-right: 6px;
-  font-weight: 700;
-  color: #d3a065;
-}
-.call-banner-cta {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
+.call-banner-text {
+  margin-top: 4px;
+  max-width: 34rem;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #c9c4b9;
 }
 .call-banner-button {
-  position: relative;
-  overflow: hidden;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-shrink: 0;
   white-space: nowrap;
-  border-radius: 999px;
-  padding: 14px 28px;
+  border-radius: 8px;
+  padding: 13px 26px;
   font-size: 16px;
-  font-weight: 700;
-  color: #1a1206;
-  background: linear-gradient(135deg, #f0c98f, #d3a065 55%, #b8834a);
-  animation: call-ring 2.4s ease-out infinite;
-  transition: transform 0.15s ease, filter 0.15s ease;
+  font-weight: 600;
+  color: #1a1a18;
+  background: #d3a065;
+  transition: background 0.15s ease;
 }
-.call-banner-button::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 40%;
-  left: -60%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.55), transparent);
-  animation: call-shine 3.2s ease-in-out infinite;
-}
-.call-banner-button span { transition: transform 0.15s ease; }
-.call-banner-button:hover { transform: translateY(-1px) scale(1.03); filter: brightness(1.08); }
-.call-banner-button:hover span { transform: translateX(4px); }
-.call-banner-button:focus-visible { outline: 2px solid #f5f2ea; outline-offset: 3px; }
-.call-banner-note { font-size: 12px; color: #a39d92; }
-@keyframes call-glow { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
-@keyframes call-dot {
-  0% { box-shadow: 0 0 0 0 rgba(232, 184, 120, 0.7); }
-  100% { box-shadow: 0 0 0 10px rgba(232, 184, 120, 0); }
-}
-@keyframes call-ring {
-  0% { box-shadow: 0 0 0 0 rgba(211, 160, 101, 0.55), 0 8px 24px rgba(211, 160, 101, 0.25); }
-  70%, 100% { box-shadow: 0 0 0 14px rgba(211, 160, 101, 0), 0 8px 24px rgba(211, 160, 101, 0.25); }
-}
-@keyframes call-shine { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+.call-banner-button:hover { background: #e2b57e; }
+.call-banner-button:focus-visible { outline: 2px solid #f7f5f0; outline-offset: 3px; }
 @media (max-width: 640px) {
-  .call-banner-inner { padding: 16px; }
-  .call-banner-title { font-size: 17px; }
-  .call-banner-cta { width: 100%; }
-  .call-banner-button { width: 100%; justify-content: center; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .call-banner::before, .call-banner-dot, .call-banner-button, .call-banner-button::after { animation: none; }
+  .call-banner-inner { flex-direction: column; align-items: stretch; padding: 16px; }
+  .call-banner-title { font-size: 20px; }
+  .call-banner-button { text-align: center; }
 }

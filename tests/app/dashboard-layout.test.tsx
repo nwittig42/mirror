@@ -93,10 +93,9 @@ describe("dashboard layout", () => {
     const out = await DashboardLayout({ children: child, params: Promise.resolve({ slug }) });
     expect(elements(out).filter(e => e.type === CallBanner)).toHaveLength(1);
     const markup = renderToStaticMarkup(out);
-    expect(markup).toContain("See the full picture of how AI talks about you.");
-    expect(markup).toContain("We confirm your facts");
-    expect(markup).toContain("Book your free call");
-    expect(markup.indexOf("Book your free call")).toBeLessThan(markup.indexOf("customer dashboard"));
+    expect(markup).toContain("Want us to walk you through it?");
+    expect(markup).toContain(">Book a call</a>");
+    expect(markup.indexOf("Book a call")).toBeLessThan(markup.indexOf("customer dashboard"));
   });
 
   it("never shows the call banner to an active client, an unlocked one or an operator viewing as admin", async () => {
