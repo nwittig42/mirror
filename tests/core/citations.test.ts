@@ -50,8 +50,8 @@ describe("classifyDomain", () => {
     expect(classifyDomain("google.com", null)).toBe("google");
   });
 
-  it("keeps the six source kinds", () => {
-    expect(Object.keys(SOURCE_KIND_LABELS)).toEqual(["own_site", "reviews", "social", "reference", "google", "other"]);
+  it("keeps the seven source kinds", () => {
+    expect(Object.keys(SOURCE_KIND_LABELS)).toEqual(["own_site", "reviews", "social", "reference", "google", "press", "other"]);
   });
 });
 

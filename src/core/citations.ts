@@ -12,6 +12,7 @@ export type SourceKind =
   | "social"
   | "reference"
   | "google"
+  | "press"
   | "other";
 
 export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
@@ -20,6 +21,7 @@ export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
   social: "Social and forums",
   reference: "Reference",
   google: "Google",
+  press: "News and press",
   other: "Articles and other sites",
 };
 
@@ -59,7 +61,16 @@ const DOMAINS_BY_KIND: Record<Exclude<SourceKind, "own_site" | "other">, string[
   ],
   reference: ["wikipedia.org", "wikidata.org", "britannica.com"],
   google: ["google.com", "maps.google.com", "goo.gl"],
+  // National and local press: an article by a writer, never a listing.
+  press: [
+    "bonappetit.com", "eater.com", "timeout.com", "usatoday.com", "axios.com", "nytimes.com", "latimes.com",
+    "sfgate.com", "seattletimes.com", "oregonlive.com", "thrillist.com", "infatuation.com", "cntraveler.com",
+    "foodandwine.com",
+  ],
 };
+
+// A news site not on the list: "news" or "times" in a label ("kgw-news.com", "pdxtimes.com").
+const PRESS_LABEL = /news|times/;
 
 const KIND_BY_DOMAIN: Record<string, SourceKind> = Object.fromEntries(
   Object.entries(DOMAINS_BY_KIND).flatMap(([kind, domains]) => domains.map(domain => [domain, kind as SourceKind])),
@@ -85,6 +96,7 @@ export function classifyDomain(host: string, ownDomain: string | null): SourceKi
   for (const [domain, kind] of Object.entries(KIND_BY_DOMAIN)) {
     if (matchesDomain(host, domain)) return kind;
   }
+  if (host.split(".").slice(0, -1).some(label => PRESS_LABEL.test(label))) return "press";
   return "other";
 }
 

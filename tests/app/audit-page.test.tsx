@@ -52,13 +52,18 @@ async function seedLead(values: Partial<typeof leads.$inferInsert> = {}) {
   return row;
 }
 
-async function scannedPractice(adapters: EngineAdapter[] = [adapter]) {
+// More buyer questions the business loses, for a plan with several questions to win.
+const MORE_LOST = ["Cheap plumber in Portland", "Emergency plumber in Portland", "Licensed plumber near Portland"];
+for (const q of MORE_LOST) answers[q] = "Rose City Plumbing is the one to call.";
+
+async function scannedPractice(adapters: EngineAdapter[] = [adapter], { more = [] as string[], website = undefined as string | undefined } = {}) {
   const { practiceId } = await seedPractice(db, {
-    name: "Harbor Plumbing", slug: "harbor",
+    name: "Harbor Plumbing", slug: "harbor", website,
     prompts: [
       { text: "Best plumber in Portland", kind: "category" },
       { text: "Who fixes water heaters in Portland?", kind: "category" },
       { text: "Is Harbor Plumbing any good?", kind: "branded" },
+      ...more.map(text => ({ text, kind: "category" as const })),
     ],
     competitors: ["Rose City Plumbing"],
   });
@@ -209,42 +214,65 @@ describe("the audit page", () => {
       expect(page).not.toContain("Your fix plan");
     });
 
-    it("counts the real plan, names its groups, and shows the first step in full", async () => {
+    it("counts the real plan in steps, names its groups, and leads with a step the sources card doesn't show", async () => {
       const practiceId = await scannedPractice([citing]);
       const lead = await seedLead({ practiceId, status: "ready" });
       const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
       expect(plan).toContain("Your action plan");
-      expect(plan).toContain("We found 4 fixes for Harbor Plumbing, 2 of them quick wins.");
+      expect(plan).toContain("We found 4 steps for Harbor Plumbing, 2 of them quick wins.");
+      expect(plan).not.toContain("fixes");
+      // Every group is still listed, the sites with their count.
       expect(plan).toMatch(/Get listed where AI looks<\/span><span class="mk-teaser-count">3</);
       expect(plan).toMatch(/Win the questions you're losing<\/span><span class="mk-teaser-count">1</);
-      expect(plan).toContain("Get on yelp.com");
-      expect(plan).toContain("AI read yelp.com in 1 answer and named Rose City Plumbing (1) from it, not you.");
-      expect(blurredIn(plan)).not.toContain("Get on yelp.com");
+      // The sources card shows the sites, so the plan card leads with the question.
+      expect(plan).toContain("\u201cBest plumber in Portland\u201d");
+      expect(plan).toContain("AI named Rose City Plumbing; you were named in 0 of 1 answer.");
+      expect(plan).not.toMatch(/yelp\.com|angi\.com|reddit\.com/);
+    });
+
+    it("leads with the sites when they're the only steps", async () => {
+      // A second AI tool names the business for the one question, so the question is won.
+      const naming: EngineAdapter = {
+        name: "anthropic",
+        run: async p => ({ answer: p.startsWith("Best") ? "Harbor Plumbing is great. Rose City Plumbing is too." : answers[p], citations: [] }),
+      };
+      const practiceId = await scannedPractice([citing, naming]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
+      expect(plan).toContain("Stand out on yelp.com");
     });
 
     it("blurs the next three step titles, and only their titles, out of reach of screen readers", async () => {
-      const practiceId = await scannedPractice([citing]);
+      const practiceId = await scannedPractice([citing], { more: MORE_LOST });
       const lead = await seedLead({ practiceId, status: "ready" });
       const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
       const blurred = blurredIn(plan);
       expect(blurred).toContain('aria-hidden="true"');
       expect(blurred).toContain("mk-teaser-blurred");
-      const titles = ["Get on angi.com", "Get on reddit.com", "\u201cBest plumber in Portland\u201d"];
+      expect(plan.replace(blurred, "")).toContain("\u201cBest plumber in Portland\u201d");
+      const titles = MORE_LOST.map(q => `\u201c${q}\u201d`);
       for (const t of titles) {
         expect(blurred).toContain(t);
         expect(plan.replace(blurred, "")).not.toContain(t);
       }
-      expect(blurred).not.toContain("AI read");
-      expect(blurred).not.toContain("Claim your listing");
+      expect(blurred).not.toContain("AI named");
+      expect(blurred).not.toContain("Add a page");
+      expect(blurred).not.toMatch(/yelp\.com|angi\.com|reddit\.com/);
     });
 
-    it("says how many websites AI read and how many the top competitor is on, naming the first one", async () => {
-      const practiceId = await scannedPractice([citing]);
+    it("says how many websites AI read, how many it read when it chose someone else, and where the top competitor came up", async () => {
+      // The business's own site is read too, and isn't counted.
+      const withOwn: EngineAdapter = {
+        name: "openai",
+        run: async p => ({ answer: answers[p], citations: p.startsWith("Who fixes") ? [...cited[p], "https://harbor.example/water-heaters"] : cited[p] ?? [] }),
+      };
+      const practiceId = await scannedPractice([withOwn], { website: "https://harbor.example" });
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
       const sources = card(page, "mk-teaser-sources");
       expect(sources).toContain("Where AI is reading");
-      expect(sources).toContain("AI read 4 websites to answer your customers. Rose City Plumbing is on 3 of them and you're not.");
+      expect(sources).toContain("AI read 4 websites to answer your customers. When it recommended someone else, it was reading 3 of them. Rose City Plumbing was named in answers from 3 of them.");
+      expect(sources).not.toContain("you're not");
       const blurred = blurredIn(sources);
       expect(blurred).toContain('aria-hidden="true"');
       expect(sources.replace(blurred, "")).toContain("yelp.com");
@@ -269,7 +297,7 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page).toContain("We found 1 fix for Harbor Plumbing.");
+      expect(page).toContain("We found 1 step for Harbor Plumbing.");
       expect(page).not.toContain("mk-teaser-sources");
     });
 
@@ -277,7 +305,7 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice([citing]);
       const lead = await seedLead({ practiceId, status: "ready" });
       await db.execute(sql`drop table action_ticks`);
-      expect(text(await audit(lead.id))).toContain("We found 4 fixes for Harbor Plumbing");
+      expect(text(await audit(lead.id))).toContain("We found 4 steps for Harbor Plumbing");
       await db.execute(sql`drop table name_variations`);
       const page = text(await audit(lead.id));
       expect(page).not.toContain("mk-teaser-plan");

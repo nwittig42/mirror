@@ -29,7 +29,14 @@ vi.mock("@/services/action-ticks", async importOriginal => {
   return { ...real, setTick: vi.fn(real.setTick) };
 });
 
+// The real loader, watched to see how the action calls it.
+vi.mock("@/lib/action-plan", async importOriginal => {
+  const real = await importOriginal<typeof import("@/lib/action-plan")>();
+  return { ...real, loadActionPlan: vi.fn(real.loadActionPlan) };
+});
+
 import { toggleTick } from "@/app/dashboard/[slug]/fixes/actions";
+import { loadActionPlan } from "@/lib/action-plan";
 
 const form = (key: string, done: boolean) => {
   const f = new FormData();
@@ -117,5 +124,15 @@ describe("toggleTick", () => {
     expect(result.done).toBe(false);
     expect(result.error).toMatch(/couldn.t save/i);
     expect(await db.select().from(schema.actionTicks)).toHaveLength(0);
+  });
+
+  it("loads the plan without the ticks, and says so when the plan can't load", async () => {
+    await toggleTick("harbor", idle, form("source:yelp.com", true));
+    expect(vi.mocked(loadActionPlan)).toHaveBeenLastCalledWith(db, practiceId, { ticks: false });
+    vi.mocked(loadActionPlan).mockRejectedValueOnce(new Error("database down"));
+    const result = await toggleTick("harbor", { done: true }, form("source:yelp.com", false));
+    expect(result.done).toBe(true);
+    expect(result.error).toMatch(/couldn.t save/i);
+    expect(await getTicks(db, practiceId)).toEqual(new Set(["source:yelp.com"]));
   });
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildActionPlan, sitesToGetOn, type PlanCheck, type ActionPlanInput } from "@/core/action-plan";
-import { buildSourcesReport } from "@/core/citations";
+import { buildSourcesReport, classifyDomain } from "@/core/citations";
 import { buildSearchReport } from "@/core/search-queries";
 import type { WebsiteCheckResult } from "@/core/website-check";
 
@@ -104,14 +104,27 @@ describe("buildActionPlan", () => {
     expect(buildActionPlan(input([], { websiteCheck: null })).groups).toEqual([]);
   });
 
-  it("names the competitors AI named from each source, with counts", () => {
+  it("says who AI named alongside a site it read, never that it named them from it", () => {
+    const sources = items(buildActionPlan(input()), "sources");
+    const blog = sources.find(i => i.key === "source:cakeblog.example")!;
+    expect(blog.title).toBe("Get on cakeblog.example");
+    expect(blog.why).toBe(`In 4 answers that left you out, AI read cakeblog.example and named ${HONEY} (4) and ${HILL} (3).`);
+    expect(blog.how).toMatch(/pitch/i);
+    // The page AI actually read, from the answers it lost.
+    expect(blog.evidence[0]).toBe("https://cakeblog.example/best-cakes");
+    expect(JSON.stringify(sources)).not.toContain("from it");
+  });
+
+  it("says stand out, not get on, for a site whose answers already named the business", () => {
     const sources = items(buildActionPlan(input()), "sources");
     const yelp = sources.find(i => i.key === "source:yelp.com")!;
-    expect(yelp.title).toBe("Get on yelp.com");
-    // yelp: 4 q1 answers + 3 q2 answers without the business = 7.
-    expect(yelp.why).toBe(`AI read yelp.com in 7 answers and named ${HILL} (6) and ${HONEY} (4) from it, not you.`);
+    // yelp: 8 answers read it; q2's first named the business; 4 q1 + 3 q2 left it out.
+    expect(yelp.title).toBe("Stand out on yelp.com");
+    expect(yelp.why).toBe(`AI read yelp.com in 8 answers. It named you in 1, but in 7 it named ${HILL} and ${HONEY} and not you.`);
+    expect(yelp.how.startsWith("You're already on this site. Find the page AI read that leaves you out (below) and ask its writer to add you.")).toBe(true);
     expect(yelp.how).toMatch(/claim/i);
-    expect(sources.find(i => i.key === "source:cakeblog.example")!.how).toMatch(/pitch/i);
+    // The two pages read most in the lost answers, most first.
+    expect(yelp.evidence.slice(0, 2)).toEqual(["https://www.yelp.com/biz/honey", "https://yelp.com/search"]);
     expect(sources.find(i => i.key === "source:reddit.com")!.how).toMatch(/post/i);
     expect(sources.some(i => i.key === "source:sweetrise.example")).toBe(false);
   });
@@ -123,7 +136,7 @@ describe("buildActionPlan", () => {
       check({ promptId: "x", competitorsMentioned: ["hillcrest bakery", "Hillcrest Bakery"], citations: ["https://yelp.com/c"] }),
     ];
     const [yelp] = items(buildActionPlan(input(checks)), "sources");
-    expect(yelp.why).toBe("AI read yelp.com in 3 answers and named Hillcrest Bakery (3) from it, not you.");
+    expect(yelp.why).toBe("In 3 answers that left you out, AI read yelp.com and named Hillcrest Bakery (3).");
   });
 
   it("orders questions closest call first, then by answers naming a competitor", () => {
@@ -149,6 +162,8 @@ describe("buildActionPlan", () => {
     const site = items(buildActionPlan(input()), "website");
     expect(site.map(i => i.key)).toEqual(["site:ai_allowed", "site:sitemap"]);
     expect(site[0]).toMatchObject({ title: "Let AI assistants read your site", why: "Your robots.txt blocks GPTBot.", effort: "low", impact: "high" });
+    // Never the check's passing phrase ("AI assistants can read your site") as proof of a failure.
+    expect(site.every(i => i.evidence.length === 0)).toBe(true);
   });
 
   it("summarises caveats from buyer answers only, with a short quote", () => {
@@ -246,16 +261,23 @@ describe("buildActionPlan", () => {
     expect(items(buildActionPlan(input(two)), "reputation")[0].title).toBe("Answer the caveat AI repeats");
   });
 
-  it("quotes the sentence naming the business when it is listed with a competitor", () => {
-    // Only namedOrder knows Hillcrest here; without it "Sweet Rise Bakery and
-    // Hillcrest Bakery" reads as one longer name and the sentence is skipped.
+  it("quotes AI's reason for the caveat, without markdown, under a plain title", () => {
     const c = check({
-      promptId: "t", mentioned: true, tone: "mixed", toneReason: "Fallback reason",
-      competitorsMentioned: [], namedOrder: [ME, HILL],
-      answerText: "Sweet Rise Bakery and Hillcrest Bakery is slow on weekends. Plan ahead.",
+      promptId: "t", mentioned: true, tone: "mixed", toneReason: `  **Pricey**, and the line is ${"long ".repeat(60)}`,
+      competitorsMentioned: [HILL], answerText: "Sweet Rise Bakery is **great** but slow on weekends.",
     });
-    const [rep] = items(buildActionPlan(input([c])), "reputation");
-    expect(rep.evidence[0]).toContain("slow on weekends");
+    const plan = buildActionPlan(input([c]));
+    const [rep] = items(plan, "reputation");
+    expect(rep.evidence).toHaveLength(1);
+    expect(rep.evidence[0].startsWith("\u201cPricey, and the line is long")).toBe(true);
+    expect(rep.evidence[0]).not.toContain("**");
+    expect(rep.evidence[0]).not.toContain("slow on weekends");
+    expect(rep.evidence[0].length).toBeLessThanOrEqual(203);
+    // Cut at a word, never mid-word.
+    expect(rep.evidence[0].endsWith("long…\u201d")).toBe(true);
+    const group = plan.groups.find(g => g.key === "reputation")!;
+    expect(group.title).toBe("Answer the \"but\" in AI's answers");
+    expect(group.intro).toBe("Answers where AI named you, then added a \"but\". Here's what it said.");
   });
 
   it("suggests a question's domains only from answers that left the business out", () => {
@@ -298,5 +320,96 @@ describe("sitesToGetOn", () => {
     expect(sites[0].named).toEqual([{ name: HONEY, count: 2 }, { name: HILL, count: 1 }]);
     // Only answers that left the business out: the answer naming it and Pier Pastry doesn't count.
     expect(sites[1].named.map(n => n.name)).toEqual([HILL, HONEY]);
+  });
+});
+
+
+describe("action plan credibility", () => {
+  const lost = (citations: string[], competitorsMentioned = [HONEY]) =>
+    check({ promptId: `l${n}`, competitorsMentioned, citations });
+
+  it("leaves out sites a small business can't get onto", () => {
+    const blocked = [
+      "https://en.wikipedia.org/wiki/Donut", "https://www.wikidata.org/x", "https://www.britannica.com/x",
+      "https://www.portland.gov/permits", "https://www.oregon.gov/x", "https://pdx.edu/x",
+      "https://openai.com/x", "https://chatgpt.com/x", "https://www.perplexity.ai/x", "https://anthropic.com/x",
+      "https://claude.ai/x", "https://x.ai/x", "https://gemini.google.com/x",
+      "https://apps.apple.com/us/app/x", "https://play.google.com/store/x", "https://chromewebstore.google.com/x",
+      "https://bucket.s3.amazonaws.com/menu.pdf", "https://d1234.cloudfront.net/x", "https://cdn.shopify.com/x",
+      "https://images.squarespace-cdn.com/x", "https://support.google.com/x", "https://news.google.com/x",
+    ];
+    const kept = ["https://google.com/maps/x", "https://yelp.com/a"];
+    const checks = [...blocked, ...kept].map(u => lost([u]));
+    const plan = buildActionPlan(input(checks));
+    const keys = items(plan, "sources").map(i => i.key);
+    expect(keys.sort()).toEqual(["source:google.com", "source:yelp.com"]);
+    const sites = sitesToGetOn(buildSourcesReport(checks, "https://sweetrise.example"), checks).map(s => s.domain);
+    expect(sites.sort()).toEqual(["google.com", "yelp.com"]);
+  });
+
+  it("keeps Google's own map and business sites, as one Google Business Profile step", () => {
+    const checks = [lost(["https://google.com/maps/x"]), lost(["https://maps.google.com/x"]), lost(["https://business.google.com/x"])];
+    const sources = items(buildActionPlan(input(checks)), "sources");
+    expect(sources).toHaveLength(1);
+    expect(sources[0].title).toBe("Complete your Google Business Profile");
+    expect(sources.some(i => /Get on .*google/.test(i.title))).toBe(false);
+  });
+
+  it("treats national and local press as a pitch, not a listing", () => {
+    for (const host of ["bonappetit.com", "portland.eater.com", "www.usatoday.com", "eu.usatoday.com", "oregonlive.com",
+      "infatuation.com", "cntraveler.com", "foodandwine.com", "kgw-news.com", "pdxtimes.com", "local.news.example"]) {
+      expect(classifyDomain(host, null), host).toBe("press");
+    }
+    expect(classifyDomain("yelp.com", null)).toBe("reviews");
+    const [press] = items(buildActionPlan(input([lost(["https://portland.eater.com/best-donuts"])])), "sources");
+    expect(press.effort).toBe("high");
+    expect(press.how).toBe("This is an article by a writer. You can't add yourself, but you can pitch: email the writer a short note on what makes you different, with a photo and a link.");
+  });
+
+  it("never suggests a competitor's own site or an unreachable one for a question", () => {
+    const checks = [0, 1].map(() => check({
+      promptId: "q", promptText: "Best donuts in Portland", competitorsMentioned: ["Doe Donuts", "Blue Star"],
+      citations: ["https://doedonuts.com/", "https://order.bluestar.square.site/", "https://en.wikipedia.org/x", "https://yelp.com/a"],
+    }));
+    const [q] = items(buildActionPlan(input(checks)), "questions");
+    expect(q.how).toContain("yelp.com");
+    expect(q.how).not.toMatch(/doedonuts|bluestar|wikipedia/);
+    expect(q.how).toBe("Add a page or section to your site that answers \u201cBest donuts in Portland\u201d in plain words, and says where you fit: what you make, for whom and where. Then get onto yelp.com, which AI read for this question.");
+  });
+
+  it("matches a competitor's site on any label but the ending and www, help or m", () => {
+    const checks = [
+      lost(["https://hillcrestbakery.square.site/"], [HILL]),
+      lost(["https://www.order.honeycrumb.com/"], [HONEY]),
+      lost(["https://m.yelp.com/a"], [HONEY]),
+    ];
+    expect(items(buildActionPlan(input(checks)), "sources").map(i => i.key)).toEqual(["source:m.yelp.com"]);
+  });
+
+  it("shows each page AI read once, not again under an image path or tracking tag", () => {
+    const checks = [
+      lost(["https://t.example/donut-shops/", "https://t.example/donut-shops/c_fill/"]),
+      lost(["https://t.example/donut-shops/?utm_source=openai", "https://t.example/vegan/"]),
+    ];
+    const [t] = items(buildActionPlan(input(checks)), "sources");
+    expect(t.evidence.slice(0, 2)).toEqual(["https://t.example/donut-shops/", "https://t.example/vegan/"]);
+    // The homepage doesn't hide the pages under it.
+    const home = items(buildActionPlan(input([lost(["https://h.example/"]), lost(["https://h.example/"]), lost(["https://h.example/menu"])])), "sources");
+    expect(home[0].evidence.slice(0, 2)).toEqual(["https://h.example/", "https://h.example/menu"]);
+  });
+
+  it("counts Dunkin' and Dunkin as one business", () => {
+    const checks = [lost(["https://yelp.com/a"], ["Dunkin'"]), lost(["https://yelp.com/b"], ["Dunkin"]), lost(["https://yelp.com/c"], ["Dunkin’", "Dunkin"])];
+    const [yelp] = items(buildActionPlan(input(checks)), "sources");
+    expect(yelp.why).toBe("In 3 answers that left you out, AI read yelp.com and named Dunkin' (3).");
+  });
+
+  it("only adds pages for words with a known page, never cakes, bakeries, oregon or shops", () => {
+    const searches = ["donut shops portland oregon cakes bakeries 2026", "portland oregon bakeries cakes shops 2026"];
+    const checks = [0, 1].map(i => check({ promptId: `s${i}`, promptText: "Donuts", searchQueries: searches }));
+    const pages = items(buildActionPlan(input(checks, { today: new Date("2026-10-20T00:00:00Z") })), "pages");
+    expect(pages.map(p => p.key)).toEqual(["page:pages-with-this-year-s-details"]);
+    expect(pages[0].how).toBe("Put the date on your menu, prices and hours (\"Updated October 2026\") and refresh it when they change.");
+    expect(pages.map(p => `${p.title} ${p.how}`).join(" ")).not.toMatch(/cakes|bakeries|oregon|shops/i);
   });
 });

@@ -8,6 +8,7 @@ export const KIND_FILL: Record<SourceKind, string> = {
   social: "bg-ring-facts",
   reference: "bg-teal",
   google: "bg-plum",
+  press: "bg-sun",
   other: "bg-ring-overall",
 };
 

@@ -28,10 +28,11 @@ export async function toggleTick(slug: string, prev: TickState, formData: FormDa
   const key = String(formData.get("key") ?? "").trim();
   if (!key) return { done: prev.done };
   const db = getDb();
-  const loaded = await loadActionPlan(db, practice.id);
-  if (!loaded?.plan.groups.some(g => g.items.some(i => i.key === key))) return { done: prev.done };
   const done = formData.get("done") === "1";
   try {
+    // The plan's steps only; whether each is ticked doesn't matter here.
+    const loaded = await loadActionPlan(db, practice.id, { ticks: false });
+    if (!loaded?.plan.groups.some(g => g.items.some(i => i.key === key))) return { done: prev.done };
     await setTick(db, practice.id, key, done, session?.user?.id);
   } catch {
     return { done: prev.done, error: "We couldn't save that just now. Please try again." };

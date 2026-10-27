@@ -1,6 +1,5 @@
-import { classifyDomain, domainOf, type SourceKind, type SourcesReport } from "@/core/citations";
+import { domainOf, type SourceKind, type SourcesReport } from "@/core/citations";
 import { canonicalName, nameKey } from "@/core/competitors";
-import { extractSnippet } from "@/core/mention";
 import type { SearchReport } from "@/core/search-queries";
 import type { WebsiteCheckResult, WebsiteCheckRow } from "@/core/website-check";
 
@@ -67,6 +66,8 @@ export interface ActionPlanInput {
   website: string | null;
   /** The business's name and its variations, for its rank and for quotes. */
   names?: string[];
+  /** Today, for the "Updated <month>" advice. Defaults to now. */
+  today?: Date;
 }
 
 const GROUPS: Record<GroupKey, { title: string; intro: string }> = {
@@ -87,8 +88,8 @@ const GROUPS: Record<GroupKey, { title: string; intro: string }> = {
     intro: "Things on your site that make it harder for AI to read you or trust what it reads.",
   },
   reputation: {
-    title: "Fix what AI warns people about",
-    intro: "Answers where AI named you but added a caveat. The caveat usually comes from a review or an old page.",
+    title: "Answer the \"but\" in AI's answers",
+    intro: "Answers where AI named you, then added a \"but\". Here's what it said.",
   },
 };
 const ORDER: GroupKey[] = ["sources", "questions", "pages", "website", "reputation"];
@@ -98,11 +99,10 @@ const CAP = 8;
 // business with the client's name) with this prefix on the tone reason.
 const isNamesake = (c: PlanCheck) => c.toneReason?.startsWith("Different business:") ?? false;
 
-/** Every other business the scan found in a check, for the matcher's longer-name guard. */
-const othersOf = (c: PlanCheck) => Array.from(new Set([...c.competitorsMentioned, ...(c.namedOrder ?? [])]));
-
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
-const quote = (s: string) => `“${s}”`;
+/** Quoted, without the markdown bold AI writes in its answers. */
+const quote = (s: string) => `“${s.replace(/\*\*/g, "")}”`;
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-+|-+$)/g, "");
 
 /** "A", "A and B", "A, B and C". */
@@ -113,7 +113,8 @@ function listOf(items: string[]): string {
 
 /**
  * Businesses named across some answers, each counted once per answer with
- * its spellings together (nameKey), under the first spelling seen. Most named
+ * its spellings together (nameKey, punctuation gone, so "Dunkin'" and
+ * "Dunkin" are one), under the first spelling seen. Most named
  * first; a tie goes to the name first in the alphabet.
  */
 function competitorCounts(checks: Pick<PlanCheck, "competitorsMentioned">[]): { name: string; count: number }[] {
@@ -121,7 +122,7 @@ function competitorCounts(checks: Pick<PlanCheck, "competitorsMentioned">[]): { 
   for (const c of checks) {
     const seen = new Set<string>();
     for (const name of c.competitorsMentioned) {
-      const key = nameKey(name);
+      const key = squash(nameKey(name));
       if (!key || seen.has(key)) continue;
       seen.add(key);
       const row = counts.get(key) ?? { name: canonicalName(name), count: 0 };
@@ -146,6 +147,10 @@ const SOURCE_HOW: Record<SourceKind, { how: string; effort: Level }> = {
     how: "Claim and complete your Google Business Profile: services, prices, hours and photos. Then ask happy customers for reviews.",
     effort: "low",
   },
+  press: {
+    how: "This is an article by a writer. You can't add yourself, but you can pitch: email the writer a short note on what makes you different, with a photo and a link.",
+    effort: "high",
+  },
   social: {
     how: "Post there as yourself and link to your site. Where people ask for recommendations, answer honestly and say what you do.",
     effort: "medium",
@@ -164,28 +169,50 @@ const SOURCE_HOW: Record<SourceKind, { how: string; effort: Level }> = {
 /** Answers that named a competitor and not the client. */
 const lostTo = (c: Pick<PlanCheck, "mentioned" | "competitorsMentioned">) => !c.mentioned && c.competitorsMentioned.length > 0;
 
-const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+// Labels that never name a business: "www.", "help.", "m.".
+const PLAIN_LABELS = new Set(["www", "help", "m"]);
 
 /**
  * Whether a domain is a competitor's own website: "hillcrestbakery.com" for
- * Hillcrest Bakery, "honeycrumb.com" for Honey Crumb Cake Studio. Its first
- * label, punctuation gone, against each name's key with spaces gone; either
- * containing the other is a match. Very short labels are never matched, so
- * "ab.com" can't knock out a source.
+ * Hillcrest Bakery, "honeycrumb.com" for Honey Crumb Cake Studio,
+ * "hillcrest.square.site" or "order.honeycrumb.com" too. Every label but the
+ * ending (and www, help, m), punctuation gone, against each name's key with
+ * spaces gone; either containing the other is a match. Very short labels are
+ * never matched, so "ab.com" can't knock out a source.
  */
 function isCompetitorSite(domain: string, names: string[]): boolean {
-  const label = squash(domain.split(".")[0]);
-  if (label.length < 4) return false;
-  return names.some(n => {
+  const labels = domain.split(".").slice(0, -1).filter(l => !PLAIN_LABELS.has(l)).map(squash).filter(l => l.length >= 4);
+  return labels.some(label => names.some(n => {
     const key = squash(nameKey(n));
     return key.length >= 4 && (key.includes(label) || label.includes(key));
-  });
+  }));
+}
+
+// Sites a small business can't get onto, whatever AI read there.
+const AI_VENDORS = ["openai.com", "chatgpt.com", "perplexity.ai", "anthropic.com", "claude.ai", "x.ai", "gemini.google.com"];
+const APP_STORES = ["apps.apple.com", "play.google.com", "chromewebstore.google.com"];
+const FILE_HOSTS = ["amazonaws.com", "cloudfront.net"];
+const GOOGLE_KEPT = new Set(["google.com", "maps.google.com", "business.google.com"]);
+const within = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`);
+
+/**
+ * Whether no business can put itself on a site: an encyclopaedia, a
+ * government or school site, an AI company, an app store, a file host or CDN,
+ * or a Google site other than its search, maps and business pages.
+ */
+function isUnreachable(domain: string, kind: SourceKind): boolean {
+  if (kind === "reference") return true;
+  if (/\.(gov|edu)(\.[a-z]{2})?$/.test(domain)) return true;
+  if ([...AI_VENDORS, ...APP_STORES, ...FILE_HOSTS].some(d => within(domain, d))) return true;
+  if (domain.split(".").some(l => l.includes("cdn"))) return true;
+  return within(domain, "google.com") && !GOOGLE_KEPT.has(domain);
 }
 
 /**
  * The sites to get on: the sources report's gaps, biggest first, with
- * competitors' own websites left out. Each carries the buyer answers that read
- * it and named a competitor, not the client, and who those answers named.
+ * competitors' own websites and sites nobody can get onto left out. Each
+ * carries the buyer answers that read it and named a competitor, not the
+ * client, and who those answers named.
  */
 export function sitesToGetOn<C extends Pick<PlanCheck, "promptKind" | "mentioned" | "competitorsMentioned" | "citations">>(
   sources: SourcesReport, checks: C[],
@@ -194,23 +221,64 @@ export function sitesToGetOn<C extends Pick<PlanCheck, "promptKind" | "mentioned
   return sources.gaps.map(gap => {
     const lost = buyer.filter(c => lostTo(c) && domainsOf(c).has(gap.domain));
     return { domain: gap.domain, gap, lost, named: competitorCounts(lost) };
-  }).filter(g => !isCompetitorSite(g.domain, g.named.map(n => n.name)));
+  }).filter(g => !isUnreachable(g.domain, g.gap.kind) && !isCompetitorSite(g.domain, g.named.map(n => n.name)));
 }
+
+/**
+ * The pages on a domain that the given answers read, most read first,
+ * tracking tags gone. A page under one already listed (an image path such as
+ * ".../c_fill/") is the same page, so it's left out; the homepage aside.
+ */
+function pagesRead(domain: string, checks: Pick<PlanCheck, "citations">[]): string[] {
+  const counts = new Map<string, number>();
+  for (const c of checks) {
+    const urls = new Set(c.citations.filter(u => domainOf(u) === domain).map(u => u.replace(/[?&]utm_[^&#]*/g, "").replace(/\?$/, "")));
+    for (const u of urls) counts.set(u, (counts.get(u) ?? 0) + 1);
+  }
+  const out: string[] = [];
+  for (const [u] of [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].length - b[0].length || a[0].localeCompare(b[0]))) {
+    // Never under the homepage: every page is.
+    const under = (o: string) => new URL(o).pathname.length > 1 && u.startsWith(o.endsWith("/") ? o : `${o}/`);
+    if (!out.some(under)) out.push(u);
+  }
+  return out;
+}
+
+/** At most `max` characters, cut at a word with an ellipsis when it's longer. */
+function clip(text: string, max = 200): string {
+  const flat = text.replace(/\s+/g, " ").trim();
+  if (flat.length <= max) return flat;
+  const cut = flat.slice(0, max);
+  return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : max).replace(/[\s,;:.]+$/, "")}…`;
+}
+
+const ALREADY_ON = "You're already on this site. Find the page AI read that leaves you out (below) and ask its writer to add you.";
 
 function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
   // Kept in the data's order, biggest gap first: a site's kind says how to get
   // on it, not how much it matters. The top three, or any that took a quarter
-  // of buyer answers, are high impact.
-  return sitesToGetOn(input.sources, buyer).slice(0, CAP).map(({ gap, lost, named: counts }, i) => {
+  // of buyer answers, are high impact. Google's sites are one step: the
+  // business profile.
+  const sites = sitesToGetOn(input.sources, buyer).filter((s, i, all) => s.gap.kind !== "google" || all.findIndex(o => o.gap.kind === "google") === i);
+  return sites.slice(0, CAP).map(({ gap, lost, named: counts }, i) => {
     const named = counts.slice(0, 3);
     const advice = SOURCE_HOW[gap.kind];
     const big = i < 3 || (buyer.length > 0 && gap.competitorOnly / buyer.length >= 0.25);
+    // AI read the site and named these businesses in the same answers: said as
+    // that, never as AI naming them from the site.
+    const onIt = gap.namedYou > 0;
+    const title = gap.kind === "google" ? "Complete your Google Business Profile"
+      : onIt ? `Stand out on ${gap.domain}` : `Get on ${gap.domain}`;
+    const why = onIt
+      ? `AI read ${gap.domain} in ${plural(gap.answers, "answer")}. It named you in ${gap.namedYou}, but in ${lost.length} it named ${listOf(named.map(n => n.name))} and not you.`
+      : `In ${plural(lost.length, "answer")} that left you out, AI read ${gap.domain} and named ${listOf(named.map(n => `${n.name} (${n.count})`))}.`;
     return {
       key: `source:${gap.domain}`,
-      title: `Get on ${gap.domain}`,
-      why: `AI read ${gap.domain} in ${plural(lost.length, "answer")} and named ${listOf(named.map(n => `${n.name} (${n.count})`))} from it, not you.`,
-      how: advice.how,
-      evidence: [...new Set(lost.map(c => c.promptText))].slice(0, 3).map(quote),
+      title,
+      why,
+      // For an article or blog, asking its writer is the whole advice.
+      how: !onIt ? advice.how : gap.kind === "other" ? ALREADY_ON : `${ALREADY_ON} ${advice.how}`,
+      evidence: [...pagesRead(gap.domain, lost).slice(0, 2), ...[...new Set(lost.map(c => c.promptText))].slice(0, 2).map(quote)],
       effort: advice.effort,
       impact: big ? "high" : "medium",
     };
@@ -218,7 +286,8 @@ function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
 }
 
 function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
-  const ownDomain = input.website ? domainOf(input.website.includes("://") ? input.website : `https://${input.website}`) : null;
+  // Only sites a business can get onto, never a competitor's own.
+  const reachable = new Set(sitesToGetOn(input.sources, buyer).map(s => s.domain));
   const clientKeys = new Set((input.names ?? []).map(nameKey));
   const byPrompt = new Map<string, PlanCheck[]>();
   for (const c of buyer) byPrompt.set(c.promptId, [...(byPrompt.get(c.promptId) ?? []), c]);
@@ -242,16 +311,17 @@ function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[]
     || a.text.localeCompare(b.text));
 
   return rows.slice(0, CAP).map(r => {
-    const named = competitorCounts(r.answers).slice(0, 3).map(n => n.name);
+    const counts = competitorCounts(r.answers);
+    const named = counts.slice(0, 3).map(n => n.name);
     const cited = new Map<string, number>();
     // Only the answers it lost: those are the sites that sent AI elsewhere.
     for (const c of r.answers.filter(lostTo)) {
       for (const d of domainsOf(c)) {
-        if (classifyDomain(d, ownDomain) !== "own_site") cited.set(d, (cited.get(d) ?? 0) + 1);
+        if (reachable.has(d) && !isCompetitorSite(d, counts.map(n => n.name))) cited.set(d, (cited.get(d) ?? 0) + 1);
       }
     }
     const domains = [...cited.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 2).map(([d]) => d);
-    const page = `Add a page or section to your site that answers ${quote(r.text)} in plain words: what you offer, for whom, where and at what price.`;
+    const page = `Add a page or section to your site that answers ${quote(r.text)} in plain words, and says where you fit: what you make, for whom and where.`;
     return {
       key: `question:${r.promptId}`,
       title: quote(r.text),
@@ -285,19 +355,22 @@ export interface PageWanted {
   status: "have" | "partial" | "missing";
 }
 
-/** The pages AI's added search words point to, and whether the site has each. Four at most. */
+/**
+ * The pages AI's added search words point to, and whether the site has each.
+ * Only words with a known page: "cakes" or "oregon" say nothing about a page
+ * to add. Four at most.
+ */
 export function pagesWanted(words: string[], site: WebsiteCheckResult | null): PageWanted[] {
   const out: PageWanted[] = [];
   const seen = new Set<string>();
   for (const word of words) {
     const rule = PAGE_FOR_WORD.find(r => r.test.test(word));
-    const page = rule?.page ?? `A page that covers "${word}"`;
-    if (seen.has(page)) continue;
-    seen.add(page);
+    if (!rule || seen.has(rule.page)) continue;
+    seen.add(rule.page);
     const onPage = site?.pages.some(p => `${p.url} ${p.title ?? ""}`.toLowerCase().includes(word)) ?? false;
     const inText = site?.homepageText.includes(word) ?? false;
     out.push({
-      word, page, why: rule?.why ?? "AI kept adding this word when it searched for businesses like yours.",
+      word, page: rule.page, why: rule.why,
       status: onPage ? "have" : inText ? "partial" : "missing",
     });
     if (out.length >= 4) break;
@@ -305,8 +378,11 @@ export function pagesWanted(words: string[], site: WebsiteCheckResult | null): P
   return out;
 }
 
+const isYear = (word: string) => /^20\d\d$/.test(word);
+
 function pageItems(input: ActionPlanInput): ActionItem[] {
-  const words = input.search.addedWords.slice(0, 8).map(w => w.word);
+  const words = input.search.addedWords.map(w => w.word);
+  const updated = (input.today ?? new Date()).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
   return pagesWanted(words, input.websiteCheck).filter(p => p.status !== "have").map(p => {
     const searches = input.search.queries.filter(q => q.query.split(/[^a-z0-9]+/).includes(p.word)).slice(0, 2).map(q => quote(q.query));
     // Only say the site lacks it when the site was checked and it isn't there.
@@ -319,7 +395,9 @@ function pageItems(input: ActionPlanInput): ActionItem[] {
       why: searches.length
         ? `AI searched for ${listOf(searches)} before answering${verdict}`
         : `AI kept adding "${p.word}" to its searches${verdict}`,
-      how: p.status === "partial"
+      how: isYear(p.word)
+        ? `Put the date on your menu, prices and hours ("Updated ${updated}") and refresh it when they change.`
+        : p.status === "partial"
         ? `${p.why} Your homepage mentions it; give it its own page, linked from the homepage.`
         : `${p.why} Put it on its own page, in plain text, linked from your homepage.`,
       evidence: searches,
@@ -346,17 +424,17 @@ function websiteItems(input: ActionPlanInput): ActionItem[] {
     ...WEBSITE_FIXES[c.id],
     why: c.why,
     how: c.fix ?? "Ask whoever runs your website to fix this; it's usually a small change.",
-    evidence: [c.label],
+    // Not the check's label: it names what passing looks like, not what's wrong.
+    evidence: [],
   }));
 }
 
-function reputationItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
+function reputationItems(buyer: PlanCheck[]): ActionItem[] {
   const warned = buyer.filter(c => c.mentioned && (c.tone === "negative" || c.tone === "mixed") && !isNamesake(c));
   if (!warned.length) return [];
-  const quotes = [...new Set(warned.map(c => {
-    const snippet = (c.answerText && extractSnippet(c.answerText, input.names ?? [], othersOf(c))) || c.toneReason;
-    return snippet ? snippet.trim().slice(0, 200) : null;
-  }).filter((q): q is string => !!q))].slice(0, 2);
+  // AI's own reason for the "but", not a sentence lifted from the answer.
+  const quotes = [...new Set(warned.map(c => (c.toneReason ? clip(c.toneReason.replace(/\*\*/g, "")) : "") || null)
+    .filter((q): q is string => !!q))].slice(0, 2);
   const negative = warned.filter(c => c.tone === "negative").length;
   return [{
     key: "reputation:caveats",
@@ -379,7 +457,7 @@ export function buildActionPlan(input: ActionPlanInput): ActionPlan {
     questions: questionItems(input, buyer),
     pages: pageItems(input),
     website: websiteItems(input),
-    reputation: reputationItems(input, buyer),
+    reputation: reputationItems(buyer),
   };
   // Stable sort: equal items keep the order each builder gave them. Sources
   // stay in the data's order, biggest gap first: an easy listing must not

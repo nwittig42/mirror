@@ -62,9 +62,15 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   const best = topEngine(earned);
   const rival = topBuyerCompetitor(earned);
 
-  const steps = plan?.groups.flatMap(g => g.items) ?? [];
-  const first = steps[0];
   const sites = sources ? sitesToGetOn(sources, earned) : [];
+  // The sources card shows the sites, so the plan card leads with the other
+  // steps when there are any. Its group list still shows every group.
+  const all = plan?.groups.flatMap(g => g.items) ?? [];
+  const others = plan?.groups.filter(g => g.key !== "sources").flatMap(g => g.items) ?? [];
+  const steps = sites.length > 0 && others.length > 0 ? others : all;
+  const first = steps[0];
+  // Every site AI read but the business's own.
+  const read = sources?.sources.filter(s => s.kind !== "own_site").length ?? 0;
   // Sites to get on whose answers named the top competitor.
   const rivalOn = rival ? sites.filter(s => s.named.some(n => nameKey(n.name) === nameKey(rival.name))).length : 0;
 
@@ -112,7 +118,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
         <div className="mk-form-card mk-teaser-plan">
           <span className="mk-eyebrow">Your action plan</span>
           <p className="mk-body" style={{ marginTop: 14 }}>
-            {`We found ${plural(plan.total, "fix", "fixes")} for ${businessName}${plan.quickWins ? `, ${plan.quickWins} of them quick wins` : ""}.`}
+            {`We found ${plural(plan.total, "step")} for ${businessName}${plan.quickWins ? `, ${plan.quickWins} of them quick wins` : ""}.`}
           </p>
           <ul className="mk-teaser-groups">
             {plan.groups.map(g => (
@@ -135,8 +141,8 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
         <div className="mk-form-card mk-teaser-sources">
           <span className="mk-eyebrow">Where AI is reading</span>
           <p className="mk-body" style={{ marginTop: 14 }}>
-            {`AI read ${plural(sources.sources.length, "website")} to answer your customers.`}
-            {rival && rivalOn > 0 && ` ${rival.name} is on ${rivalOn} of them and you're not.`}
+            {`AI read ${plural(read, "website")} to answer your customers. When it recommended someone else, it was reading ${sites.length} of them.`}
+            {rival && rivalOn > 0 && ` ${rival.name} was named in answers from ${rivalOn} of them.`}
           </p>
           <div className="mk-teaser-step">
             <strong>{sites[0].domain}</strong>

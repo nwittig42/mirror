@@ -168,7 +168,7 @@ describe("a prospect's dashboard before their call", () => {
   it("gives a free account the whole action plan, with nothing from the fact check", async () => {
     const page = await html(ActionPlanPage({ params }));
     expect(page).toContain("Your action plan");
-    expect(page).toContain("Get on secret-source.example");
+    expect(page).toContain("Stand out on secret-source.example");
     expect(page).toContain("Rose City Plumbing");
     expect(page).not.toContain("Unlocks after your call");
     expect(page).not.toContain("$49");
