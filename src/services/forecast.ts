@@ -76,10 +76,10 @@ const SETUP_SYSTEM = `You set up a sales forecast for a business from what its o
 
 2. AREA. Where most of its customers come from, in exactly this form: City,State,United States. Use the main city of its metro area, since customers travel in from around it: a clinic in Santa Monica is "Los Angeles,California,United States". A business that sells online or across the country is "United States".
 
-3. SEARCHES. 12 to 20 Google searches a buyer types when they want to hire, book or buy from a business like this. Each 1 to 4 words, lower case, the way people really type. The kind of business, its main services, and "near me" forms. No questions, no "how to", no brand names, no competitor names. Leave the city out: the counts are already taken inside the area. Only what this business sells.
+3. SEARCHES. 12 to 20 Google searches a buyer types when they want to hire, book or buy from a business like this. Each 1 to 4 words, lower case, the way people really type. The kind of business, its main services, and "near me" forms. No questions, no "how to", no brand names, no competitor names. Leave the city out: the counts are already taken inside the area. Only what this business sells, and only searches made by someone who would buy what a typical customer of this business buys: a business that only takes large or specialist orders gets the specialist searches, never the broad kind-of-business search most of whose searchers want something it does not sell (a divorce lawyer gets "divorce lawyer", not "lawyer near me").
 
 4. VALUE. What one typical new customer is worth, from the prices the website states and the kind of business. Give:
-- spend: what a customer spends on one visit or order, low / likely / high in dollars. Likely is a typical order. Low and high are what a cheaper and a pricier typical order cost (about the 10th and 90th percentile of customers), not the cheapest or dearest item. Leave out rare large orders, such as wedding cakes, catering or a full renovation.
+- spend: what a customer spends on one visit or order, low / likely / high in dollars. Likely is a typical order. Low and high are what a cheaper and a pricier typical order cost (about the 10th and 90th percentile of customers), not the cheapest or dearest item. Leave out rare large orders, such as wedding cakes, catering or a full renovation, unless they are what the business mainly sells.
 - visits: how many times a new customer buys in their first year, low / likely / high. 1 for a one-off job. For a local_shop keep within: café, bakery or coffee shop 2 to 12 (likely about 4); restaurant 1 to 6 (likely about 2); shop 1 to 4.
 - billing: "monthly" for a subscription or membership, then give the monthly price as spend and 1 / 1 / 1 as visits. Otherwise "once".
 - basis: one plain sentence naming the prices used, such as "Most customers book a standard service at $90 to $150; a few add extras that bring it to $200."
@@ -193,7 +193,7 @@ export async function fetchSearchVolume(keywords: string[], area: string, fetchI
     method: "POST",
     headers: { Authorization: `Basic ${login}`, "Content-Type": "application/json" },
     // Given up after 20 seconds, so a hung request cannot hold up an audit.
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(45_000),
     body: JSON.stringify([{ keywords, location_name: area, language_code: "en" }]),
   });
   const data = await res.json().catch(() => null);
