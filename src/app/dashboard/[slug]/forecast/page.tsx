@@ -162,7 +162,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
                 </>
               )}
               <div className="mt-4 flex flex-wrap gap-2">
-                {acc && <Link href={`/dashboard/${slug}/answers#wrong-facts`} className={buttonClass("gold")}>See the wrong facts</Link>}
+                {acc && <Link href={`/dashboard/${slug}/fixes#wrong-facts`} className={buttonClass("gold")}>See the wrong facts</Link>}
                 {!forecast && method}
               </div>
             </>

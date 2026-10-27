@@ -106,7 +106,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const rings: RingScore[] = [
     { key: "overall", label: "Overall", value: shown.overall, note: "Your two scores combined" },
     { key: "visibility", label: "Recommended by AI", value: shown.visibility, note: "How often and how high AI names you", href: `/dashboard/${slug}/competitors` },
-    { key: "facts", label: "Accuracy", value: shown.facts, note: "How much of what AI says about you is true", href: `/dashboard/${slug}/answers#wrong-facts` },
+    { key: "facts", label: "Accuracy", value: shown.facts, note: "How much of what AI says about you is true", href: `/dashboard/${slug}/fixes#wrong-facts` },
   ];
   const scanDate = latestScan.startedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
 
@@ -136,7 +136,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
             <Stat value={named} unit={`of ${earned.length} answers`} tone="gold" />
             <Note className="mt-2">When buyers asked without using your name</Note>
           </Card>
-          <Card title="Wrong facts" href={`/dashboard/${slug}/answers#wrong-facts`}>
+          <Card title="Wrong facts" href={`/dashboard/${slug}/fixes#wrong-facts`}>
             <Stat value={seenFindings.length} unit="to fix" tone={seenFindings.length > 0 ? "flag" : "ok"} />
             <Note className="mt-2">What AI got wrong in the latest scan</Note>
           </Card>

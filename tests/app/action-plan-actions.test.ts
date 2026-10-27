@@ -3,7 +3,8 @@ import { eq } from "drizzle-orm";
 import { makeTestDb, seedPractice } from "../helpers/db";
 import { setDbForTests, type Db } from "@/db";
 import * as schema from "@/db/schema";
-import { getTicks } from "@/services/action-ticks";
+import { getTicks, setTick } from "@/services/action-ticks";
+import type { WebsiteCheckResult } from "@/core/website-check";
 
 let db: Db;
 // Who's signed in is swapped per test. requirePracticeView follows the real
@@ -22,6 +23,11 @@ vi.mock("@/lib/auth", () => ({
   }),
 }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+// The real setTick, which a test can make fail once.
+vi.mock("@/services/action-ticks", async importOriginal => {
+  const real = await importOriginal<typeof import("@/services/action-ticks")>();
+  return { ...real, setTick: vi.fn(real.setTick) };
+});
 
 import { toggleTick } from "@/app/dashboard/[slug]/fixes/actions";
 
@@ -39,7 +45,22 @@ describe("toggleTick", () => {
   beforeEach(async () => {
     db = await makeTestDb();
     setDbForTests(db);
-    ({ practiceId, memberIds: [ownerId] } = await seedPractice(db, { name: "Harbor Plumbing", slug: "harbor", members: ["owner@harbor.example"] }));
+    let promptIds: string[];
+    ({ practiceId, promptIds, memberIds: [ownerId] } = await seedPractice(db, {
+      name: "Harbor Plumbing", slug: "harbor", members: ["owner@harbor.example"],
+      prompts: [{ text: "Best plumber in Portland", kind: "category" }],
+    }));
+    // A finished scan whose plan has two steps: get on yelp.com, publish a sitemap.
+    const site: WebsiteCheckResult = {
+      checkedAt: "2026-10-20T00:00:00Z", pages: [], homepageText: "",
+      checks: [{ id: "sitemap", label: "Sitemap", why: "No sitemap found.", status: "fail" }],
+    };
+    const [scan] = await db.insert(schema.scans).values({ practiceId, status: "complete", websiteCheck: site }).returning();
+    await db.insert(schema.checks).values({
+      scanId: scan.id, promptId: promptIds[0], engine: "openai", mentioned: false, position: "absent",
+      answerText: "Rose City Plumbing is the one to call.", citations: ["https://www.yelp.com/biz/rose-city"],
+      competitorsMentioned: ["Rose City Plumbing"], namedOrder: ["Rose City Plumbing"],
+    });
     await seedPractice(db, { name: "Rose City Plumbing", slug: "rose", members: ["owner@rose.example"] });
     session.user = { id: ownerId, role: "client" };
   });
@@ -77,6 +98,24 @@ describe("toggleTick", () => {
 
   it("ignores a submission with no item", async () => {
     expect(await toggleTick("harbor", idle, form("  ", true))).toEqual({ done: false });
+    expect(await db.select().from(schema.actionTicks)).toHaveLength(0);
+  });
+
+  it("only saves ticks for steps in the current plan", async () => {
+    expect(await toggleTick("harbor", idle, form("source:junk.example", true))).toEqual({ done: false });
+    expect(await toggleTick("harbor", idle, form("x".repeat(200), true))).toEqual({ done: false });
+    expect(await db.select().from(schema.actionTicks)).toHaveLength(0);
+    // Unticking a step that isn't in the plan leaves everything as it was.
+    await setTick(db, practiceId, "source:old.example", true);
+    expect(await toggleTick("harbor", { done: true }, form("source:old.example", false))).toEqual({ done: true });
+    expect(await getTicks(db, practiceId)).toEqual(new Set(["source:old.example"]));
+  });
+
+  it("puts the box back with a message when the save fails", async () => {
+    vi.mocked(setTick).mockRejectedValueOnce(new Error("database down"));
+    const result = await toggleTick("harbor", idle, form("source:yelp.com", true));
+    expect(result.done).toBe(false);
+    expect(result.error).toMatch(/couldn.t save/i);
     expect(await db.select().from(schema.actionTicks)).toHaveLength(0);
   });
 });

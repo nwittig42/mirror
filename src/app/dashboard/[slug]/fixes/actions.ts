@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { auth, requirePracticeView } from "@/lib/auth";
 import { getDb } from "@/db";
 import { setTick } from "@/services/action-ticks";
+import { loadActionPlan } from "@/lib/action-plan";
 import { ADMIN_READ_ONLY_MESSAGE, isAdminViewer } from "@/lib/admin-view";
 
 export interface TickState {
@@ -16,16 +17,25 @@ export interface TickState {
  * Ticks an action plan item off, or back on. Anyone who can see the business
  * may tick, a free account included, since the whole plan is theirs. An
  * operator viewing the dashboard can't: the ticks are the customer's own.
- * Works as a plain form post too, so a box ticks without any script.
+ * Only a step in the business's current plan can be ticked or unticked;
+ * anything else posted is ignored, so no stray rows are saved. Works as a
+ * plain form post too, so a box ticks without any script.
  */
 export async function toggleTick(slug: string, prev: TickState, formData: FormData): Promise<TickState> {
   const { practice } = await requirePracticeView(slug);
   const session = await auth();
   if (isAdminViewer(session?.user?.role)) return { done: prev.done, error: ADMIN_READ_ONLY_MESSAGE };
   const key = String(formData.get("key") ?? "").trim();
-  if (!key || key.length > 300) return { done: prev.done };
+  if (!key) return { done: prev.done };
+  const db = getDb();
+  const loaded = await loadActionPlan(db, practice.id);
+  if (!loaded?.plan.groups.some(g => g.items.some(i => i.key === key))) return { done: prev.done };
   const done = formData.get("done") === "1";
-  await setTick(getDb(), practice.id, key, done, session?.user?.id);
+  try {
+    await setTick(db, practice.id, key, done, session?.user?.id);
+  } catch {
+    return { done: prev.done, error: "We couldn't save that just now. Please try again." };
+  }
   revalidatePath(`/dashboard/${slug}/fixes`);
   return { done };
 }

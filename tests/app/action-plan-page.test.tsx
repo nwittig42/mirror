@@ -32,6 +32,17 @@ const failingSite: WebsiteCheckResult = {
 
 let practiceId: string;
 let promptIds: string[];
+let factIds: string[];
+
+/** A wrong price on the latest scan's first answer, being worked on, with a note from us. */
+async function addWrongFee() {
+  const [scan] = await db.select().from(schema.scans).where(eq(schema.scans.practiceId, practiceId));
+  const [check] = await db.select().from(schema.checks).where(eq(schema.checks.scanId, scan.id));
+  await db.insert(schema.findings).values({
+    practiceId, checkId: check.id, factId: factIds[0], claim: "Harbor Plumbing charges $49", factValue: "$89",
+    severity: "major", lastSeenScanId: scan.id, workStartedAt: new Date(), note: "Emailed Yelp on Oct 14", noteUpdatedAt: new Date(),
+  });
+}
 
 /** A finished scan: each answer as the engine gave it, with the website check saved on the scan. */
 async function scanWith(answers: Partial<typeof schema.checks.$inferInsert>[], websiteCheck: WebsiteCheckResult | null = failingSite) {
@@ -50,7 +61,7 @@ describe("the action plan page", () => {
     db = await makeTestDb();
     setDbForTests(db);
     role = "client";
-    ({ practiceId, promptIds } = await seedPractice(db, {
+    ({ practiceId, promptIds, factIds } = await seedPractice(db, {
       name: "Harbor Plumbing", slug: "harbor",
       prompts: [{ text: "Best plumber in Portland", kind: "category" }],
       facts: [{ category: "pricing", label: "Call-out fee", value: "$89" }],
@@ -84,7 +95,6 @@ describe("the action plan page", () => {
     expect(page).toMatch(/High impact/);
     // Nothing from the fact check.
     expect(page).not.toContain("$89");
-    expect(page).not.toContain("Wrong facts");
   });
 
   it("marks a ticked item done, struck through, where it was, and counts it", async () => {
@@ -116,6 +126,36 @@ describe("the action plan page", () => {
     expect(page).toContain("Fix your website for AI");
     expect(page).not.toContain("Unlocks after your call");
     expect(page).not.toContain("$89");
+    expect(page).not.toContain("Wrong facts");
+    expect(page).not.toContain('id="wrong-facts"');
+  });
+
+  it("keeps a paying client's wrong facts at the bottom, with how far each fix has got and our note", async () => {
+    await lostToRoseCity();
+    await addWrongFee();
+    const page = await html();
+    expect(page).toContain('id="wrong-facts"');
+    expect(page.indexOf("Fix your website for AI")).toBeLessThan(page.indexOf('id="wrong-facts"'));
+    // Inside the dark panel, which is the last thing on the page.
+    expect(page.indexOf("plan-dark")).toBeLessThan(page.indexOf('id="wrong-facts"'));
+    expect(page).toContain("1 wrong fact: 1 in progress.");
+    expect(page).toContain("In progress (1)");
+    expect(page).toContain("Harbor Plumbing charges $49");
+    expect(page).toContain("$89");
+    expect(page).toContain("Emailed Yelp on Oct 14");
+    expect(page).toContain("Note from Mirror");
+    expect(page).toContain("Want us to fix these for you?");
+  });
+
+  it("never sends a free account the wrong facts, even when there are some", async () => {
+    await db.update(schema.practices).set({ active: false }).where(eq(schema.practices.id, practiceId));
+    await lostToRoseCity();
+    await addWrongFee();
+    const page = await html();
+    expect(page).toContain("Get on yelp.com");
+    for (const text of ['id="wrong-facts"', "Harbor Plumbing charges $49", "$89", "Emailed Yelp", "Want us to fix these for you?"]) {
+      expect(page).not.toContain(text);
+    }
   });
 
   it("says the scan is still running before a scan has finished, or while it has no answers", async () => {

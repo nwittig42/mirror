@@ -9,6 +9,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { PageBody } from "@/components/ui";
 import { toggleTick } from "./actions";
 import { PlanList } from "./plan-list";
+import { WrongFactsSection } from "./wrong-facts-section";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -16,18 +17,24 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
  * The action plan: every step from the latest scan that would get the
  * business recommended by AI more often, grouped, on one dark page, with a
  * box to tick each off. Built from where AI read and who it named, never from
- * the fact check, so a free account gets all of it. Still at /fixes, the
- * address the fix plan had, so old links land here.
+ * the fact check, so a free account gets all of it. A paying client also gets
+ * their wrong facts at the foot, as pieces of work. Still at /fixes, the
+ * address the fix plan had, so old links land here. Stored data only, so no
+ * longer than the default time limit.
  */
 export default async function ActionPlanPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { practice } = await requirePracticeView(slug);
+  const { practice, locked } = await requirePracticeView(slug);
   const session = await auth();
   const db = getDb();
   const [loaded, scan] = await Promise.all([loadActionPlan(db, practice.id), getLatestScan(db, practice.id)]);
   // A scan with no answers yet has nothing to plan from; its website check alone would read as the whole plan.
   const answered = !!scan && (await db.select({ id: checks.id }).from(checks).where(eq(checks.scanId, scan.id)).limit(1)).length > 0;
   const plan = loaded && answered ? loaded.plan : null;
+  // Loaded here, not as a component of its own, so the page renders in one pass. A free account gets none of it.
+  const wrongFacts = locked ? null : await WrongFactsSection({
+    slug, practiceId: practice.id, website: practice.website, latestScanId: scan?.id ?? null,
+  });
 
   return (
     <PageBody>
@@ -67,6 +74,8 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
             />
           </>
         )}
+
+        {wrongFacts}
       </div>
     </PageBody>
   );
