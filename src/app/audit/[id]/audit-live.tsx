@@ -15,6 +15,24 @@ const STEPS = [
   "Writing your report",
 ];
 
+/**
+ * What the status line under the bar cycles through while each step runs, so
+ * the wait has something moving even between polls. Index matches STEPS.
+ */
+const STATUS_LINES = [
+  ["Loading your home page", "Finding your services and prices", "Reading your hours and location", "Looking for what makes you different"],
+  ["Thinking like a customer in your area", "Writing what people ask before they buy", "Picking the questions that matter most"],
+  ["Asking ChatGPT", "Asking Claude", "Asking Gemini", "Asking Grok", "Asking Perplexity", "Checking who AI recommends instead", "Noting the websites AI reads"],
+  ["Scoring how often AI names you", "Ranking your competitors", "Picking your first fixes"],
+];
+const STATUS_MS = 2600;
+
+/** "2:07" from milliseconds. */
+function clock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+}
+
 /** Which of STEPS is under way. "reading" covers the first two: past 15% the questions are being written. */
 function stepIndex(p: AuditProgress): number {
   switch (p.stage) {
@@ -40,6 +58,9 @@ export function AuditLive({ leadId, initial, notStarted }: {
   const router = useRouter();
   const [progress, setProgress] = useState(initial);
   const settledAtStart = SETTLED.has(initial.stage);
+  // Both tick on the client only; the server render shows the first line and 0:00.
+  const [tick, setTick] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     if (settledAtStart) return;
@@ -66,7 +87,21 @@ export function AuditLive({ leadId, initial, notStarted }: {
     };
   }, [leadId, router, settledAtStart]);
 
+  const running = !SETTLED.has(progress.stage);
+  useEffect(() => {
+    if (!running) return;
+    const started = Date.now();
+    const status = setInterval(() => setTick(t => t + 1), STATUS_MS);
+    const seconds = setInterval(() => setElapsed(Date.now() - started), 1000);
+    return () => {
+      clearInterval(status);
+      clearInterval(seconds);
+    };
+  }, [running]);
+
   const current = stepIndex(progress);
+  const lines = STATUS_LINES[current] ?? [];
+  const statusLine = lines.length ? lines[tick % lines.length] : null;
   // Failed and not-started won't finish by themselves, so neither the running heading nor the time applies.
   const stuck = progress.stage === "failed" || progress.stage === "not-started";
   const heading = progress.stage === "done" ? "Your audit is ready" : stuck ? "Your audit" : "Your audit is running";
@@ -90,7 +125,7 @@ export function AuditLive({ leadId, initial, notStarted }: {
       ) : (
         <>
           <div
-            className="mk-progress"
+            className="mk-progress mk-progress-live"
             role="progressbar"
             aria-label="Audit progress"
             aria-valuemin={0}
@@ -98,6 +133,11 @@ export function AuditLive({ leadId, initial, notStarted }: {
             aria-valuenow={progress.percent}
           >
             <span style={{ width: `${progress.percent}%` }} />
+          </div>
+          <div className="mk-audit-status">
+            {/* Keyed so each new line fades in. Hidden from screen readers: the steps below carry the real progress. */}
+            {statusLine && <span key={statusLine} className="line" aria-hidden="true">{statusLine}…</span>}
+            <span className="clock">{clock(elapsed)} elapsed</span>
           </div>
           <ol className="mk-audit-steps" aria-live="polite">
             {STEPS.map((step, i) => (

@@ -2512,6 +2512,45 @@
   border-radius: 999px;
   transition: width 600ms ease;
 }
+/* A light sheen runs along the bar while the audit is going, so it never looks stalled between polls. */
+.mk-progress-live > span {
+  position: relative;
+  overflow: hidden;
+  min-width: 24px;
+}
+.mk-progress-live > span::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.55), transparent);
+  transform: translateX(-100%);
+  animation: mk-sheen 1.6s ease-in-out infinite;
+}
+@keyframes mk-sheen {
+  to { transform: translateX(100%); }
+}
+.mk-audit-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  margin-top: 14px;
+  min-height: 24px;
+  font-size: 15px;
+}
+.mk-audit-status .line {
+  color: var(--ink-soft);
+  animation: mk-fade-up 400ms ease both;
+}
+.mk-audit-status .clock {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@keyframes mk-fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
 .mk-audit-steps {
   list-style: none;
   margin: 28px 0 0;
@@ -2553,8 +2592,24 @@
   font-weight: 600;
 }
 .mk-audit-steps li.now::before {
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px var(--goldsoft);
+  /* A spinning ring on the step under way. */
+  top: 18px;
+  left: 0;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--goldsoft);
+  border-top-color: var(--gold);
+  animation: mk-spin 0.9s linear infinite;
+}
+@keyframes mk-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mk-progress-live > span::after,
+  .mk-audit-status .line,
+  .mk-audit-steps li.now::before {
+    animation: none;
+  }
 }
 .mk-audit-steps .count {
   color: var(--gold);

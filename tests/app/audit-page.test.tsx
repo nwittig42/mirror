@@ -93,6 +93,14 @@ describe("the audit page", () => {
     expect(page).not.toContain("Book 30 minutes");
   });
 
+  it("gives the wait something to watch: a live status line and a running clock", async () => {
+    const lead = await seedLead({});
+    const page = await audit(lead.id).then(p => renderToStaticMarkup(p));
+    expect(page).toContain("mk-audit-status");
+    expect(page).toContain("Loading your home page");
+    expect(page).toContain("0:00 elapsed");
+  });
+
   it("thanks them and offers the call once their email is in", async () => {
     const lead = await seedLead({ email: "dale@harbor.example", contactName: "Dale" });
     const page = text(await audit(lead.id));
