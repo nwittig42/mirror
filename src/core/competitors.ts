@@ -37,6 +37,11 @@ export function nameKey(name: string): string {
   return canonicalName(name).toLowerCase();
 }
 
+/** nameKey with punctuation and spaces gone too, so "Dunkin'" and "Dunkin" are one business. */
+export function squashedNameKey(name: string): string {
+  return nameKey(name).replace(/[^a-z0-9]/g, "");
+}
+
 /**
  * Directories, review sites, marketplaces and apps the extractor is told to
  * leave out but sometimes returns anyway. Compared by exact key only, so a
@@ -146,8 +151,8 @@ export function topBuyerCompetitor(
     // A business counts once per answer, however many spellings that answer lists.
     const seen = new Set<string>();
     for (const name of c.competitorsMentioned ?? []) {
-      const key = nameKey(name);
-      if (seen.has(key)) continue;
+      const key = squashedNameKey(name);
+      if (!key || seen.has(key)) continue;
       seen.add(key);
       const row = counts.get(key) ?? { name, mentions: 0 };
       row.mentions += 1;

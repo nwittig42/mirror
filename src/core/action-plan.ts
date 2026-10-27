@@ -1,5 +1,5 @@
 import { domainOf, type SourceKind, type SourcesReport } from "@/core/citations";
-import { canonicalName, nameKey } from "@/core/competitors";
+import { canonicalName, nameKey, squashedNameKey } from "@/core/competitors";
 import type { SearchReport } from "@/core/search-queries";
 import type { WebsiteCheckResult, WebsiteCheckRow } from "@/core/website-check";
 
@@ -122,7 +122,7 @@ function competitorCounts(checks: Pick<PlanCheck, "competitorsMentioned">[]): { 
   for (const c of checks) {
     const seen = new Set<string>();
     for (const name of c.competitorsMentioned) {
-      const key = squash(nameKey(name));
+      const key = squashedNameKey(name);
       if (!key || seen.has(key)) continue;
       seen.add(key);
       const row = counts.get(key) ?? { name: canonicalName(name), count: 0 };
@@ -183,7 +183,7 @@ const PLAIN_LABELS = new Set(["www", "help", "m"]);
 function isCompetitorSite(domain: string, names: string[]): boolean {
   const labels = domain.split(".").slice(0, -1).filter(l => !PLAIN_LABELS.has(l)).map(squash).filter(l => l.length >= 4);
   return labels.some(label => names.some(n => {
-    const key = squash(nameKey(n));
+    const key = squashedNameKey(n);
     return key.length >= 4 && (key.includes(label) || label.includes(key));
   }));
 }
@@ -232,7 +232,7 @@ export function sitesToGetOn<C extends Pick<PlanCheck, "promptKind" | "mentioned
 function pagesRead(domain: string, checks: Pick<PlanCheck, "citations">[]): string[] {
   const counts = new Map<string, number>();
   for (const c of checks) {
-    const urls = new Set(c.citations.filter(u => domainOf(u) === domain).map(u => u.replace(/[?&]utm_[^&#]*/g, "").replace(/\?$/, "")));
+    const urls = new Set(c.citations.filter(u => domainOf(u) === domain).map(u => u.replace(/([?&])utm_[^&#]*&?/g, "$1").replace(/[?&]$/, "")));
     for (const u of urls) counts.set(u, (counts.get(u) ?? 0) + 1);
   }
   const out: string[] = [];
@@ -252,7 +252,9 @@ function clip(text: string, max = 200): string {
   return `${cut.slice(0, cut.lastIndexOf(" ") > 0 ? cut.lastIndexOf(" ") : max).replace(/[\s,;:.]+$/, "")}…`;
 }
 
-const ALREADY_ON = "You're already on this site. Find the page AI read that leaves you out (below) and ask its writer to add you.";
+// When the business is already on a site, what to do about the pages that leave it out.
+const ALREADY_ON_LISTING = "You're already on this site, but AI also read pages that leave you out (below). Open those pages and make your listing or posts there complete and current.";
+const ALREADY_IN_ARTICLE = "You're already on this site, but AI also read an article that leaves you out (below). Email its writer a short note on what makes you different, with a photo and a link.";
 
 function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
   // Kept in the data's order, biggest gap first: a site's kind says how to get
@@ -270,14 +272,14 @@ function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
     const title = gap.kind === "google" ? "Complete your Google Business Profile"
       : onIt ? `Stand out on ${gap.domain}` : `Get on ${gap.domain}`;
     const why = onIt
-      ? `AI read ${gap.domain} in ${plural(gap.answers, "answer")}. It named you in ${gap.namedYou}, but in ${lost.length} it named ${listOf(named.map(n => n.name))} and not you.`
+      ? `AI read ${gap.domain} in ${plural(gap.answers, "answer")}. It named you in ${gap.namedYou}, but in ${lost.length} it named ${listOf(named.map(n => n.name))} instead of you.`
       : `In ${plural(lost.length, "answer")} that left you out, AI read ${gap.domain} and named ${listOf(named.map(n => `${n.name} (${n.count})`))}.`;
     return {
       key: `source:${gap.domain}`,
       title,
       why,
-      // For an article or blog, asking its writer is the whole advice.
-      how: !onIt ? advice.how : gap.kind === "other" ? ALREADY_ON : `${ALREADY_ON} ${advice.how}`,
+      // For an article or blog, emailing its writer is the whole advice.
+      how: !onIt ? advice.how : gap.kind === "other" || gap.kind === "press" ? ALREADY_IN_ARTICLE : `${ALREADY_ON_LISTING} ${advice.how}`,
       evidence: [...pagesRead(gap.domain, lost).slice(0, 2), ...[...new Set(lost.map(c => c.promptText))].slice(0, 2).map(quote)],
       effort: advice.effort,
       impact: big ? "high" : "medium",
@@ -287,7 +289,7 @@ function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
 
 function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
   // Only sites a business can get onto, never a competitor's own.
-  const reachable = new Set(sitesToGetOn(input.sources, buyer).map(s => s.domain));
+  const reachable = new Map(sitesToGetOn(input.sources, buyer).map(s => [s.domain, s.gap.namedYou]));
   const clientKeys = new Set((input.names ?? []).map(nameKey));
   const byPrompt = new Map<string, PlanCheck[]>();
   for (const c of buyer) byPrompt.set(c.promptId, [...(byPrompt.get(c.promptId) ?? []), c]);
@@ -321,12 +323,19 @@ function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[]
       }
     }
     const domains = [...cited.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 2).map(([d]) => d);
+    // A site whose answers already named the business is one to stand out on, not get onto.
+    const getOnto = domains.filter(d => !reachable.get(d));
+    const standOut = domains.filter(d => reachable.get(d));
+    const then = [
+      getOnto.length ? `get onto ${listOf(getOnto)}` : "",
+      standOut.length ? `make sure you stand out on ${listOf(standOut)}` : "",
+    ].filter(Boolean).join(", and ");
     const page = `Add a page or section to your site that answers ${quote(r.text)} in plain words, and says where you fit: what you make, for whom and where.`;
     return {
       key: `question:${r.promptId}`,
       title: quote(r.text),
       why: `AI named ${listOf(named)}; you were named in ${r.namedYou} of ${plural(r.answers.length, "answer")}.`,
-      how: domains.length ? `${page} Then get onto ${listOf(domains)}, which AI read for this question.` : page,
+      how: then ? `${page} Then ${then}, which AI read for this question.` : page,
       evidence: r.bestRank ? [`Your best place in an answer: ${ordinal(r.bestRank)}.`] : [],
       effort: "medium",
       impact: close(r) ? "high" : "medium",

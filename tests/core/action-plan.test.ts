@@ -120,9 +120,9 @@ describe("buildActionPlan", () => {
     const yelp = sources.find(i => i.key === "source:yelp.com")!;
     // yelp: 8 answers read it; q2's first named the business; 4 q1 + 3 q2 left it out.
     expect(yelp.title).toBe("Stand out on yelp.com");
-    expect(yelp.why).toBe(`AI read yelp.com in 8 answers. It named you in 1, but in 7 it named ${HILL} and ${HONEY} and not you.`);
-    expect(yelp.how.startsWith("You're already on this site. Find the page AI read that leaves you out (below) and ask its writer to add you.")).toBe(true);
-    expect(yelp.how).toMatch(/claim/i);
+    expect(yelp.why).toBe(`AI read yelp.com in 8 answers. It named you in 1, but in 7 it named ${HILL} and ${HONEY} instead of you.`);
+    expect(yelp.how).toBe("You're already on this site, but AI also read pages that leave you out (below). Open those pages and make your listing or posts there complete and current. Claim your listing, fill in every detail (services, prices, hours, photos), and ask a few happy customers to leave a review.");
+    expect(JSON.stringify(sources)).not.toContain("ask its writer");
     // The two pages read most in the lost answers, most first.
     expect(yelp.evidence.slice(0, 2)).toEqual(["https://www.yelp.com/biz/honey", "https://yelp.com/search"]);
     expect(sources.find(i => i.key === "source:reddit.com")!.how).toMatch(/post/i);
@@ -396,6 +396,28 @@ describe("action plan credibility", () => {
     // The homepage doesn't hide the pages under it.
     const home = items(buildActionPlan(input([lost(["https://h.example/"]), lost(["https://h.example/"]), lost(["https://h.example/menu"])])), "sources");
     expect(home[0].evidence.slice(0, 2)).toEqual(["https://h.example/", "https://h.example/menu"]);
+  });
+
+  it("asks an article's writer, and only that, when the business is already on it", () => {
+    const article = "You're already on this site, but AI also read an article that leaves you out (below). Email its writer a short note on what makes you different, with a photo and a link.";
+    for (const url of ["https://portland.eater.com/best", "https://blog.example/best"]) {
+      const checks = [lost([url]), check({ promptId: "won", mentioned: true, competitorsMentioned: [HONEY], citations: [url] })];
+      const [step] = items(buildActionPlan(input(checks)), "sources");
+      expect(step.title.startsWith("Stand out on")).toBe(true);
+      expect(step.how).toBe(article);
+    }
+  });
+
+  it("strips tracking tags without breaking the rest of the address", () => {
+    const checks = [lost(["https://t.example/p?utm_source=a&id=3", "https://t.example/q?id=4&utm_source=openai"])];
+    const [t] = items(buildActionPlan(input(checks)), "sources");
+    expect(t.evidence.slice(0, 2).sort()).toEqual(["https://t.example/p?id=3", "https://t.example/q?id=4"]);
+  });
+
+  it("says get onto a question's site the business isn't on, and stand out on one it is", () => {
+    const q1 = items(buildActionPlan(input()), "questions").find(i => i.key === "question:q1")!;
+    // yelp.com named the business once (q2); cakeblog.example never did.
+    expect(q1.how).toBe("Add a page or section to your site that answers \u201cBest birthday cake in Pasadena\u201d in plain words, and says where you fit: what you make, for whom and where. Then get onto cakeblog.example, and make sure you stand out on yelp.com, which AI read for this question.");
   });
 
   it("counts Dunkin' and Dunkin as one business", () => {

@@ -273,6 +273,8 @@ describe("the audit page", () => {
       expect(sources).toContain("Where AI is reading");
       expect(sources).toContain("AI read 4 websites to answer your customers. When it recommended someone else, it was reading 3 of them. Rose City Plumbing was named in answers from 3 of them.");
       expect(sources).not.toContain("you're not");
+      // Three sites: no need to say the plan lists fewer.
+      expect(sources).not.toContain("Your plan lists");
       const blurred = blurredIn(sources);
       expect(blurred).toContain('aria-hidden="true"');
       expect(sources.replace(blurred, "")).toContain("yelp.com");
@@ -281,6 +283,27 @@ describe("the audit page", () => {
       expect(blurred).toContain("reddit.com");
       // The competitor's own website is never a site to get on.
       expect(page).not.toContain("rosecityplumbing.com");
+    });
+
+    it("says the plan lists the 8 that matter most when AI read more", async () => {
+      const many: EngineAdapter = {
+        name: "openai",
+        run: async p => ({ answer: answers[p], citations: p.startsWith("Best") ? Array.from({ length: 10 }, (_, i) => `https://site${i}.example/`) : [] }),
+      };
+      const practiceId = await scannedPractice([many]);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const sources = card(text(await audit(lead.id)), "mk-teaser-sources");
+      expect(sources).toContain("When it recommended someone else, it was reading 10 of them. Your plan lists the 8 that matter most.");
+    });
+
+    it("matches the top competitor to the sites under any punctuation of its name", async () => {
+      const practiceId = await scannedPractice([citing]);
+      // The lost answer spells it with a hyphen; the other answer doesn't.
+      await db.update(checks).set({ competitorsMentioned: ["Rose-City Plumbing"] }).where(sql`${checks.citations} @> '["https://angi.com/x"]'::jsonb`);
+      await db.update(checks).set({ competitorsMentioned: ["Rose City Plumbing"] }).where(sql`${checks.citations} = '["https://yelp.com/b"]'::jsonb`);
+      const lead = await seedLead({ practiceId, status: "ready" });
+      const sources = card(text(await audit(lead.id)), "mk-teaser-sources");
+      expect(sources).toMatch(/Rose.City Plumbing was named in answers from 3 of them\./);
     });
 
     it("leaves both cards out when there's no plan and nowhere to get on", async () => {

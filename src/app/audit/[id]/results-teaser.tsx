@@ -3,7 +3,7 @@ import { ScoreDial } from "@/components/ui";
 import { sitesToGetOn, type ActionPlan } from "@/core/action-plan";
 import type { SourcesReport } from "@/core/citations";
 import { ENGINE_NAMES } from "@/core/coverage";
-import { nameKey, topBuyerCompetitor } from "@/core/competitors";
+import { squashedNameKey, topBuyerCompetitor } from "@/core/competitors";
 import { topEngine } from "@/core/top-engine";
 import { CalendlyEmbed, type CalendlyPrefill } from "@/app/book/calendly-embed";
 import { AccountForm } from "./account-form";
@@ -72,7 +72,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
   // Every site AI read but the business's own.
   const read = sources?.sources.filter(s => s.kind !== "own_site").length ?? 0;
   // Sites to get on whose answers named the top competitor.
-  const rivalOn = rival ? sites.filter(s => s.named.some(n => nameKey(n.name) === nameKey(rival.name))).length : 0;
+  const rivalOn = rival ? sites.filter(s => s.named.some(n => squashedNameKey(n.name) === squashedNameKey(rival.name))).length : 0;
 
   return (
     <div className="mk-teaser">
@@ -142,6 +142,7 @@ export function ResultsTeaser({ leadId, businessName, logo, scanDate, ranking, c
           <span className="mk-eyebrow">Where AI is reading</span>
           <p className="mk-body" style={{ marginTop: 14 }}>
             {`AI read ${plural(read, "website")} to answer your customers. When it recommended someone else, it was reading ${sites.length} of them.`}
+            {sites.length > 8 && ` Your plan lists the ${Math.min(sites.length, 8)} that matter most.`}
             {rival && rivalOn > 0 && ` ${rival.name} was named in answers from ${rivalOn} of them.`}
           </p>
           <div className="mk-teaser-step">

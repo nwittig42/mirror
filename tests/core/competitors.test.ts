@@ -219,6 +219,11 @@ describe("topBuyerCompetitor", () => {
     expect(topBuyerCompetitor([check("category", []), check("category", null), check("branded", ["Drain Kings"])])).toBeNull();
   });
 
+  it("counts names that differ only in punctuation as one business", () => {
+    expect(topBuyerCompetitor([check("category", ["Dunkin'"]), check("category", ["Dunkin"]), check("category", ["Ace Plumbing"])]))
+      .toEqual({ name: "Dunkin'", mentions: 2 });
+  });
+
   it("counts spelling variants of one business together, under the first spelling seen", () => {
     const checks = [
       check("category", ["Rose City Plumbing (Portland)"]),
