@@ -1,14 +1,15 @@
 import { computeOverall, computeVisibility } from "@/core/scoring";
 import type { Position, PromptKind } from "@/core/types";
 import { FORECAST_MONTHS, seriousLeft, type AccuracyForecast, type AccuracyPoint } from "@/core/accuracy-forecast";
-import type { Range } from "@/core/forecast";
+import { FOLLOW_THROUGH, type Range } from "@/core/forecast";
 
 /**
  * Where all three scores could go over the next 12 months, for one chart:
  *
  * - Accuracy rises as wrong facts are fixed (src/core/accuracy-forecast.ts).
- * - Recommended by AI rises toward the score of the competitor AI names most,
- *   at the pace the leads forecast is drawn at.
+ * - Recommended by AI rises toward what following the Next steps earns
+ *   (followThroughScore), never less than the score of the competitor AI
+ *   names most, at the pace the leads forecast is drawn at.
  * - Overall is worked out from those two with the same formula a scan uses.
  */
 
@@ -40,6 +41,24 @@ export function competitorScore(checks: ScoreCheck[], competitor: string): numbe
   }), engines);
 }
 
+/**
+ * The Recommended by AI score the business would get by following its Next
+ * steps: the same answers, with FOLLOW_THROUGH's likely share of those that
+ * named a competitor and not the business turned into answers that name it,
+ * low on the list (a plain mention, not first place). Branded questions stay
+ * out, as in every visibility score.
+ */
+export function followThroughScore(checks: (ScoreCheck & { mentioned: boolean; position: Position })[]): number {
+  const engines = new Set(checks.map(c => c.engine)).size;
+  const lost = checks.filter(c => c.promptKind !== "branded" && !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0);
+  const won = new Set(lost.slice(0, Math.round(lost.length * FOLLOW_THROUGH.likely)));
+  return computeVisibility(checks.map(c => ({
+    engine: c.engine as never, promptKind: c.promptKind,
+    mentioned: c.mentioned || won.has(c),
+    position: won.has(c) ? "mentioned" : c.position,
+  })), engines);
+}
+
 export interface ScoreLine {
   now: number;
   /** The forecast at 3, 6, 9 and 12 months. */
@@ -61,7 +80,7 @@ export function forecastScores(args: {
   /** Scores in the latest scan. */
   now: { facts: number | null; visibility: number | null };
   accuracy: AccuracyForecast | null;
-  /** The competitor's Recommended by AI score. Null when AI named no competitor. */
+  /** Where Recommended by AI is headed: what the Next steps earn, or the top competitor's score if higher. Null when there's nothing to aim at. */
   target: number | null;
 }): ScoreForecast {
   const level = (value: number): AccuracyPoint[] => FORECAST_MONTHS.map(month => ({ month, low: value, likely: value, high: value }));

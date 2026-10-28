@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import "../landing.css";
 import { LandingCta, LandingFooter, LandingNav } from "@/components/landing/chrome";
+import { PLAN_OFFERS } from "@/core/plan-offer";
 
 /**
  * Plans and prices. Public (see PUBLIC_PATHS in src/middleware.ts) and static,
@@ -21,37 +22,7 @@ export const metadata: Metadata = {
     "Mirror plans and pricing. Start with a free audit, then Pulse at $149 a month or Partner at $399 a month. First month free.",
 };
 
-const PLANS = [
-  {
-    name: "Pulse",
-    amt: "$149",
-    pitch: "For brands that want to see how often AI recommends them, and what it says.",
-    features: [
-      "Weekly scans across every major AI assistant",
-      "Dashboard with every answer, word for word",
-      "Weekly email of what changed",
-      "Wrong-fact alerts",
-      "The sources AI cites about you",
-      "How often AI recommends you versus three competitors",
-      "Monthly report and prioritized action plan",
-      "One-time cleanup available for a fee",
-    ],
-  },
-  {
-    name: "Partner",
-    amt: "$399",
-    badge: "Most popular",
-    featured: true,
-    pitch: "A full partnership. We do the work to put your brand first.",
-    features: [
-      "Everything in Pulse",
-      "We clear false information for you",
-      "We do the work to get you recommended",
-      "More questions and competitors tracked",
-      "Call us whenever, plus a monthly strategy call",
-    ],
-  },
-];
+const PLANS = PLAN_OFFERS;
 
 const FAQ = [
   {

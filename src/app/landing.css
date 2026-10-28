@@ -2619,13 +2619,352 @@
   max-width: 480px;
 }
 
-/* The finished audit: one column of full-width cards, top to bottom. */
-.mk-teaser {
-  display: grid;
-  gap: 24px;
+/* The finished audit: one grey report panel. The business across the top,
+   then the report's white cards on the left and the sign-up card pinned on
+   the right, so the button is in view however far down someone reads. */
+/* Less air above the report, so the score and the button sit above the fold. */
+.mk-audit-page main > .mk-section:has(.mk-report) {
+  padding-top: 40px;
 }
-.mk-teaser > * {
+.mk-report {
+  --report-bg: #ecebe7;
+  --report-gap: 20px;
+  background: var(--report-bg);
+  border-radius: 14px;
+  padding: 36px;
+}
+.mk-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: var(--report-gap);
+  align-items: start;
+}
+.mk-report-main {
+  display: grid;
+  gap: var(--report-gap);
   min-width: 0;
+}
+/* Clears the sticky site menu above it. */
+.mk-report-aside {
+  position: sticky;
+  top: 104px;
+  min-width: 0;
+}
+.mk-report-card {
+  background: var(--paper);
+  border-radius: 10px;
+  padding: 28px;
+  box-shadow: 0 1px 2px rgba(26, 26, 24, 0.06);
+  min-width: 0;
+}
+.mk-report .mk-audit-head {
+  margin-bottom: 28px;
+}
+.mk-report .mk-audit-head .mk-eyebrow {
+  margin-bottom: 6px;
+}
+.mk-report .mk-audit-head .lp-h2 {
+  margin: 0;
+}
+/* The score: a ring coloured by grade, then three stat tiles. */
+.mk-report-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px;
+}
+.mk-report-dial {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.mk-grade {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+.mk-grade-low { background: var(--color-flag-soft); color: var(--color-flag); }
+.mk-grade-mid { background: #f7ead0; color: #8a5f0c; }
+.mk-grade-high { background: var(--color-ok-soft); color: var(--color-ok); }
+.mk-report-stats {
+  flex: 1;
+  min-width: 240px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.mk-stat {
+  --tone: var(--gold);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 18px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--tone) 9%, var(--paper));
+  border-top: 3px solid var(--tone);
+  min-width: 0;
+}
+.mk-stat-teal { --tone: var(--color-teal); }
+.mk-stat-flag { --tone: var(--color-flag); }
+.mk-stat-plum { --tone: var(--color-plum); }
+.mk-stat-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.mk-stat-value {
+  font-size: 32px;
+  font-weight: 600;
+  line-height: 1.1;
+  color: var(--tone);
+  font-variant-numeric: tabular-nums;
+}
+.mk-stat-word {
+  font-size: 20px;
+  line-height: 1.6;
+}
+.mk-stat-note {
+  font-size: 13px;
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+/* One bar per AI tool: the share of answers that named the business. */
+.mk-engine-bars {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 12px;
+}
+.mk-engine-bars li {
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+.mk-engine-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bone);
+  overflow: hidden;
+}
+.mk-engine-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--tone);
+}
+.mk-engine-pct {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+/* Plan groups: a coloured dot and count each. */
+.mk-tone-teal { --tone: var(--color-teal); }
+.mk-tone-orange { --tone: var(--color-ring-visibility); }
+.mk-tone-plum { --tone: var(--color-plum); }
+.mk-tone-sun { --tone: var(--color-sun); }
+.mk-tone-pink { --tone: var(--color-ring-facts); }
+.mk-dot-label::before {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 10px;
+  border-radius: 50%;
+  background: var(--tone);
+}
+.mk-teaser-groups .mk-teaser-count {
+  min-width: 28px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  text-align: center;
+  font-weight: 600;
+  color: var(--tone);
+  background: color-mix(in srgb, var(--tone) 12%, var(--paper));
+}
+/* Every card leads with a real heading, large enough to scan the report by. */
+.mk-report-h {
+  margin: 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 30px;
+  font-weight: 500;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.mk-report-score-head {
+  flex-basis: 100%;
+  margin-bottom: -4px;
+  font-size: 38px;
+}
+.mk-report-lede {
+  margin: 12px 0 0;
+}
+/* The one move shown in full: tags, the move, why, and what to do. Then the rest blurred under a button. */
+.mk-move {
+  margin-top: 22px;
+  padding: 22px 24px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-teal) 7%, var(--paper));
+  border: 1px solid color-mix(in srgb, var(--color-teal) 25%, var(--paper));
+  overflow-wrap: anywhere;
+}
+.mk-move-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.mk-move-num {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-teal);
+  margin-right: 4px;
+}
+.mk-move-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--bone);
+  color: var(--ink-soft);
+}
+.mk-move-quick { background: var(--color-ok-soft); color: var(--color-ok); }
+.mk-move-impact { background: #f7ead0; color: #8a5f0c; }
+.mk-move-title {
+  margin: 14px 0 0;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--ink);
+}
+.mk-move-why {
+  margin: 8px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-soft);
+}
+.mk-move-how {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--paper);
+  border-left: 4px solid var(--color-teal);
+}
+.mk-move-how span {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-teal);
+}
+.mk-move-how p {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.mk-plan-locked {
+  position: relative;
+  min-height: 72px;
+  margin-top: 6px;
+}
+.mk-plan-locked .mk-teaser-blurred {
+  padding-left: 30px;
+  list-style: decimal;
+  line-height: 2.4;
+}
+.mk-plan-unlock {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  box-shadow: 0 6px 20px rgba(26, 26, 24, 0.18);
+}
+.mk-report-summary {
+  flex-basis: 100%;
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+  font-size: 15px;
+}
+.mk-report-summary p {
+  margin: 0;
+}
+.mk-report-summary p + p {
+  margin-top: 6px;
+}
+.mk-report .mk-teaser-account {
+  border-top: 4px solid var(--gold);
+  /* The unlock button jumps here; clear the sticky site menu. */
+  scroll-margin-top: 110px;
+}
+.mk-report .mk-teaser-account .mk-report-h {
+  font-size: 28px;
+}
+/* What the account gets, each with a green tick. */
+.mk-account-gets {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+.mk-account-gets li {
+  position: relative;
+  padding-left: 28px;
+}
+.mk-account-gets li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-ok-soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18'%3E%3Cpath d='M5 9.5l2.6 2.5L13 6.5' fill='none' stroke='%234f6b4a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center / 18px no-repeat;
+}
+.mk-report .mk-teaser-account form {
+  margin-top: 16px !important;
+}
+.mk-report .mk-teaser-book {
+  margin-top: 0;
+}
+@media (max-width: 1000px) {
+  .mk-report-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* On a phone the sign-up card comes straight after the score. */
+  .mk-report-main { display: contents; }
+  .mk-report-main > * { order: 2; }
+  .mk-report-aside { position: static; order: 1; }
+  .mk-report-score { order: 0 !important; }
+}
+@media (max-width: 640px) {
+  .mk-report-h { font-size: 24px; }
+  .mk-report-score-head { font-size: 30px; }
+  .mk-report {
+    padding: 16px;
+    border-radius: 10px;
+  }
+  .mk-report-card {
+    padding: 22px 18px;
+  }
+  .mk-engine-bars li {
+    grid-template-columns: 96px minmax(0, 1fr) 40px;
+  }
 }
 .mk-audit-head {
   display: flex;
@@ -2738,12 +3077,12 @@
   font-size: 18px;
 }
 .mk-calendly-bleed {
-  margin: 0 -36px -36px;
+  margin: 0 -28px -28px;
 }
 @media (max-width: 900px) {
   /* Matches .mk-form-card's phone padding, so the scheduler gets the card's full width. */
   .mk-calendly-bleed {
-    margin: 0 -20px -26px;
+    margin: 0 -18px -22px;
   }
 }
 @media (max-width: 640px) {
@@ -2751,4 +3090,275 @@
     padding-left: 16px;
     padding-right: 16px;
   }
+}
+
+/* ---------- the finished audit, dark ---------- */
+/* One dark panel, no white cards: sections split by thin rules. Tokens are
+   redefined here so the shared pieces inside (the dial, the form, the
+   blurred lists) read light on dark. */
+.mk-report {
+  --report-bg: #1b1c1e;
+  --report-raised: #242528;
+  --report-rule: #313337;
+  --report-text: #eeebe5;
+  --report-soft: #b9b5ad;
+  --report-muted: #8d8981;
+  background: var(--report-bg);
+  color: var(--report-text);
+  border-radius: 16px;
+  padding: 44px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+.mk-report .mk-report-card {
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  padding: 36px 0;
+  border-top: 1px solid var(--report-rule);
+}
+.mk-report .mk-report-main > .mk-report-card:first-child {
+  border-top: 0;
+  padding-top: 8px;
+}
+.mk-report .mk-report-main {
+  gap: 0;
+}
+.mk-report .mk-report-grid {
+  gap: 48px;
+}
+.mk-report-title {
+  margin: 0;
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 52px;
+  font-weight: 500;
+  line-height: 1.05;
+  letter-spacing: -0.015em;
+  color: #fff;
+  overflow-wrap: anywhere;
+}
+.mk-report-meta {
+  margin: 10px 0 0;
+  font-size: 14px;
+  color: var(--report-muted);
+}
+.mk-report .mk-eyebrow {
+  color: #d3a065;
+}
+.mk-report .mk-report-h,
+.mk-report .mk-move-title,
+.mk-report .mk-teaser-step strong {
+  color: #fff;
+}
+.mk-report .mk-body,
+.mk-report .mk-report-summary,
+.mk-report .mk-move-why,
+.mk-report .mk-stat-note,
+.mk-report .mk-teaser-quote {
+  color: var(--report-soft);
+}
+.mk-report .mk-body strong {
+  color: #fff;
+}
+.mk-report .mk-report-summary {
+  border-top-color: var(--report-rule);
+}
+.mk-report .mk-field-hint,
+.mk-report .mk-stat-label {
+  color: var(--report-muted);
+}
+.mk-report a:not(.mk-btn) {
+  color: #d3a065;
+}
+.mk-report-ask {
+  margin: 14px 0 0;
+  font-size: 14px;
+  color: var(--report-muted);
+}
+.mk-report .mk-teaser-quote {
+  border-left-color: #d3a065;
+  font-size: 16px;
+}
+/* The dial's own colours are for a light page. */
+.mk-report .text-ink { color: #fff; }
+.mk-report .text-muted { color: var(--report-muted); }
+.mk-report .stroke-bone { stroke: #34363a; }
+.mk-report .mk-stat {
+  background: color-mix(in srgb, var(--tone) 14%, var(--report-raised));
+}
+.mk-report .mk-stat-value {
+  color: color-mix(in srgb, var(--tone) 55%, #fff);
+}
+.mk-report .mk-grade-low { background: rgba(232, 128, 108, 0.16); color: #f0a08f; }
+.mk-report .mk-grade-mid { background: rgba(217, 154, 28, 0.18); color: #f0c463; }
+.mk-report .mk-grade-high { background: rgba(143, 187, 134, 0.18); color: #a9d0a0; }
+.mk-report .mk-engine-track {
+  background: #2c2e32;
+}
+.mk-report .mk-engine-name,
+.mk-report .mk-engine-pct {
+  color: var(--report-text);
+}
+.mk-report .mk-move {
+  background: var(--report-raised);
+  border-color: #33363a;
+}
+.mk-report .mk-move-num { color: #6fc2b9; }
+.mk-report .mk-move-tag { background: #33353a; color: var(--report-soft); }
+.mk-report .mk-move-quick { background: rgba(143, 187, 134, 0.18); color: #a9d0a0; }
+.mk-report .mk-move-impact { background: rgba(217, 154, 28, 0.18); color: #f0c463; }
+.mk-report .mk-move-how {
+  background: #1b1c1e;
+  border-left-color: #6fc2b9;
+}
+.mk-report .mk-move-how span { color: #6fc2b9; }
+.mk-report .mk-move-how p { color: var(--report-text); }
+.mk-report .mk-teaser-step {
+  border-left-color: #d3a065;
+}
+.mk-report-sub {
+  margin: 30px 0 14px;
+  font-size: 17px;
+  font-weight: 600;
+  color: #fff;
+}
+/* The top competitor shown, the rest locked under it. */
+.mk-rival-row {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 200px) minmax(0, 1fr) 90px;
+  align-items: center;
+  gap: 12px;
+  font-size: 15px;
+}
+.mk-rival-rank {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: #33353a;
+  font-size: 13px;
+  font-weight: 600;
+}
+.mk-rival-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Locked content: real items blurred, a gold button over them. */
+.mk-report .mk-plan-locked {
+  margin-top: 12px;
+  padding: 6px 0;
+  min-height: 84px;
+}
+.mk-report .mk-teaser-blurred {
+  margin: 0;
+  padding-left: 4px;
+  list-style: none;
+  color: var(--report-soft);
+  line-height: 2.3;
+  filter: blur(6px);
+}
+.mk-btn-gold {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #c08a4c;
+  border-color: #c08a4c;
+  color: #17130e;
+  font-weight: 600;
+  border-radius: 999px;
+}
+.mk-btn-gold:hover {
+  background: #d3a065;
+  border-color: #d3a065;
+  color: #17130e;
+}
+.mk-report .mk-plan-unlock {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
+}
+.mk-lock-icon {
+  display: inline-block;
+  flex: none;
+  width: 15px;
+  height: 15px;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1zm2 0h6V7a3 3 0 0 0-6 0v3z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h1zm2 0h6V7a3 3 0 0 0-6 0v3z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* The strip under the business name: how much is behind the account. */
+.mk-report-locked-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 18px;
+  margin: 0 0 36px;
+  padding: 16px 20px;
+  border-radius: 12px;
+  background: rgba(192, 138, 76, 0.12);
+  border: 1px solid rgba(192, 138, 76, 0.35);
+  color: #e9c79c;
+}
+.mk-report-locked-bar p {
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.mk-report-locked-bar strong {
+  color: #fff;
+}
+/* The sign-up panel: a raised block inside the dark report. */
+.mk-report .mk-teaser-account {
+  background: var(--report-raised);
+  border: 1px solid #33363a;
+  border-top: 4px solid #c08a4c;
+  border-radius: 12px;
+  padding: 28px;
+}
+.mk-report .mk-account-gets {
+  color: var(--report-text);
+}
+.mk-report .mk-account-gets li::before {
+  background-color: rgba(143, 187, 134, 0.2);
+}
+.mk-report .mk-field label {
+  color: var(--report-text);
+}
+.mk-report .mk-input {
+  background: #18191b;
+  border-color: #3a3c41;
+  color: #fff;
+}
+.mk-report .mk-teaser-account .mk-btn {
+  background: #c08a4c;
+  border-color: #c08a4c;
+  color: #17130e;
+  font-weight: 600;
+}
+.mk-report .mk-teaser-account .mk-btn:hover {
+  background: #d3a065;
+  border-color: #d3a065;
+}
+.mk-report .mk-calendly-bleed {
+  margin: 16px 0 0;
+  border-radius: 12px;
+  overflow: hidden;
+}
+@media (max-width: 1000px) {
+  .mk-report .mk-report-grid { gap: 0; }
+  .mk-report .mk-report-aside { margin: 8px 0 28px; }
+}
+@media (max-width: 640px) {
+  .mk-report { padding: 22px 16px; border-radius: 12px; }
+  .mk-report-title { font-size: 36px; }
+  .mk-report .mk-teaser-account { padding: 22px 18px; }
+  .mk-rival-row { grid-template-columns: 26px minmax(0, 1fr) 80px; }
+  .mk-rival-row .mk-engine-track { display: none; }
+}
+/* The score section is a wrapping row; the competitor list takes a full line of it. */
+.mk-report-rivals {
+  flex-basis: 100%;
+  min-width: 0;
 }

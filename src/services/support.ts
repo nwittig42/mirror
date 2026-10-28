@@ -18,6 +18,7 @@ export const SUPPORT_TOPICS = {
   report: "A question about my report",
   account: "Login or account",
   billing: "Billing",
+  start_plan: "Start a plan",
   other: "Something else",
 } as const;
 export type SupportTopic = keyof typeof SUPPORT_TOPICS;

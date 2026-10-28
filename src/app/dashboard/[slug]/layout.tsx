@@ -7,6 +7,7 @@ import { practices } from "@/db/schema";
 import { isAdminViewer } from "@/lib/admin-view";
 import { AdminViewBanner } from "@/components/admin-view-banner";
 import { CallBanner } from "@/components/locked";
+import { StartPlanFloat } from "@/components/start-plan-float";
 import { THEME_COOKIE } from "@/lib/theme";
 
 /**
@@ -14,7 +15,8 @@ import { THEME_COOKIE } from "@/lib/theme";
  * in globals.css, the same look as the website). For an operator it also adds
  * the "viewing as admin" banner; a customer never gets it. A free account
  * (requirePracticeView's locked flag) gets the "Book a call" strip, once, on
- * every page; an active client and an operator never do. Access itself is
+ * every page, and the "Start your plan" button pinned bottom left; an active
+ * client and an operator never do. Access itself is
  * still checked by each page.
  *
  * A Partner's dashboard is black (the .theme-dark class) unless the viewer
@@ -38,10 +40,12 @@ export default async function DashboardLayout({
   // Without a session there is no viewer to lock: the page itself 404s.
   const locked = session && plan ? (await requirePracticeView(slug)).locked : false;
   const page = (banner: ReactNode) => (
-    <div className={`app antialiased ${dark ? "theme-dark" : ""}`}>
+    // Room at the foot of a free account's pages, so the pinned button never covers the last thing on them.
+    <div className={`app antialiased ${dark ? "theme-dark" : ""} ${locked ? "pb-24" : ""}`}>
       {banner}
       {locked && <CallBanner />}
       {children}
+      {locked && <StartPlanFloat slug={slug} />}
     </div>
   );
   if (!isAdminViewer(session?.user?.role)) return page(null);

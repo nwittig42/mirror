@@ -80,6 +80,15 @@ export const ASSISTANT_WEIGHT: Record<string, number> = {
  */
 export const VISITS_PER_MENTION: Range = { low: 0.005, likely: 0.02, high: 0.04 };
 
+/**
+ * The forecast assumes the business follows its Next steps. Of the answers
+ * where AI named a competitor and not the business, this is the share those
+ * steps win back within 12 months. Nobody has measured it, so it is our
+ * assumption, ranged wide, and the page says so. The target is never below
+ * catching the top competitor, the forecast's older target.
+ */
+export const FOLLOW_THROUGH: Range = { low: 0.25, likely: 0.5, high: 0.75 };
+
 export type BusinessType = "home_services" | "clinic" | "legal" | "b2b_software" | "freemium" | "ecommerce" | "local_shop" | "other";
 export const BUSINESS_TYPES: BusinessType[] = ["home_services", "clinic", "legal", "b2b_software", "freemium", "ecommerce", "local_shop", "other"];
 export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
@@ -162,10 +171,14 @@ export interface MentionRates {
   competitor: string | null;
   /** Answers counted (branded questions are left out, as everywhere). */
   answers: number;
-  /** How often the chat assistants name each, weighted by how much each assistant is used. Null when none was scanned. */
-  assistants: { yours: number; theirs: number } | null;
+  /**
+   * How often the chat assistants name each, weighted by how much each
+   * assistant is used, and how often they named a competitor and not the
+   * business (`lost`: what the Next steps go after). Null when none was scanned.
+   */
+  assistants: { yours: number; theirs: number; lost?: number } | null;
   /** The same in Google's AI Mode. Null when it was not scanned. */
-  aiMode: { yours: number; theirs: number } | null;
+  aiMode: { yours: number; theirs: number; lost?: number } | null;
 }
 
 /**
@@ -196,6 +209,7 @@ export function mentionRates(checks: ForecastCheck[]): MentionRates {
   const pair = (rows: ForecastCheck[]) => ({
     yours: rate(rows.filter(c => c.mentioned).length, rows.length),
     theirs: competitor ? rate(named(rows, competitor), rows.length) : 0,
+    lost: rate(rows.filter(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0).length, rows.length),
   });
   return {
     competitor,
@@ -203,6 +217,7 @@ export function mentionRates(checks: ForecastCheck[]): MentionRates {
     assistants: assistantEngines.length === 0 ? null : {
       yours: weighted(rows => pair(rows).yours),
       theirs: weighted(rows => pair(rows).theirs),
+      lost: weighted(rows => pair(rows).lost),
     },
     aiMode: google.length === 0 ? null : pair(google),
   };
@@ -267,7 +282,7 @@ export interface Estimate { low: number; likely: number; high: number }
 
 export interface Forecast {
   competitor: string;
-  /** True when AI already names the business at least as often as the competitor on every tool scanned. */
+  /** True when there is nothing left to win: no answer names a competitor instead of the business, and none names the competitor more. */
   ahead: boolean;
   monthlySearches: number;
   /** Extra per year, if AI named the business as often as the competitor. */
@@ -284,6 +299,12 @@ export interface Forecast {
   adCost: Estimate | null;
   /** AI visits per month the same sums imply the business gets today, to hold against its analytics. */
   visitsTodayPerMonth: Estimate;
+  /**
+   * AI answers a month that name the business: about how many today, and how
+   * many more once the Next steps have worked (a full year in). The number an
+   * owner reads first; visits and customers follow from it.
+   */
+  recommendations: { today: number; added: Estimate };
   steps: StepRow[];
   /** The uncertain inputs, widest first: what moves the number most. */
   movers: { label: string; times: number }[];
@@ -341,9 +362,12 @@ export function buildForecast(input: ForecastInput): ForecastResult {
   const visitToLead = ownLead !== null ? ownRange(ownLead) : defaults!.visitToLead.range;
   const leadToCustomer = ownClose !== null ? ownRange(ownClose) : defaults!.leadToCustomer.range;
 
-  const gap = (pair: { yours: number; theirs: number } | null) => (pair ? Math.max(0, pair.theirs - pair.yours) : 0);
-  const assistantGap = gap(rates.assistants);
-  const aiModeGap = gap(rates.aiMode);
+  // The answers to win: the share of lost answers the Next steps win back,
+  // and never less than catching the top competitor.
+  const gap = (pair: { yours: number; theirs: number; lost?: number } | null, followThrough: number) =>
+    (pair ? Math.max(0, pair.theirs - pair.yours, (pair.lost ?? 0) * followThrough) : 0);
+  const assistantGap = gap(rates.assistants, FOLLOW_THROUGH.likely);
+  const aiModeGap = gap(rates.aiMode, FOLLOW_THROUGH.likely);
 
   // Click price averaged by how often each term is searched.
   const withPrice = priced.filter(k => k.cpc !== null);
@@ -360,11 +384,15 @@ export function buildForecast(input: ForecastInput): ForecastResult {
   const pass = (z: () => number) => {
     const assistantAnswers = rates.assistants ? monthlySearches * draw(ASSISTANT_ANSWERS_PER_SEARCH, z()) : 0;
     const aiModeAnswers = rates.aiMode ? monthlySearches * draw(AI_MODE_ANSWERS_PER_SEARCH, z()) : 0;
+    const follow = draw(FOLLOW_THROUGH, z(), 1);
     const lift = draw(VISITS_PER_MENTION, z(), 1);
     const toLead = draw(visitToLead, z(), 1);
     const toCustomer = draw(leadToCustomer, z(), 1);
-    const visits = (assistantAnswers * assistantGap + aiModeAnswers * aiModeGap) * lift * 12;
+    const recsAdded = assistantAnswers * gap(rates.assistants, follow) + aiModeAnswers * gap(rates.aiMode, follow);
+    const visits = recsAdded * lift * 12;
     return {
+      recsAdded,
+      recsToday: assistantAnswers * (rates.assistants?.yours ?? 0) + aiModeAnswers * (rates.aiMode?.yours ?? 0),
       visits, leads: visits * toLead, customers: visits * toLead * toCustomer,
       today: (assistantAnswers * (rates.assistants?.yours ?? 0) + aiModeAnswers * (rates.aiMode?.yours ?? 0)) * lift,
     };
@@ -440,10 +468,10 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       note: "For every 100 Google searches on a topic, people put about 14 questions to ChatGPT, Gemini, Perplexity, Claude and Grok. This is a worldwide figure for every topic; none exists for one trade or one city.",
       sources: [AHREFS_RATIOS],
     }, {
-      label: `Gap in AI assistants: ${rates.competitor} named in ${pct(rates.assistants.theirs)} of answers, you in ${pct(rates.assistants.yours)}`,
+      label: `AI assistant answers you could win: you're named in ${pct(rates.assistants.yours)}, and a competitor is named instead in ${pct(rates.assistants.lost ?? 0)}`,
       value: `${Math.round(assistantGap * 100)} points`,
       origin: "measured" as const,
-      note: "From your latest scan, leaving out questions that name you. Each assistant counts by how much it is used, so ChatGPT weighs most.",
+      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about half of the answers you're losing (a quarter to three quarters), and at least enough to match ${rates.competitor}. Each assistant counts by how much it is used, so ChatGPT weighs most.`,
       sources: [],
     }] : []),
     ...(rates.aiMode ? [{
@@ -453,10 +481,10 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       note: "Published as a range of 5 to 10 for every 100 Google searches.",
       sources: [AHREFS_RATIOS],
     }, {
-      label: `Gap in Google AI Mode: ${rates.competitor} named in ${pct(rates.aiMode.theirs)} of answers, you in ${pct(rates.aiMode.yours)}`,
+      label: `Google AI Mode answers you could win: you're named in ${pct(rates.aiMode.yours)}, and a competitor is named instead in ${pct(rates.aiMode.lost ?? 0)}`,
       value: `${Math.round(aiModeGap * 100)} points`,
       origin: "measured" as const,
-      note: "From your latest scan, leaving out questions that name you.",
+      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about half of the answers you're losing, and at least enough to match ${rates.competitor}.`,
       sources: [],
     }] : []),
     {
@@ -533,6 +561,7 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       revenueTrusted,
       adCost: cpc === null ? null : scale(visitEstimate, cpc),
       visitsTodayPerMonth: spread("today"),
+      recommendations: { today: likely.recsToday, added: spread("recsAdded") },
       steps,
       movers,
     },

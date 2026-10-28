@@ -12,6 +12,7 @@ import { ENGINES, type Engine } from "@/core/types";
 import { ENGINE_NAMES } from "@/core/coverage";
 import { KIND_FILL, TOOL } from "@/components/chart-keys";
 import { DashboardHeader } from "@/components/dashboard-header";
+import { OneTimeAuditCard } from "@/components/locked";
 import { BarRow, BrandIcon, Card, Note, PageBody, SectionTitle, SiteIcon, SplitBar, Table } from "@/components/ui";
 
 // A real scan names 40 to 60 distinct businesses. The top of the list is the
@@ -69,7 +70,7 @@ function NamedList({ cell, markOf }: { cell: CompetitorCell | undefined; markOf:
  */
 export default async function CompetitorsPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { practice } = await requirePracticeView(slug);
+  const { practice, locked } = await requirePracticeView(slug);
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
 
@@ -158,6 +159,13 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
   return (
     <PageBody>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="competitors" />
+      {locked && (
+        <div className="mb-4">
+          <OneTimeAuditCard slug={slug} scanDate={latestScan.startedAt}>
+            Competitors move every week. A plan tracks them weekly, so you see when you pass them, and when a new one shows up.
+          </OneTimeAuditCard>
+        </div>
+      )}
 
       <div className="space-y-4">
         {!nobodyNamed && (

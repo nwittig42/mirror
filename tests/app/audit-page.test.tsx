@@ -76,7 +76,7 @@ async function scannedPractice(adapters: EngineAdapter[] = [adapter], { more = [
 function card(page: string, name: string): string {
   const start = page.indexOf(name);
   expect(start).toBeGreaterThan(-1);
-  const end = page.indexOf("mk-form-card", start + name.length);
+  const end = page.indexOf("mk-report-card", start + name.length);
   return page.slice(start, end > -1 ? end : undefined);
 }
 
@@ -169,14 +169,14 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page).toContain("Recommended by AI");
+      expect(page).toContain("Competitor Report");
       expect(page).toContain(LEFT_OUT);
       // A branded answer can carry unconfirmed facts, so it is nowhere on the page.
       expect(page).not.toContain(SECRET_ANSWER);
       expect(page).not.toContain("$49");
     });
 
-    it("shows the Recommended by AI score on the 30-100 scale", async () => {
+    it("shows the Competitor Report score on the 30-100 scale", async () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const [scan] = await db.select().from(scans).where(eq(scans.practiceId, practiceId));
@@ -189,8 +189,9 @@ describe("the audit page", () => {
       const anonymous = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(anonymous.id));
       const account = (markup: string) => markup.slice(markup.indexOf("mk-teaser-account"), markup.indexOf("Already have an account?"));
-      expect(page).toContain("Create your free account to get your full action plan");
-      expect(page).toContain("Every step, with the competitors and websites behind it, plus every AI answer word for word.");
+      expect(page).toContain("create-account");
+      expect(page).toContain("Start getting customers from AI");
+      expect(page).toContain("Every AI answer about you, word for word");
       expect(account(page)).toContain('name="email"');
       expect(page).toContain("Create account");
       expect(page).toContain("Already have an account?");
@@ -202,11 +203,12 @@ describe("the audit page", () => {
       expect(account(known)).toContain('name="password"');
     });
 
-    it("puts the action plan and where AI read between the answer and the account card, and drops the placeholder blur", async () => {
+    it("puts the action plan right under the score, where AI read after the answer and before the call, with the account card beside them, and drops the placeholder blur", async () => {
       const practiceId = await scannedPractice([citing]);
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      const at = ["An answer you were left out of", "mk-teaser-plan", "mk-teaser-sources", "mk-teaser-account", "mk-teaser-book"]
+      // The account card is pinned in the side column, after the report in the markup.
+      const at = ["mk-teaser-plan", "An answer you were left out of", "mk-teaser-sources", "mk-teaser-book", "mk-report-aside"]
         .map(t => page.indexOf(t));
       expect(at[0]).toBeGreaterThan(-1);
       for (let i = 1; i < at.length; i++) expect(at[i]).toBeGreaterThan(at[i - 1]);
@@ -214,20 +216,22 @@ describe("the audit page", () => {
       expect(page).not.toContain("Your fix plan");
     });
 
-    it("counts the real plan in steps, names its groups, and leads with a step the sources card doesn't show", async () => {
+    it("counts the real plan in moves and shows one in full, with what to do", async () => {
       const practiceId = await scannedPractice([citing]);
       const lead = await seedLead({ practiceId, status: "ready" });
       const plan = card(text(await audit(lead.id)), "mk-teaser-plan");
-      expect(plan).toContain("Your action plan");
-      expect(plan).toContain("We found 4 steps for Harbor Plumbing, 2 of them quick wins.");
+      expect(plan).toContain("Your next steps to win customers from AI");
+      expect(plan).toContain("4 steps to get Harbor Plumbing recommended by AI, 2 of them quick wins you can do this week.");
       expect(plan).not.toContain("fixes");
-      // Every group is still listed, the sites with their count.
-      expect(plan).toMatch(/Get listed where AI looks<\/span><span class="mk-teaser-count">3</);
-      expect(plan).toMatch(/Win the questions you're losing<\/span><span class="mk-teaser-count">1</);
+      // One step in full; the rest are blurred titles under the unlock button.
+      expect(plan).toContain("Unlock all 4 steps free");
+      expect(plan).toContain('href="#create-account"');
       // The sources card shows the sites, so the plan card leads with the question.
-      expect(plan).toContain("\u201cBest plumber in Portland\u201d");
+      expect(plan).toContain("Get named for \u201cBest plumber in Portland\u201d");
       expect(plan).toContain("AI named Rose City Plumbing; you were named in 0 of 1 answer.");
-      expect(plan).not.toMatch(/yelp\.com|angi\.com|reddit\.com/);
+      // The move says what to do, down to the sites AI read for that question.
+      expect(plan).toContain("What to do");
+      expect(plan).toContain("Then get onto angi.com and reddit.com, which AI read for this question.");
     });
 
     it("leads with the sites when they're the only steps", async () => {
@@ -313,14 +317,14 @@ describe("the audit page", () => {
       const page = text(await audit(lead.id));
       expect(page).not.toContain("mk-teaser-plan");
       expect(page).not.toContain("mk-teaser-sources");
-      expect(page).toContain("Create your free account to get your full action plan");
+      expect(page).toContain("Start getting customers from AI");
     });
 
     it("leaves the sources card out when no answer read a site, keeping the plan", async () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page).toContain("We found 1 step for Harbor Plumbing.");
+      expect(page).toContain("1 step to get Harbor Plumbing recommended by AI.");
       expect(page).not.toContain("mk-teaser-sources");
     });
 
@@ -328,11 +332,11 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice([citing]);
       const lead = await seedLead({ practiceId, status: "ready" });
       await db.execute(sql`drop table action_ticks`);
-      expect(text(await audit(lead.id))).toContain("We found 4 steps for Harbor Plumbing");
+      expect(text(await audit(lead.id))).toContain("4 steps to get Harbor Plumbing recommended by AI");
       await db.execute(sql`drop table name_variations`);
       const page = text(await audit(lead.id));
       expect(page).not.toContain("mk-teaser-plan");
-      expect(page).toContain("Recommended by AI");
+      expect(page).toContain("Competitor Report");
       expect(page).toContain("mk-teaser-account");
     });
 
@@ -340,7 +344,7 @@ describe("the audit page", () => {
       const practiceId = await scannedPractice();
       const lead = await seedLead({ practiceId, status: "ready" });
       const page = text(await audit(lead.id));
-      expect(page.indexOf("Recommended by AI")).toBeLessThan(page.indexOf("An answer you were left out of"));
+      expect(page.indexOf("Competitor Report")).toBeLessThan(page.indexOf("An answer you were left out of"));
       expect(page).toContain("AI named you in 1 of 2 answers when customers asked without using your name.");
       expect(page).toContain("ChatGPT named you most.");
       expect(page).toContain("It named <strong>Rose City Plumbing</strong> instead in 1 of those 2 answers.");
@@ -374,7 +378,7 @@ describe("the audit page", () => {
       const day = scan.startedAt.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
 
       const plain = text(await audit(lead.id));
-      const header = (markup: string) => markup.slice(markup.indexOf("mk-audit-head"), markup.indexOf("Recommended by AI"));
+      const header = (markup: string) => markup.slice(markup.indexOf("mk-audit-head"), markup.indexOf("Competitor Report"));
       expect(header(plain)).toContain("Harbor Plumbing");
       expect(header(plain)).toContain("AI visibility audit");
       expect(header(plain)).toContain(day);
@@ -386,7 +390,7 @@ describe("the audit page", () => {
       expect(header(withLogo)).toContain(`<img src="${logo}" alt="Harbor Plumbing"`);
     });
 
-    it("replaces the progress and the details form with the finished audit, and offers the call last", async () => {
+    it("replaces the progress and the details form with the finished audit, and offers the call last in the report", async () => {
       process.env.CALENDLY_URL = "https://calendly.com/mirror/30min";
       const practiceId = await scannedPractice();
       for (const email of [null, "dale@harbor.example"]) {
@@ -397,7 +401,9 @@ describe("the audit page", () => {
         expect(page).not.toContain("Send me my audit");
         expect(page).not.toContain("Thank you. We'll email your audit to");
         expect(page).toContain("Want us to walk you through it? Book 30 minutes");
-        expect(page.indexOf("mk-teaser-book")).toBeGreaterThan(page.indexOf("mk-teaser-account"));
+        // Last of the report's cards; the account card sits in the side column after it.
+        expect(page.indexOf("mk-teaser-book")).toBeGreaterThan(page.indexOf("mk-teaser-plan"));
+        expect(page.indexOf("mk-teaser-account")).toBeGreaterThan(page.indexOf("mk-report-aside"));
       }
     });
 

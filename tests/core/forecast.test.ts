@@ -29,7 +29,8 @@ describe("mentionRates", () => {
     ]);
     expect(r.answers).toBe(4);
     expect(r.competitor).toBe("A");
-    expect(r.assistants).toEqual({ yours: 0.25, theirs: 0.75 });
+    // Lost: a competitor named and not the business, in 3 of 4.
+    expect(r.assistants).toEqual({ yours: 0.25, theirs: 0.75, lost: 0.75 });
     expect(r.aiMode).toBeNull();
   });
 
@@ -42,8 +43,8 @@ describe("mentionRates", () => {
 
   it("keeps Google AI Mode apart from the assistants", () => {
     const r = mentionRates([check("google", true, ["A"]), check("google", false, ["A"]), check("openai", false, [])]);
-    expect(r.aiMode).toEqual({ yours: 0.5, theirs: 1 });
-    expect(r.assistants).toEqual({ yours: 0, theirs: 0 });
+    expect(r.aiMode).toEqual({ yours: 0.5, theirs: 1, lost: 0.5 });
+    expect(r.assistants).toEqual({ yours: 0, theirs: 0, lost: 0 });
   });
 
   it("has no competitor when no answer named one", () => {
@@ -101,7 +102,29 @@ describe("buildForecast", () => {
     const without = ready(input());
     const withMode = ready(input({ rates: rates({ aiMode: { yours: 0, theirs: 0.2 } }) }));
     expect(withMode.visits.likely).toBeGreaterThan(without.visits.likely * 1.3);
-    expect(withMode.steps.some(s => s.label.startsWith("Gap in Google AI Mode"))).toBe(true);
+    expect(withMode.steps.some(s => s.label.startsWith("Google AI Mode answers you could win"))).toBe(true);
+  });
+
+  it("counts AI recommendations a month, today and added by the Next steps", () => {
+    // 10,000 searches x 0.14 assistant answers = 1,400 answers; named in 10% today, losing 60%.
+    const f = ready(input({ rates: rates({ assistants: { yours: 0.1, theirs: 0.3, lost: 0.6 } }) }));
+    expect(f.recommendations.today).toBeCloseTo(140, 5);
+    // Half the lost 60% is 30 points, more than the 20 to catch the competitor: 420 more a month.
+    expect(f.recommendations.added.likely).toBeCloseTo(420, 5);
+    expect(f.recommendations.added.low).toBeLessThan(420);
+    expect(f.recommendations.added.high).toBeGreaterThan(420);
+  });
+
+  it("assumes the Next steps win back about half the lost answers, even when level with the top competitor", () => {
+    // Level with the competitor, but losing half the answers to someone: the old target gave nothing.
+    const level = ready(input({ rates: rates({ assistants: { yours: 0.3, theirs: 0.3, lost: 0.5 } }) }));
+    const none = ready(input({ rates: rates({ assistants: { yours: 0.3, theirs: 0.3, lost: 0 } }) }));
+    expect(none.visits.likely).toBe(0);
+    expect(level.visits.likely).toBeGreaterThan(0);
+    expect(level.steps.find(s => s.label.startsWith("AI assistant answers you could win"))!.value).toBe("25 points");
+    // Never less than catching the competitor.
+    const behind = ready(input({ rates: rates({ assistants: { yours: 0.1, theirs: 0.6, lost: 0.2 } }) }));
+    expect(behind.steps.find(s => s.label.startsWith("AI assistant answers you could win"))!.value).toBe("50 points");
   });
 
   it("is zero, and says the business is ahead, when there is no gap", () => {

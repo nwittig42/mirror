@@ -6,7 +6,7 @@ import { signOutToHome } from "@/app/dashboard/[slug]/account-actions";
 /** The sections a customer sees. Help and the Fact Sheet are links, not sections. */
 type Section = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "reports";
 /** Older pages still name the section they used to be; each now lives inside one of the four. */
-type Tab = Section | "accuracy" | "sources" | "report" | "help" | "facts" | "settings";
+type Tab = Section | "accuracy" | "sources" | "report" | "help" | "facts" | "settings" | "plans";
 
 const SECTION_OF: Record<Tab, Section | null> = {
   overview: "overview",
@@ -21,13 +21,14 @@ const SECTION_OF: Record<Tab, Section | null> = {
   help: null,
   facts: null,
   settings: null,
+  plans: null,
 };
 
 const TABS: { key: Section; label: string; suffix: string }[] = [
   { key: "overview", label: "Overview", suffix: "" },
+  { key: "fixes", label: "Next steps", suffix: "/fixes" },
   { key: "forecast", label: "Forecast", suffix: "/forecast" },
   { key: "answers", label: "What AI says", suffix: "/answers" },
-  { key: "fixes", label: "Action plan", suffix: "/fixes" },
   { key: "competitors", label: "Competitors", suffix: "/competitors" },
   { key: "reports", label: "Reports", suffix: "/reports" },
 ];
@@ -87,6 +88,7 @@ export function DashboardHeader({
               <p className="truncate px-3 pb-1.5 pt-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">{practiceName}</p>
               {[
                 { key: "settings" as const, label: "Profile and settings", suffix: "/settings" },
+                { key: "plans" as const, label: plan ? "Your plan" : "Plans and pricing", suffix: "/plans" },
                 { key: "facts" as const, label: "Fact Sheet", suffix: "/fact-sheet" },
                 { key: "help" as const, label: "Help", suffix: "/help" },
               ].map(link => (
@@ -125,6 +127,13 @@ export function DashboardHeader({
           )}
           {plan && plan !== "partner" && (
             <span className="rounded-full border border-line px-3 py-1 text-[13px] font-semibold text-ink-soft">{PLAN_LABELS[plan]}</span>
+          )}
+          {!plan && (
+            <Link href={`/dashboard/${slug}/plans`}
+              className="flex items-center gap-2 rounded-full border border-line py-1 pl-3 pr-1 text-[13px] font-semibold text-ink-soft hover:border-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+              Free audit
+              <span className="rounded-full bg-gold px-2.5 py-0.5 text-paper">Upgrade</span>
+            </Link>
           )}
         </div>
       </div>

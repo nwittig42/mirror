@@ -8,7 +8,7 @@ export interface ScoreInput {
 
 export interface VisibilityParts { citationRate: number; positionQuality: number; engineBreadth: number }
 
-const POSITION_WEIGHT: Record<Position, number> = { first: 1, top3: 0.7, mentioned: 0.4, absent: 0 };
+export const POSITION_WEIGHT: Record<Position, number> = { first: 1, top3: 0.7, mentioned: 0.4, absent: 0 };
 
 /**
  * The three "does AI name you" measures. Branded prompts name the practice in

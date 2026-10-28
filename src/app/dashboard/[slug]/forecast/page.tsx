@@ -26,7 +26,7 @@ const plural = (n: number, word: string) => (Math.round(n) === 1 ? word : `${wor
 
 /**
  * The customer's forecast: the year ahead in visits, leads, customers and
- * revenue if AI came to name them as often as the competitor it names most,
+ * revenue if they follow their Next steps and win back about half the answers that name a competitor instead (at least matching the competitor AI names most),
  * and where their Accuracy score goes as wrong facts are fixed. Every figure
  * is a likely value with a range beside it and its condition above it, never
  * a promise. A prospect before their call (`locked`) sees the leads and
@@ -71,7 +71,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
           {forecast && path && year && (
             <>
               <p className="text-[15px] text-ink-soft">
-                If AI came to name you as often as it names {forecast.competitor}, at a steady pace over {PACE_MONTHS} months
+                If you follow your next steps and win back about half the AI answers that name a competitor instead of you, at a steady pace over {PACE_MONTHS} months
               </p>
               <p className="mt-1 text-[28px] font-semibold leading-tight tracking-tight text-ink">
                 {year.leads.likely < 0.5
@@ -127,7 +127,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
               <p className="text-[15px] text-ink-soft">
                 {[
                   acc && "every wrong fact is corrected at its source this week",
-                  accuracy.competitor && "AI comes to name you as often as " + accuracy.competitor + " over the year",
+                  accuracy.competitor && "you follow your next steps and win back about half the answers AI gives a competitor over the year",
                 ].filter(Boolean).map((part, i) => (i === 0 ? `If ${part}` : `and ${part}`)).join(", ") || "Nothing is set to change your scores right now"}
               </p>
               {!locked && accuracy.scores.overall && (

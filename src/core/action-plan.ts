@@ -2,6 +2,7 @@ import { domainOf, type SourceKind, type SourcesReport } from "@/core/citations"
 import { canonicalName, nameKey, squashedNameKey } from "@/core/competitors";
 import type { SearchReport } from "@/core/search-queries";
 import type { WebsiteCheckResult, WebsiteCheckRow } from "@/core/website-check";
+import { pageGuide, questionGuide, reputationGuide, sourceGuide, websiteGuide, type GuideBusiness, type GuideStep } from "@/core/move-guides";
 
 /**
  * The action plan: a to-do list for the business, built from one scan. Pure,
@@ -25,6 +26,19 @@ export interface ActionItem {
   evidence: string[];
   effort: Level;
   impact: Level;
+  /** Numbered steps, filled in with the business's details and what the scan saw. */
+  guide?: GuideStep[];
+  /** How long it takes, when AI should notice, and what it could win. */
+  estimate?: Estimate;
+}
+
+export interface Estimate {
+  /** Time to do it, said plainly: "About 1 hour, plus a few days to verify". */
+  time: string;
+  /** When AI answers usually reflect it. */
+  showsUp: string;
+  /** What it could win, from this scan's numbers. */
+  upside: string;
 }
 
 export interface ActionGroup {
@@ -68,7 +82,27 @@ export interface ActionPlanInput {
   names?: string[];
   /** Today, for the "Updated <month>" advice. Defaults to now. */
   today?: Date;
+  /** What kind of business and where, for the guides' wording. */
+  category?: string | null;
+  location?: string | null;
 }
+
+const businessOf = (input: ActionPlanInput): GuideBusiness => ({
+  name: input.names?.[0] ?? "Your business",
+  category: input.category,
+  location: input.location,
+  website: input.website,
+});
+
+// When AI answers usually change after each kind of fix.
+const SHOWS_UP = {
+  listing: "Usually 2 to 6 weeks, once AI reads the site again",
+  site: "Usually 1 to 4 weeks, once AI crawls your site again",
+  press: "Only if the writer adds you; then within weeks",
+  ongoing: "Builds over 1 to 3 months as new reviews come in",
+};
+
+const pct = (n: number, of: number) => (of ? Math.round((n / of) * 100) : 0);
 
 const GROUPS: Record<GroupKey, { title: string; intro: string }> = {
   sources: {
@@ -274,10 +308,24 @@ function sourceItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
     const why = onIt
       ? `AI read ${gap.domain} in ${plural(gap.answers, "answer")}. It named you in ${gap.namedYou}, but in ${lost.length} it named ${listOf(named.map(n => n.name))} instead of you.`
       : `In ${plural(lost.length, "answer")} that left you out, AI read ${gap.domain} and named ${listOf(named.map(n => `${n.name} (${n.count})`))}.`;
+    const pages = pagesRead(gap.domain, lost).slice(0, 3);
+    const time = gap.kind === "google" ? "About 1 hour, plus a few days for Google to verify"
+      : gap.kind === "press" || gap.kind === "other" ? "About 20 minutes to send a pitch"
+      : gap.kind === "social" ? "About 30 minutes"
+      : onIt ? "About 30 minutes" : "About 45 minutes, plus a few days to verify";
     return {
       key: `source:${gap.domain}`,
       title,
       why,
+      guide: sourceGuide({
+        business: businessOf(input), domain: gap.domain, kind: gap.kind, onIt, pages,
+        named: named.map(n => n.name), questions: [...new Set(lost.map(c => c.promptText))],
+      }),
+      estimate: {
+        time,
+        showsUp: gap.kind === "press" || gap.kind === "other" ? SHOWS_UP.press : SHOWS_UP.listing,
+        upside: `AI read ${gap.domain} in ${plural(lost.length, "answer")} that named someone else instead of you (${pct(lost.length, buyer.length)}% of the ${buyer.length} answers we checked). Being on it puts you in the running for those.`,
+      },
       // For an article or blog, emailing its writer is the whole advice.
       how: !onIt ? advice.how : gap.kind === "other" || gap.kind === "press" ? ALREADY_IN_ARTICLE : `${ALREADY_ON_LISTING} ${advice.how}`,
       evidence: [...pagesRead(gap.domain, lost).slice(0, 2), ...[...new Set(lost.map(c => c.promptText))].slice(0, 2).map(quote)],
@@ -331,8 +379,15 @@ function questionItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[]
       standOut.length ? `make sure you stand out on ${listOf(standOut)}` : "",
     ].filter(Boolean).join(", and ");
     const page = `Add a page or section to your site that answers ${quote(r.text)} in plain words, and says where you fit: what you make, for whom and where.`;
+    const missed = r.answers.length - r.namedYou;
     return {
       key: `question:${r.promptId}`,
+      guide: questionGuide({ business: businessOf(input), question: r.text, named, getOnto, standOut }),
+      estimate: {
+        time: "1 to 2 hours",
+        showsUp: SHOWS_UP.site,
+        upside: `This question came up in ${plural(r.answers.length, "answer")}, and AI named you in ${r.namedYou}. Answer it well and you could be named in up to ${missed} more.`,
+      },
       title: quote(r.text),
       why: `AI named ${listOf(named)}; you were named in ${r.namedYou} of ${plural(r.answers.length, "answer")}.`,
       how: then ? `${page} Then ${then}, which AI read for this question.` : page,
@@ -399,6 +454,14 @@ function pageItems(input: ActionPlanInput): ActionItem[] {
       : p.status === "partial" ? ", and your site doesn't give it its own page."
       : ", and your site doesn't have this.";
     return {
+      guide: pageGuide({ business: businessOf(input), pageKey: slug(p.page), searches, updated }),
+      estimate: {
+        time: isYear(p.word) ? "About 20 minutes" : "About 1 hour",
+        showsUp: SHOWS_UP.site,
+        upside: searches.length
+          ? `AI searched for ${listOf(searches)} before answering your customers. This page gives it the answer from you.`
+          : `AI kept adding "${p.word}" to its searches before answering. This page gives it the answer from you.`,
+      },
       key: `page:${slug(p.page)}`,
       title: `Add ${p.page.charAt(0).toLowerCase()}${p.page.slice(1)}`,
       why: searches.length
@@ -427,8 +490,25 @@ export const WEBSITE_FIXES: Record<WebsiteCheckRow["id"], { title: string; effor
   contact_visible: { title: "Put your phone, address and hours in plain text", effort: "low", impact: "high" },
 };
 
-function websiteItems(input: ActionPlanInput): ActionItem[] {
+// How long each website fix takes.
+const WEBSITE_TIME: Record<WebsiteCheckRow["id"], string> = {
+  ai_allowed: "About 15 minutes, or one message to whoever runs your site",
+  facts_page: "1 to 2 hours",
+  readable_text: "A job for whoever runs your site: usually a few hours",
+  machine_labels: "About 30 minutes",
+  sitemap: "About 15 minutes",
+  business_schema: "About 20 minutes",
+  contact_visible: "About 15 minutes",
+};
+
+function websiteItems(input: ActionPlanInput, answers: number): ActionItem[] {
   return (input.websiteCheck?.checks ?? []).filter(c => c.status !== "pass" && WEBSITE_FIXES[c.id]).map(c => ({
+    guide: websiteGuide(c.id, businessOf(input)),
+    estimate: {
+      time: WEBSITE_TIME[c.id],
+      showsUp: SHOWS_UP.site,
+      upside: `Your website is something every AI tool reads, so this helps across all ${plural(answers, "answer")} we checked, not just one question.`,
+    },
     key: `site:${c.id}`,
     ...WEBSITE_FIXES[c.id],
     why: c.why,
@@ -438,7 +518,7 @@ function websiteItems(input: ActionPlanInput): ActionItem[] {
   }));
 }
 
-function reputationItems(buyer: PlanCheck[]): ActionItem[] {
+function reputationItems(input: ActionPlanInput, buyer: PlanCheck[]): ActionItem[] {
   const warned = buyer.filter(c => c.mentioned && (c.tone === "negative" || c.tone === "mixed") && !isNamesake(c));
   if (!warned.length) return [];
   // AI's own reason for the "but", not a sentence lifted from the answer.
@@ -453,6 +533,12 @@ function reputationItems(buyer: PlanCheck[]): ActionItem[] {
     evidence: quotes.map(quote),
     effort: "medium",
     impact: negative ? "high" : "medium",
+    guide: reputationGuide(businessOf(input), quotes.map(quote)),
+    estimate: {
+      time: "About 1 hour, then a few minutes a week",
+      showsUp: SHOWS_UP.ongoing,
+      upside: `AI added a "but" in ${plural(warned.length, "answer")} that named you. Answering it turns those into clean recommendations.`,
+    },
   }];
 }
 
@@ -465,8 +551,8 @@ export function buildActionPlan(input: ActionPlanInput): ActionPlan {
     sources: sourceItems(input, buyer),
     questions: questionItems(input, buyer),
     pages: pageItems(input),
-    website: websiteItems(input),
-    reputation: reputationItems(buyer),
+    website: websiteItems(input, buyer.length),
+    reputation: reputationItems(input, buyer),
   };
   // Stable sort: equal items keep the order each builder gave them. Sources
   // stay in the data's order, biggest gap first: an easy listing must not

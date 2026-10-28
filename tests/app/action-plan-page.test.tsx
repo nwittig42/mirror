@@ -76,12 +76,12 @@ describe("the action plan page", () => {
       competitorsMentioned: ["Rose City Plumbing", "Stumptown Drains"], namedOrder: ["Rose City Plumbing", "Stumptown Drains"] },
   ]);
 
-  it("lists every group in order on one dark page, with the real competitors in the why", async () => {
+  it("lists every group in order as filters, with quick wins first and the real competitors in the why", async () => {
     await lostToRoseCity();
     const page = await html();
-    expect(page).toContain("plan-dark");
-    expect(page).toContain("Your action plan");
+    expect(page).toContain("Your next steps");
     expect(page).toMatch(/3 steps to get recommended by AI more often · <span[^>]*>1 quick win/);
+    expect(page).toContain("Start here");
     expect(page).toContain("0 of 3 done");
     const order = ["Get listed where AI looks", "Win the questions you&#x27;re losing", "Fix your website for AI"].map(t => page.indexOf(t));
     expect(order.every(i => i >= 0)).toBe(true);
@@ -89,10 +89,16 @@ describe("the action plan page", () => {
     expect(page).toContain("Get on yelp.com");
     expect(page).toContain("Rose City Plumbing (2)");
     expect(page).toContain("Stumptown Drains (1)");
-    // The how and the quotes sit under "How to do it".
-    expect(page).toMatch(/<details[^>]*>[\s\S]*How to do it[\s\S]*Claim your listing/);
-    expect(page).toMatch(/Low effort/);
-    expect(page).toMatch(/High impact/);
+    // The selected step shows its timeline, what it could win and a numbered guide with real links.
+    expect(page).toContain("Time to do");
+    expect(page).toContain("When AI notices");
+    expect(page).toContain("What it could win");
+    expect(page).toContain("Step by step");
+    expect(page).toContain('href="https://business.yelp.com"');
+    expect(page).toContain("Review request to send");
+    // Urgency by colour, size and time as its own label.
+    expect(page).toContain("Urgent");
+    expect(page).toMatch(/Small task · \d/);
     // Nothing from the fact check.
     expect(page).not.toContain("$89");
   });
@@ -174,10 +180,10 @@ describe("the action plan page", () => {
     expect(page).not.toContain("0 of 0 done");
   });
 
-  it("calls the tab the action plan, at the same address", async () => {
+  it("calls the tab next steps, at the same address", async () => {
     await lostToRoseCity();
     const page = await html();
-    expect(page).toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">Action plan<\/a>/);
+    expect(page).toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">Next steps<\/a>/);
     expect(page).not.toContain(">Fix plan<");
   });
 

@@ -78,6 +78,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
               <ResultsTeaser
                 leadId={id}
                 businessName={practice?.name ?? lead.practiceName ?? "Your business"}
+                category={lead.category}
                 logo={practice?.logo ?? null}
                 scanDate={scan.startedAt}
                 ranking={shownScore(displayScores(scan).visibility)}

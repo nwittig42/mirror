@@ -145,6 +145,13 @@ export function reconcileCompetitors(args: {
 export function topBuyerCompetitor(
   checks: { promptKind: string; competitorsMentioned: string[] | null }[],
 ): { name: string; mentions: number } | null {
+  return buyerCompetitors(checks)[0] ?? null;
+}
+
+/** Every business buyer answers named, counted as topBuyerCompetitor counts them, most named first. */
+export function buyerCompetitors(
+  checks: { promptKind: string; competitorsMentioned: string[] | null }[],
+): { name: string; mentions: number }[] {
   const counts = new Map<string, { name: string; mentions: number }>();
   for (const c of checks) {
     if (c.promptKind === "branded") continue;
@@ -159,6 +166,5 @@ export function topBuyerCompetitor(
       counts.set(key, row);
     }
   }
-  const [top] = [...counts.values()].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
-  return top ?? null;
+  return [...counts.values()].sort((a, b) => b.mentions - a.mentions || a.name.localeCompare(b.name));
 }

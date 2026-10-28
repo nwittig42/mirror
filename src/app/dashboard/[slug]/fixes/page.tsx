@@ -8,15 +8,16 @@ import { ADMIN_READ_ONLY_MESSAGE, isAdminViewer } from "@/lib/admin-view";
 import { DashboardHeader } from "@/components/dashboard-header";
 import { PageBody } from "@/components/ui";
 import { toggleTick } from "./actions";
+import { OneTimeAuditCard } from "@/components/locked";
 import { PlanList } from "./plan-list";
 import { WrongFactsSection } from "./wrong-facts-section";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 /**
- * The action plan: every step from the latest scan that would get the
- * business recommended by AI more often, grouped, on one dark page, with a
- * box to tick each off. Built from where AI read and who it named, never from
+ * Next steps: every step from the latest scan that would get the
+ * business recommended by AI more often, quick wins first, then every move
+ * filterable by group, with a box to tick each off. Built from where AI read and who it named, never from
  * the fact check, so a free account gets all of it. A paying client also gets
  * their wrong facts at the foot, as pieces of work. Still at /fixes, the
  * address the fix plan had, so old links land here. Stored data only, so no
@@ -37,20 +38,27 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
   });
 
   return (
-    <PageBody>
+    <PageBody wide>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="fixes" />
 
-      <div className="plan-dark rounded-[28px] px-5 py-9 sm:px-10 sm:py-12">
+      <div className="pt-2">
         {loaded && plan && (
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-muted">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gold">
             From your scan of {loaded.scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}
           </p>
         )}
-        <h1 className="display mt-2 text-[36px] leading-tight text-ink sm:text-[44px]">Your action plan</h1>
+        <h1 className="display mt-2 text-[40px] leading-tight text-ink sm:text-[52px]">Your next steps</h1>
+        {locked && plan && plan.total > 0 && (
+          <div className="mt-5">
+            <OneTimeAuditCard slug={slug} scanDate={scan?.startedAt ?? null}>
+              Your free audit doesn&apos;t scan again, so it can&apos;t tell you which of these steps worked. A plan rescans every week and shows you.
+            </OneTimeAuditCard>
+          </div>
+        )}
 
         {!plan ? (
-          <p className="mt-3 max-w-xl text-[16px] leading-relaxed text-ink-soft">
-            Your scan is still running. Your action plan shows up here when it finishes.
+          <p className="mt-3 max-w-xl text-[17px] leading-relaxed text-ink-soft">
+            Your scan is still running. Your next steps show up here when it finishes.
           </p>
         ) : plan.total === 0 ? (
           <div className="mt-6 rounded-[20px] border border-line bg-paper p-6">
@@ -61,9 +69,9 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
           </div>
         ) : (
           <>
-            <p className="mt-3 text-[17px] leading-relaxed text-ink-soft">
+            <p className="mt-3 text-[18px] leading-relaxed text-ink-soft">
               {plural(plan.total, "step")} to get recommended by AI more often
-              {plan.quickWins > 0 && <> · <span className="font-semibold text-gold">{plural(plan.quickWins, "quick win")}</span></>}
+              {plan.quickWins > 0 && <> · <span className="font-semibold text-ok">{plural(plan.quickWins, "quick win")}</span></>}
             </p>
             <PlanList
               groups={plan.groups}

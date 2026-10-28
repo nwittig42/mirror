@@ -1,7 +1,7 @@
 import type { Db } from "@/db";
 import { getChecksForScan, getFindingsForPractice, getLatestScan, getScoreHistory } from "@/lib/queries";
 import { mentionRates } from "@/core/forecast";
-import { competitorScore, forecastScores, type ScoreForecast, type ScoreLine } from "@/core/score-forecast";
+import { competitorScore, followThroughScore, forecastScores, type ScoreForecast, type ScoreLine } from "@/core/score-forecast";
 import { displayScores, shownScore } from "@/core/scoring";
 import { fixSource, forecastAccuracy, shownAccuracyForecast, type AccuracyForecast, type AccuracyPoint } from "@/core/accuracy-forecast";
 
@@ -48,7 +48,8 @@ export async function loadAccuracyForecast(db: Db, practice: { id: string; websi
   const { competitor } = mentionRates(checks);
   const lines = forecastScores({
     now: { facts: scores.facts, visibility: scores.visibility }, accuracy: forecast,
-    target: competitor ? competitorScore(checks, competitor) : null,
+    // Following the Next steps, and never less than catching the top competitor.
+    target: competitor ? Math.max(competitorScore(checks, competitor), followThroughScore(checks)) : null,
   });
   return {
     forecast: forecast && shownAccuracyForecast(forecast),

@@ -82,14 +82,16 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).toContain("An answer you were left out of");
     expect(page).toContain("Rose City Plumbing is the one most people recommend");
     expect(page).toContain("Unlocks after your call");
-    expect(page).toContain("Book your call");
+    expect(page).toContain("Schedule a call");
+    expect(page).toContain("Unlock Overall and Accuracy");
     expect(page).toContain('href="/dashboard/harbor/reports/pdf?variant=summary"');
   });
 
   it("shows the ranking on the 30-100 scale", async () => {
     const [scan] = await db.select().from(scans);
     const page = await html(DashboardPage({ params }));
-    expect(page).toContain(`aria-label="Score ${shownScore(scan.visibilityScore)} out of 100"`);
+    // Overall and Accuracy wait for the call, so their rings are empty.
+    expect(page).toContain(`aria-label="Overall not available out of 100, Recommended by AI ${shownScore(scan.visibilityScore)} out of 100, Accuracy not available out of 100"`);
   });
 
   it("keeps the unconfirmed fact check out of the summary", async () => {
@@ -121,11 +123,11 @@ describe("a prospect's dashboard before their call", () => {
     const page = await html(DashboardPage({ params }));
     expect(page).toMatch(/href="\/dashboard\/harbor\/answers"[^>]*>[^<]*Every AI answer/);
     expect(page).toMatch(/href="\/dashboard\/harbor\/competitors"[^>]*>[^<]*Competitors and sources/);
-    expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your action plan/);
+    expect(page).toMatch(/href="\/dashboard\/harbor\/fixes"[^>]*>[^<]*Your next steps/);
     // The fact check is the one thing still listed as locked.
     expect(page).toMatch(/Locked<\/span>.*Fact check/);
-    for (const title of ["Overall score", "Fact sheet", "Forecast", "Full reports"]) expect(page).toMatch(new RegExp(`Locked</span>.*${title}`));
-    expect(page).not.toMatch(/Locked<\/span>.*Every AI answer/);
+    for (const title of ["Overall score", "Fact sheet", "Full reports"]) expect(page).toMatch(new RegExp(`Locked</span>.*${title}`));
+    expect(page.slice(page.indexOf(">Unlocks after your call<"))).not.toContain("Every AI answer");
   });
 
   it("gives a free account every buyer answer word for word, with nothing from the fact check", async () => {
@@ -167,7 +169,7 @@ describe("a prospect's dashboard before their call", () => {
 
   it("gives a free account the whole action plan, with nothing from the fact check", async () => {
     const page = await html(ActionPlanPage({ params }));
-    expect(page).toContain("Your action plan");
+    expect(page).toContain("Your next steps");
     expect(page).toContain("Stand out on secret-source.example");
     expect(page).toContain("Rose City Plumbing");
     expect(page).not.toContain("Unlocks after your call");
@@ -175,9 +177,9 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).not.toContain("Service call fee");
   });
 
-  it("keeps the fact check, the fact sheet, the forecast and the monthly report locked, with none of their data", async () => {
+  it("keeps the fact check, the fact sheet and the monthly report locked, with none of their data", async () => {
     const pages = [
-      AccuracyPage({ params }), FactSheetPage({ params }), ForecastPage({ params }),
+      AccuracyPage({ params }), FactSheetPage({ params }),
       MonthlyPage({ params, searchParams: Promise.resolve({}) }),
     ];
     for (const page of pages) {
@@ -188,6 +190,12 @@ describe("a prospect's dashboard before their call", () => {
       expect(out).not.toContain("$89");
       expect(out).not.toContain("secret-source.example");
     }
+  });
+
+  it("opens the forecast, but shows nothing that rests on their unconfirmed facts", async () => {
+    const out = await html(ForecastPage({ params }));
+    expect(out).not.toContain("Unlocks after your call");
+    for (const hidden of ["$49", "$89", "secret-source.example", "Accuracy", "Make it more accurate"]) expect(out).not.toContain(hidden);
   });
 
   it("starts no scan when a free account opens the unlocked pages", async () => {

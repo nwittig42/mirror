@@ -79,7 +79,7 @@ describe("the forecast", () => {
     await db.update(schema.practices).set({ forecast: DEMAND }).where(eq(schema.practices.id, practiceId));
     await scan();
     const page = await text(ForecastPage({ params }));
-    expect(page).toContain("If AI came to name you as often as it names Rose City Rooter, at a steady pace over 12 months");
+    expect(page).toContain("If you follow your next steps and win back about half the AI answers that name a competitor instead of you, at a steady pace over 12 months");
     expect(page).toMatch(/About \d+ more leads and \d+ more customers in the next 12 months/);
     for (const tile of ["Visits from AI", "Leads", "New customers", "Worth as Google ads"]) expect(page).toContain(tile);
     expect(page).toMatch(/Range [\d,]+ to [\d,]+/);
@@ -92,7 +92,7 @@ describe("the forecast", () => {
     await scan();
     const page = await text(ForecastMethodPage({ params }));
     expect(page).toContain("50,000");
-    expect(page).toContain("Gap in AI assistants: Rose City Rooter named in 100% of answers, you in 0%");
+    expect(page).toContain("AI assistant answers you could win: you're named in 0%, and a competitor is named instead in 100%");
     for (const label of ["Bought data", "Measured by Mirror", "Industry assumption"]) expect(page).toContain(label);
     expect(page).toContain("What is not counted");
     expect(page).toContain("1 search Google has no number for is left out.");

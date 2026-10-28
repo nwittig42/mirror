@@ -47,3 +47,20 @@ export function CallBanner() {
     </div>
   );
 }
+
+/**
+ * The reminder on a free account's pages that its audit is a one-time
+ * snapshot, said in the words of the page it sits on, with the way to a plan.
+ */
+export function OneTimeAuditCard({ slug, scanDate, children }: { slug: string; scanDate: Date | null; children: ReactNode }) {
+  const day = scanDate?.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" });
+  return (
+    <div className="audit-note print:hidden">
+      <div className="min-w-0 flex-1">
+        <p className="audit-note-title">{day ? `A snapshot from ${day}` : "A one-time snapshot"}</p>
+        <p className="audit-note-text">{children}</p>
+      </div>
+      <a href={`/dashboard/${slug}/plans`} className="audit-note-button">See plans <span aria-hidden="true">→</span></a>
+    </div>
+  );
+}

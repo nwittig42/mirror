@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { requirePracticeView } from "@/lib/auth";
-import { LockedSection } from "@/components/locked";
+import { LockedSection, OneTimeAuditCard } from "@/components/locked";
 import { getDb } from "@/db";
 import { nameVariations } from "@/db/schema";
 import { getFindingsForPractice, getLatestScan, getChecksForScan, priceFirst } from "@/lib/queries";
@@ -113,6 +113,14 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
   return (
     <PageBody>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="answers" />
+
+      {locked && (
+        <div className="mb-4">
+          <OneTimeAuditCard slug={slug} scanDate={latestScan.startedAt}>
+            These are AI&apos;s answers from one day. They change every week. A plan asks again every week, so you see the day AI starts naming you.
+          </OneTimeAuditCard>
+        </div>
+      )}
 
       <div className={`grid gap-3 sm:gap-4 ${locked ? "grid-cols-2" : "grid-cols-3"}`}>
         <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-ring-visibility" />

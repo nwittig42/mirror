@@ -34,6 +34,8 @@ export async function loadActionPlan(
     websiteCheck: scan.websiteCheck ?? null,
     website: practice.website,
     names: Array.from(new Set([practice.name, ...variations.map(v => v.text)])),
+    category: practice.category,
+    location: practice.location,
   });
   return { plan, ticks, sources, scanDate: scan.startedAt };
 }

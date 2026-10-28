@@ -73,7 +73,7 @@ export default async function ForecastMethodPage({ params }: { params: Promise<{
         {forecast && (<>
         <Card title="How we got this number">
           <p className="text-[17px] leading-relaxed text-ink">
-            About {wholeNumber(forecast.leads.likely)} more lead{Math.round(forecast.leads.likely) === 1 ? "" : "s"} in a full year ({rangeWords(forecast.leads)}), once AI names you as often as it names {forecast.competitor}.
+            About {wholeNumber(forecast.leads.likely)} more lead{Math.round(forecast.leads.likely) === 1 ? "" : "s"} in a full year ({rangeWords(forecast.leads)}), once your next steps win back about half the answers that name a competitor instead of you.
           </p>
           <p className="mt-3 text-[15px] leading-relaxed text-ink-soft">
             We start from how many people search for what you sell in your area, work out how many of those questions go to AI, take the gap

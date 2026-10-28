@@ -12,6 +12,7 @@ import { topBuyerCompetitor } from "@/core/competitors";
 import { topEngine } from "@/core/top-engine";
 import { PreviewSummary } from "./preview-summary";
 import { ForecastCard } from "./forecast-card";
+import { ScoreBreakdown } from "./score-breakdown";
 
 function WorkLog({ activities }: { activities: { id: string; description: string; createdAt: Date }[] }) {
   if (activities.length === 0) {
@@ -74,7 +75,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           checks={checks}
           // Buyer questions only, as the finished audit counts it, so both pages show the same number.
           topCompetitor={topBuyerCompetitor(checks)}
-          cta={<BookCallButton />}
+          cta={<BookCallButton>Schedule a call</BookCallButton>}
+          forecast={await ForecastCard({ free: true, slug, practice })}
         />
       </PageBody>
     );
@@ -127,6 +129,7 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
           </div>
           {explanation && <Note className="mt-5">{explanation}</Note>}
           {coverage && <p className="mt-1 text-[14px] font-semibold text-flag">{coverage}</p>}
+          <ScoreBreakdown score={shown.visibility} checks={checks} />
         </Card>
 
         {forecastCard}
