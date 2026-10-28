@@ -8,6 +8,8 @@ import { isAdminViewer } from "@/lib/admin-view";
 import { AdminViewBanner } from "@/components/admin-view-banner";
 import { CallBanner } from "@/components/locked";
 import { StartPlanFloat } from "@/components/start-plan-float";
+import { DashboardSidebar } from "@/components/dashboard-sidebar";
+import { isPlan } from "@/core/plan";
 import { THEME_COOKIE } from "@/lib/theme";
 
 /**
@@ -17,7 +19,8 @@ import { THEME_COOKIE } from "@/lib/theme";
  * (requirePracticeView's locked flag) gets the "Book a call" strip, once, on
  * every page, and the "Start your plan" button pinned bottom left; an active
  * client and an operator never do. Access itself is
- * still checked by each page.
+ * still checked by each page. Every signed-in viewer gets the sidebar (see
+ * DashboardSidebar) to the left of the page.
  *
  * A Partner's dashboard is black (the .theme-dark class) unless the viewer
  * switched back to ivory with the header's toggle, which sets a cookie.
@@ -43,8 +46,13 @@ export default async function DashboardLayout({
     // Room at the foot of a free account's pages, so the pinned button never covers the last thing on them.
     <div className={`app antialiased ${dark ? "theme-dark" : ""} ${locked ? "pb-24" : ""}`}>
       {banner}
-      {locked && <CallBanner />}
-      {children}
+      <div className="lg:flex">
+        {session && plan && <DashboardSidebar slug={slug} plan={isPlan(plan.plan) ? plan.plan : null} />}
+        <div className="min-w-0 flex-1">
+          {locked && <CallBanner />}
+          {children}
+        </div>
+      </div>
       {locked && <StartPlanFloat slug={slug} />}
     </div>
   );

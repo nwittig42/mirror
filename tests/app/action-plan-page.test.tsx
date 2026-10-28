@@ -180,13 +180,6 @@ describe("the action plan page", () => {
     expect(page).not.toContain("0 of 0 done");
   });
 
-  it("calls the tab next steps, at the same address", async () => {
-    await lostToRoseCity();
-    const page = await html();
-    expect(page).toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">Next steps<\/a>/);
-    expect(page).not.toContain(">Fix plan<");
-  });
-
   it("shows an operator the boxes but won't let them tick for the customer", async () => {
     role = "operator";
     await lostToRoseCity();

@@ -3,43 +3,17 @@ import { PLAN_LABELS, type Plan } from "@/core/plan";
 import { toggleDashboardTheme } from "@/app/dashboard/[slug]/theme-actions";
 import { signOutToHome } from "@/app/dashboard/[slug]/account-actions";
 
-/** The sections a customer sees. Help and the Fact Sheet are links, not sections. */
-type Section = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "reports";
-/** Older pages still name the section they used to be; each now lives inside one of the four. */
-type Tab = Section | "accuracy" | "sources" | "report" | "help" | "facts" | "settings" | "plans";
-
-const SECTION_OF: Record<Tab, Section | null> = {
-  overview: "overview",
-  answers: "answers",
-  accuracy: "answers",
-  fixes: "fixes",
-  competitors: "competitors",
-  sources: "competitors",
-  forecast: "forecast",
-  reports: "reports",
-  report: "reports",
-  help: null,
-  facts: null,
-  settings: null,
-  plans: null,
-};
-
-const TABS: { key: Section; label: string; suffix: string }[] = [
-  { key: "overview", label: "Overview", suffix: "" },
-  { key: "fixes", label: "Next steps", suffix: "/fixes" },
-  { key: "forecast", label: "Forecast", suffix: "/forecast" },
-  { key: "answers", label: "What AI says", suffix: "/answers" },
-  { key: "competitors", label: "Competitors", suffix: "/competitors" },
-  { key: "reports", label: "Reports", suffix: "/reports" },
-];
+/** The page being shown. The sections themselves are links in the sidebar (see DashboardSidebar). */
+type Tab = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "reports"
+  | "accuracy" | "sources" | "report" | "help" | "facts" | "settings" | "plans";
 
 const MENU_ITEM = "block w-full rounded-lg px-3 py-2 text-left text-[14px] font-medium text-ink-soft hover:bg-bone hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold";
 
 /**
- * The customer dashboard's header, across the full width of the window: at
- * the top left a way back to the Mirror website and the profile menu
- * (settings, Fact Sheet, Help, sign out); at the top right the plan; then
- * the business name and the sections as underlined tabs, from the left edge.
+ * The customer dashboard's header, above the page beside the sidebar: at the
+ * top left the profile menu (settings, Fact Sheet, Help, sign out), with a
+ * way back to the Mirror website on small screens where the sidebar has none;
+ * at the top right the plan; then the business name.
  */
 export function DashboardHeader({
   slug, practiceName, logo, plan, active,
@@ -52,17 +26,12 @@ export function DashboardHeader({
   plan?: Plan | null;
   active: Tab;
 }) {
-  const current = SECTION_OF[active];
   return (
-    // Wider than the page under it: the header runs to both edges of the
-    // window (the -translate trick breaks it out of PageBody's centred
-    // column), so the name and the tabs sit at the far left while the cards
-    // below stay centred.
-    <header className="relative left-1/2 mb-8 w-screen -translate-x-1/2 px-4 sm:px-8 lg:px-12 print:hidden">
+    <header className="mb-8 border-b border-line pb-6 print:hidden">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/" title="Back to the Mirror website"
-            className="group flex items-center gap-3 text-ink hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+            className="group flex items-center gap-3 text-ink hover:text-gold lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
             <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-ink group-hover:border-gold">
               <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 12H5M11 5l-7 7 7 7" />
@@ -145,20 +114,6 @@ export function DashboardHeader({
         )}
         <h1 className="text-[34px] font-semibold leading-tight tracking-tight text-ink">{practiceName}</h1>
       </div>
-      <nav className="mt-5 flex gap-7 overflow-x-auto border-b border-line" aria-label="Dashboard sections">
-        {TABS.map(tab => (
-          <Link
-            key={tab.key}
-            href={`/dashboard/${slug}${tab.suffix}`}
-            aria-current={current === tab.key ? "page" : undefined}
-            className={`-mb-px whitespace-nowrap border-b-2 pb-3 text-[15px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold ${
-              current === tab.key ? "border-gold text-ink" : "border-transparent text-muted hover:text-ink"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
     </header>
   );
 }

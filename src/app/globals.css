@@ -1174,3 +1174,29 @@ body {
   .audit-note { flex-direction: column; align-items: stretch; padding: 18px; }
   .audit-note-button { text-align: center; }
 }
+
+/* Dashboard sidebar: a column down the left on wide screens, one sideways row of links below that. */
+.dash-sidebar {
+  border-bottom: 1px solid var(--color-line);
+  padding: 8px 16px;
+  overflow-x: auto;
+}
+.dash-sidebar-nav, .dash-sidebar-group { display: flex; gap: 4px; }
+@media (min-width: 1024px) {
+  .dash-sidebar {
+    position: sticky;
+    top: 0;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    width: 240px;
+    height: 100vh;
+    padding: 28px 16px 20px;
+    border-bottom: 0;
+    border-right: 1px solid var(--color-line);
+    background: var(--color-paper);
+    overflow-y: auto;
+  }
+  .dash-sidebar-nav, .dash-sidebar-group { flex-direction: column; gap: 2px; }
+  .dash-sidebar-nav { gap: 20px; }
+}
