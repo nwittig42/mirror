@@ -171,7 +171,7 @@ export function GrowthTile({ label, value, range, points, stroke, fill, children
   const line = (key: "low" | "likely" | "high") => points.map((p, i) => [x(i), y(p[key])] as [number, number]);
   return (
     <div className="rounded-2xl border border-line p-4">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">{label}</p>
+      <p className="text-[13px] font-medium text-muted">{label}</p>
       <p className="mt-1.5 text-[28px] font-semibold leading-none tracking-tight text-ink">{value}</p>
       <p className="mt-1.5 text-[13px] text-ink-soft">{range}</p>
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-3 w-full" preserveAspectRatio="none" aria-hidden="true">

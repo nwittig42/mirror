@@ -229,7 +229,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
 
         {!locked && (
         <details className="group rounded-[20px] border border-line bg-paper p-5" open={!result.ready && result.reason === "need_rates"}>
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[13px] font-semibold uppercase tracking-[0.12em] text-muted">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[15px] font-semibold text-ink">
             Make it more accurate with your real numbers
             <span className="text-[17px] transition-transform group-open:rotate-90" aria-hidden="true">→</span>
           </summary>
