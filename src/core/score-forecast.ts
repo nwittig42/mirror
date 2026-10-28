@@ -44,8 +44,8 @@ export function competitorScore(checks: ScoreCheck[], competitor: string): numbe
 /**
  * The Recommended by AI score the business would get by following its Next
  * steps: the same answers, with FOLLOW_THROUGH's likely share of those that
- * named a competitor and not the business turned into answers that name it,
- * low on the list (a plain mention, not first place). Branded questions stay
+ * named a competitor and not the business turned into answers that name it
+ * in the top three, alongside the businesses AI already lists there. Branded questions stay
  * out, as in every visibility score.
  */
 export function followThroughScore(checks: (ScoreCheck & { mentioned: boolean; position: Position })[]): number {
@@ -55,7 +55,7 @@ export function followThroughScore(checks: (ScoreCheck & { mentioned: boolean; p
   return computeVisibility(checks.map(c => ({
     engine: c.engine as never, promptKind: c.promptKind,
     mentioned: c.mentioned || won.has(c),
-    position: won.has(c) ? "mentioned" : c.position,
+    position: won.has(c) ? "top3" : c.position,
   })), engines);
 }
 

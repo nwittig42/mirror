@@ -12,7 +12,25 @@ import {
   BUSINESS_TYPE_LABEL, ON_THE_CALL, PACE_MONTHS, RATE_DEFAULTS, growthPath, leadNoun, rangeWords, roughDollars, wholeNumber,
   type Estimate, type NotReady,
 } from "@/core/forecast";
+import { getChecksForScan, getLatestScan } from "@/lib/queries";
+import { changeWords, shareForecast } from "@/core/share-forecast";
+import { ShareChart } from "@/components/share-chart";
 import { saveOwnNumbers } from "./actions";
+
+/** A before-and-after figure: today, then where the next steps take it. */
+function Stat({ label, from, to }: { label: string; from: string; to: string }) {
+  return (
+    <div className="rounded-[14px] border border-line p-4">
+      <p className="text-[13px] font-medium text-ink-soft">{label}</p>
+      <p className="mt-1.5 text-[26px] font-semibold leading-tight tracking-tight tabular-nums">
+        <span className="text-muted">{from}</span>
+        <span className="mx-2 text-[20px] text-muted" aria-hidden="true">→</span>
+        <span className="sr-only"> to </span>
+        <span className="text-gold">{to}</span>
+      </p>
+    </div>
+  );
+}
 
 const WAITING: Record<Exclude<NotReady, "need_rates">, string> = {
   no_demand: "Not ready yet. We are still collecting how many people search for what you sell, which this is built on. Nothing is needed from you.",
@@ -26,7 +44,7 @@ const plural = (n: number, word: string) => (Math.round(n) === 1 ? word : `${wor
 
 /**
  * The customer's forecast: the year ahead in visits, leads, customers and
- * revenue if they follow their Next steps and win back about half the answers that name a competitor instead (at least matching the competitor AI names most),
+ * revenue if they follow their Next steps and win back about three quarters of the answers that name a competitor instead (at least matching the competitor AI names most),
  * and where their Accuracy score goes as wrong facts are fixed. Every figure
  * is a likely value with a range beside it and its condition above it, never
  * a promise. A prospect before their call (`locked`) sees the leads and
@@ -54,6 +72,8 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
   const adYear = forecast?.adCost && year && forecast.visits.likely > 0
     ? { low: forecast.adCost.low * (year.visits.low / forecast.visits.low || 0), likely: forecast.adCost.likely * (year.visits.likely / forecast.visits.likely), high: forecast.adCost.high * (year.visits.high / forecast.visits.high || 0) }
     : null;
+  // Customers (or orders) only once there is at least one to count.
+  const counted = !!year && (store ? year.leads.likely >= 1 : year.customers.likely >= 1);
   const growthColour = { stroke: "stroke-ring-visibility", fill: "fill-ring-visibility" };
 
   // Before the call, nothing that rests on unconfirmed facts: no Accuracy forecast, no Overall.
@@ -62,21 +82,61 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
   const lines = scoreLines(accuracy.history, accuracy.scores).filter(line => !locked || line.key === "visibility");
   const shortDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+  // The headline: how often AI recommends them, measured today, and where the next steps take it.
+  const scan = await getLatestScan(db, practice.id);
+  const share = shareForecast(scan ? await getChecksForScan(db, scan.id) : []);
+  const change = share ? changeWords(share.now, share.then.likely) : null;
+  const leader = share?.competitors[0] ?? null;
+  const round = (n: number) => Math.max(0, Math.round(n));
+  const recs = forecast && forecast.recommendations.added.likely >= 1
+    ? { today: round(forecast.recommendations.today), then: round(forecast.recommendations.today + forecast.recommendations.added.likely) }
+    : null;
+
   return (
     <PageBody>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="forecast" />
 
       <div className="space-y-4">
         <Card title="The year ahead">
-          {forecast && path && year && (
+          {share && share.then.likely > share.now && (
             <>
-              <p className="text-[15px] text-ink-soft">
-                If you follow your next steps and win back about half the AI answers that name a competitor instead of you, at a steady pace over {PACE_MONTHS} months
+              {/* What an owner reads first, and it's measured: the share of buyer answers that recommend them. */}
+              <p className="text-[26px] font-semibold leading-snug tracking-tight text-ink sm:text-[32px]">
+                AI recommends you in {share.now}% of answers today. Following your next steps:{" "}
+                <span className="text-gold">about {share.then.likely}%</span> in {PACE_MONTHS} months{change ? `, ${change}` : ""}.
               </p>
-              <p className="mt-1 text-[28px] font-semibold leading-tight tracking-tight text-ink">
-                {year.leads.likely < 0.5
-                  ? `Fewer than 1 more ${noun} in the next ${PACE_MONTHS} months`
-                  : store
+              {leader && (
+                <p className="mt-2 text-[17px] leading-relaxed text-ink-soft">
+                  {share.rankThen === 1
+                    ? <>That would make you the business AI recommends most, ahead of <span className="font-semibold text-ink">{leader.name}</span> ({leader.share}%).</>
+                    : share.rankThen < share.rankNow
+                      ? <>That would move you from #{share.rankNow} to #{share.rankThen} of everyone AI recommends. <span className="font-semibold text-ink">{leader.name}</span> leads today with {leader.share}%.</>
+                      : <>That would close in on <span className="font-semibold text-ink">{leader.name}</span>, who leads today with {leader.share}%.</>}
+                </p>
+              )}
+              <ShareChart now={share.now} then={share.then} rival={leader} />
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Stat label="Share of AI answers that recommend you" from={`${share.now}%`} to={`${share.then.likely}%`} />
+                <Stat label="Your place among businesses AI names" from={`#${share.rankNow}`} to={`#${share.rankThen}`} />
+                {recs && <Stat label="AI recommendations a month (estimated)" from={String(recs.today)} to={String(recs.then)} />}
+              </div>
+              <Note className="mt-4">
+                Today&apos;s {share.now}% is measured from {share.answers} AI answers in your latest scan. The forecast assumes your next steps win back about three quarters of the answers that name a competitor instead of you, at a steady pace, and that competitors stay where they are.
+              </Note>
+            </>
+          )}
+          {forecast && path && year && !counted && (
+            <Note className="mt-4 border-t border-line pt-4">
+              {`Too early to count in customers: at about ${forecast.monthlySearches.toLocaleString("en-US")} searches a month for what you sell, the averages we use round to less than one. We'll count real calls and orders with you once your plan is running.`}
+            </Note>
+          )}
+          {forecast && path && year && counted && (
+            <div className={share ? "mt-6 border-t border-line pt-5" : ""}>
+              <p className="text-[15px] text-ink-soft">
+                What that could bring in over the next {PACE_MONTHS} months
+              </p>
+              <p className="mt-1 text-[24px] font-semibold leading-tight tracking-tight text-ink">
+                {store
                     ? `About ${wholeNumber(year.leads.likely)} more ${plural(year.leads.likely, "order")} in the next ${PACE_MONTHS} months`
                     : `About ${wholeNumber(year.leads.likely)} more ${plural(year.leads.likely, noun)} and ${wholeNumber(year.customers.likely)} more ${plural(year.customers.likely, "customer")} in the next ${PACE_MONTHS} months`}
               </p>
@@ -99,7 +159,7 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
                 Totals for the next {PACE_MONTHS} months{revenue && setup.billing === "monthly" ? ", except monthly revenue, which is what the customers gained would be paying each month by then" : ""}.
                 An estimate from {forecast.monthlySearches.toLocaleString("en-US")} searches a month, your latest scan and industry averages. It is not a promise of what you will get, or of what our work will deliver.
               </Note>
-            </>
+            </div>
           )}
           {forecast?.ahead && (
             <>
@@ -121,13 +181,13 @@ export default async function ForecastPage({ params }: { params: Promise<{ slug:
           {forecast && <div className="mt-4">{method}</div>}
         </Card>
 
-        <Card title="GEO forecast">
+        <Card title="Your score">
           {lines.length > 0 ? (
             <>
               <p className="text-[15px] text-ink-soft">
                 {[
                   acc && "every wrong fact is corrected at its source this week",
-                  accuracy.competitor && "you follow your next steps and win back about half the answers AI gives a competitor over the year",
+                  accuracy.competitor && "you follow your next steps and win back about three quarters of the answers AI gives a competitor over the year",
                 ].filter(Boolean).map((part, i) => (i === 0 ? `If ${part}` : `and ${part}`)).join(", ") || "Nothing is set to change your scores right now"}
               </p>
               {!locked && accuracy.scores.overall && (

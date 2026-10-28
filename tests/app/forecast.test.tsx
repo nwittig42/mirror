@@ -79,7 +79,8 @@ describe("the forecast", () => {
     await db.update(schema.practices).set({ forecast: DEMAND }).where(eq(schema.practices.id, practiceId));
     await scan();
     const page = await text(ForecastPage({ params }));
-    expect(page).toContain("If you follow your next steps and win back about half the AI answers that name a competitor instead of you, at a steady pace over 12 months");
+    expect(page).toMatch(/AI recommends you in \d+% of answers today\. Following your next steps: about \d+% in 12 months/);
+    expect(page).toContain("The forecast assumes your next steps win back about three quarters of the answers that name a competitor instead of you, at a steady pace");
     expect(page).toMatch(/About \d+ more leads and \d+ more customers in the next 12 months/);
     for (const tile of ["Visits from AI", "Leads", "New customers", "Worth as Google ads"]) expect(page).toContain(tile);
     expect(page).toMatch(/Range [\d,]+ to [\d,]+/);

@@ -70,12 +70,15 @@ export function scoreLines(
 }
 
 /**
- * Scores from 0 to 100, one line each: solid through the scans so far, then
+ * Scores from 30 (the lowest a shown score can be) to 100, one line each: solid through the scans so far, then
  * dotted into the forecast on a tinted ground, with each forecast's range
  * shaded around it. The key underneath carries the numbers (today, then the
  * last forecast), so the chart itself stays clean. `compact` drops the past
  * dates for a small card.
  */
+// Every shown score runs from 30 to 100, so the axis starts at 30: below it is space no score can reach.
+const FLOOR = 30;
+
 export function ScoreForecastChart({ lines, pastLabels, compact = false }: {
   lines: ScoreChartLine[];
   pastLabels: string[];
@@ -92,7 +95,7 @@ export function ScoreForecastChart({ lines, pastLabels, compact = false }: {
   const x = (i: number) => i <= today
     ? left + (today === 0 ? 0 : (i / today) * pastWidth)
     : left + pastWidth + ((i - today) / ahead.length) * (W - left - right - pastWidth);
-  const y = (v: number) => top + (1 - Math.min(100, Math.max(0, v)) / 100) * (H - top - bottom);
+  const y = (v: number) => top + (1 - (Math.min(100, Math.max(FLOOR, v)) - FLOOR) / (100 - FLOOR)) * (H - top - bottom);
 
   return (
     <div>
@@ -100,9 +103,9 @@ export function ScoreForecastChart({ lines, pastLabels, compact = false }: {
         aria-label={shown.map(l => `${l.label}: ${l.past[today]} today, forecast ${l.ahead.map(p => `${p.likely} ${p.label} (${p.low} to ${p.high})`).join(", ")}`).join(". ")}>
         {/* The forecast's ground. */}
         <rect x={x(today)} y={top - 8} width={W - right - x(today) + 8} height={H - top - bottom + 8} rx={10} className="fill-bone" fillOpacity={0.55} />
-        {[0, 50, 100].map(v => (
+        {[FLOOR, 50, 75, 100].map(v => (
           <g key={v}>
-            <line x1={left} x2={W - right + 8} y1={y(v)} y2={y(v)} className="stroke-line" strokeWidth={1} strokeOpacity={v === 0 ? 1 : 0.6} />
+            <line x1={left} x2={W - right + 8} y1={y(v)} y2={y(v)} className="stroke-line" strokeWidth={1} strokeOpacity={v === FLOOR ? 1 : 0.6} />
             <text x={left - 8} y={y(v) + 4} textAnchor="end" className="fill-muted" fontSize={11}>{v}</text>
           </g>
         ))}

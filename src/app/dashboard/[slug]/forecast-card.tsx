@@ -8,6 +8,7 @@ import { loadForecast, type ForecastSetup } from "@/services/forecast";
 import { loadAccuracyForecast } from "@/services/accuracy-forecast";
 import { getChecksForScan, getLatestScan } from "@/lib/queries";
 import { changeWords, shareForecast } from "@/core/share-forecast";
+import { ShareChart } from "@/components/share-chart";
 import {
   ORIGIN_LABEL, PACE_MONTHS, growthPath, rangeWords, roughDollars, valueWords, wholeNumber, type Estimate, type NotReady,
 } from "@/core/forecast";
@@ -122,7 +123,9 @@ export async function ForecastCard({ slug, practice, free = false }: {
             <p className="mt-2 text-[16px] leading-relaxed text-ink-soft">
               {share.rankThen === 1
                 ? <>That would make you the business AI recommends most, ahead of <span className="font-semibold text-ink">{leader.name}</span> ({leader.share}%).</>
-                : <>That would move you from #{share.rankNow} to #{share.rankThen} of everyone AI recommends. <span className="font-semibold text-ink">{leader.name}</span> leads today with {leader.share}%.</>}
+                : share.rankThen < share.rankNow
+                  ? <>That would move you from #{share.rankNow} to #{share.rankThen} of everyone AI recommends. <span className="font-semibold text-ink">{leader.name}</span> leads today with {leader.share}%.</>
+                  : <>That would close in on <span className="font-semibold text-ink">{leader.name}</span>, who leads today with {leader.share}%.</>}
             </p>
           )}
           <ShareChart now={share.now} then={share.then} rival={leader} />
@@ -131,7 +134,7 @@ export async function ForecastCard({ slug, practice, free = false }: {
             {pick && score && <span>{pick.label} score: {score.now} now, about {score.points.at(-1)!.likely} in {score.points.at(-1)!.month} months</span>}
           </div>
           <p className="mt-1 text-[13px] text-muted">
-            Today&apos;s {share.now}% is measured from {share.answers} AI answers in your audit. The forecast assumes your next steps win back about half the answers that name a competitor instead of you, and that competitors stay where they are.
+            Today&apos;s {share.now}% is measured from {share.answers} AI answers in your audit. The forecast assumes your next steps win back about three quarters of the answers that name a competitor instead of you, and that competitors stay where they are.
           </p>
         </>
       ) : (
@@ -210,52 +213,5 @@ export async function ForecastCard({ slug, practice, free = false }: {
         </div>
       )}
     </Card>
-  );
-}
-
-/**
- * The share of AI answers that recommend the business, today to 12 months:
- * its line climbing (the likely path, with the low-to-high band behind it)
- * against the top competitor's share today as a flat dashed line.
- */
-function ShareChart({ now, then, rival }: { now: number; then: { low: number; likely: number; high: number }; rival: { name: string; share: number } | null }) {
-  const W = 640, H = 220, L = 44, R = 16, T = 16, B = 30;
-  // The axis tops out at the next 25% above the highest point, so the climb fills the chart.
-  const top = Math.min(100, Math.ceil((Math.max(then.high, rival?.share ?? 0) + 3) / 25) * 25);
-  const x = (m: number) => L + (m / PACE_MONTHS) * (W - L - R);
-  const y = (v: number) => T + (1 - v / top) * (H - T - B);
-  const months = [0, 3, 6, 9, 12];
-  const at = (end: number, m: number) => now + (end - now) * (m / PACE_MONTHS);
-  const line = months.map(m => `${x(m)},${y(at(then.likely, m))}`).join(" ");
-  const band = [...months.map(m => `${x(m)},${y(at(then.high, m))}`), ...[...months].reverse().map(m => `${x(m)},${y(at(then.low, m))}`)].join(" ");
-  const ticks = Array.from({ length: top / 25 + 1 }, (_, i) => i * 25).filter(v => v <= top);
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="mt-5 w-full" role="img"
-      aria-label={`Share of AI answers that recommend you: ${now}% today, about ${then.likely}% in ${PACE_MONTHS} months${rival ? `; ${rival.name} at ${rival.share}% today` : ""}`}>
-      {ticks.map(v => (
-        <g key={v}>
-          <line x1={L} x2={W - R} y1={y(v)} y2={y(v)} className="stroke-line" strokeWidth={1} />
-          <text x={L - 8} y={y(v) + 4} textAnchor="end" className="fill-muted text-[11px]">{v}%</text>
-        </g>
-      ))}
-      {months.map(m => (
-        <text key={m} x={x(m)} y={H - 8} textAnchor={m === 0 ? "start" : m === PACE_MONTHS ? "end" : "middle"} className="fill-muted text-[11px]">
-          {m === 0 ? "Today" : `${m} months`}
-        </text>
-      ))}
-      {rival && (
-        <g>
-          <line x1={x(0)} x2={x(PACE_MONTHS)} y1={y(rival.share)} y2={y(rival.share)} className="stroke-muted" strokeWidth={1.5} strokeDasharray="5 5" />
-          {/* At the right, under the line: by then the business's line is well above it. */}
-          <text x={x(PACE_MONTHS)} y={y(rival.share) + 16} textAnchor="end" className="fill-muted text-[11px]">{rival.name} today, {rival.share}%</text>
-        </g>
-      )}
-      <polygon points={band} className="fill-gold" fillOpacity={0.15} />
-      <polyline points={line} fill="none" className="stroke-gold" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx={x(0)} cy={y(now)} r={5} className="fill-ink" />
-      <circle cx={x(PACE_MONTHS)} cy={y(then.likely)} r={6} className="fill-gold" />
-      <text x={x(0) + 10} y={y(now) + 18} className="fill-ink text-[13px] font-semibold">{now}%</text>
-      <text x={x(PACE_MONTHS) - 10} y={y(then.likely) - 12} textAnchor="end" className="fill-gold text-[15px] font-semibold">{then.likely}%</text>
-    </svg>
   );
 }

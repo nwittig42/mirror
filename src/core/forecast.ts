@@ -87,7 +87,7 @@ export const VISITS_PER_MENTION: Range = { low: 0.005, likely: 0.02, high: 0.04 
  * assumption, ranged wide, and the page says so. The target is never below
  * catching the top competitor, the forecast's older target.
  */
-export const FOLLOW_THROUGH: Range = { low: 0.25, likely: 0.5, high: 0.75 };
+export const FOLLOW_THROUGH: Range = { low: 0.5, likely: 0.75, high: 0.9 };
 
 export type BusinessType = "home_services" | "clinic" | "legal" | "b2b_software" | "freemium" | "ecommerce" | "local_shop" | "other";
 export const BUSINESS_TYPES: BusinessType[] = ["home_services", "clinic", "legal", "b2b_software", "freemium", "ecommerce", "local_shop", "other"];
@@ -471,7 +471,7 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       label: `AI assistant answers you could win: you're named in ${pct(rates.assistants.yours)}, and a competitor is named instead in ${pct(rates.assistants.lost ?? 0)}`,
       value: `${Math.round(assistantGap * 100)} points`,
       origin: "measured" as const,
-      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about half of the answers you're losing (a quarter to three quarters), and at least enough to match ${rates.competitor}. Each assistant counts by how much it is used, so ChatGPT weighs most.`,
+      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about three quarters of the answers you're losing (half to nine in ten), and at least enough to match ${rates.competitor}. Each assistant counts by how much it is used, so ChatGPT weighs most.`,
       sources: [],
     }] : []),
     ...(rates.aiMode ? [{
@@ -484,7 +484,7 @@ export function buildForecast(input: ForecastInput): ForecastResult {
       label: `Google AI Mode answers you could win: you're named in ${pct(rates.aiMode.yours)}, and a competitor is named instead in ${pct(rates.aiMode.lost ?? 0)}`,
       value: `${Math.round(aiModeGap * 100)} points`,
       origin: "measured" as const,
-      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about half of the answers you're losing, and at least enough to match ${rates.competitor}.`,
+      note: `From your latest scan, leaving out questions that name you. Following your next steps, we assume you win back about three quarters of the answers you're losing, and at least enough to match ${rates.competitor}.`,
       sources: [],
     }] : []),
     {

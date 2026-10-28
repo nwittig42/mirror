@@ -7,7 +7,7 @@ const check = (engine: string, mentioned: boolean, competitors: string[], positi
 });
 
 describe("followThroughScore", () => {
-  it("scores the business as if its Next steps won back half the answers that named a competitor instead", () => {
+  it("scores the business as if its Next steps won back three quarters of the answers that named a competitor instead", () => {
     const checks = [
       check("openai", true, ["A"]), check("openai", false, ["A"]), check("openai", false, ["A"]),
       check("google", false, ["B"]), check("google", false, ["B"]), check("google", false, []),

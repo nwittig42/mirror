@@ -109,19 +109,19 @@ describe("buildForecast", () => {
     // 10,000 searches x 0.14 assistant answers = 1,400 answers; named in 10% today, losing 60%.
     const f = ready(input({ rates: rates({ assistants: { yours: 0.1, theirs: 0.3, lost: 0.6 } }) }));
     expect(f.recommendations.today).toBeCloseTo(140, 5);
-    // Half the lost 60% is 30 points, more than the 20 to catch the competitor: 420 more a month.
-    expect(f.recommendations.added.likely).toBeCloseTo(420, 5);
-    expect(f.recommendations.added.low).toBeLessThan(420);
-    expect(f.recommendations.added.high).toBeGreaterThan(420);
+    // Three quarters of the lost 60% is 45 points, more than the 20 to catch the competitor: 630 more a month.
+    expect(f.recommendations.added.likely).toBeCloseTo(630, 5);
+    expect(f.recommendations.added.low).toBeLessThan(630);
+    expect(f.recommendations.added.high).toBeGreaterThan(630);
   });
 
-  it("assumes the Next steps win back about half the lost answers, even when level with the top competitor", () => {
+  it("assumes the Next steps win back about three quarters of the lost answers, even when level with the top competitor", () => {
     // Level with the competitor, but losing half the answers to someone: the old target gave nothing.
     const level = ready(input({ rates: rates({ assistants: { yours: 0.3, theirs: 0.3, lost: 0.5 } }) }));
     const none = ready(input({ rates: rates({ assistants: { yours: 0.3, theirs: 0.3, lost: 0 } }) }));
     expect(none.visits.likely).toBe(0);
     expect(level.visits.likely).toBeGreaterThan(0);
-    expect(level.steps.find(s => s.label.startsWith("AI assistant answers you could win"))!.value).toBe("25 points");
+    expect(level.steps.find(s => s.label.startsWith("AI assistant answers you could win"))!.value).toBe("38 points");
     // Never less than catching the competitor.
     const behind = ready(input({ rates: rates({ assistants: { yours: 0.1, theirs: 0.6, lost: 0.2 } }) }));
     expect(behind.steps.find(s => s.label.startsWith("AI assistant answers you could win"))!.value).toBe("50 points");
