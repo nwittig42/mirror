@@ -13,19 +13,19 @@ const { DashboardSidebar, nextPlan } = await import("@/components/dashboard-side
 describe("DashboardSidebar", () => {
   beforeEach(() => { pathname = "/dashboard/harbor"; });
 
-  it("lists both groups, Reports and Pricing", () => {
-    const html = renderToStaticMarkup(<DashboardSidebar slug="harbor" plan={null} />);
-    for (const text of ["What AI says", "Next steps", ">Overview<", ">Answers<", ">Competitors<", ">Your plan<", ">Forecast<", ">Reports<", ">Pricing<"]) {
+  it("shows the business at the top, both groups, and Reports and Pricing", () => {
+    const html = renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan={null} />);
+    for (const text of ["Harbor Plumbing", "Resources", "Sign out", "What AI says", "Next steps", ">Overview<", ">Answers<", ">Competitors<", ">Your plan<", ">Forecast<", ">Reports<", ">Pricing<"]) {
       expect(html).toContain(text);
     }
   });
 
   it("marks the page you are on, and an older page under its new link", () => {
     pathname = "/dashboard/harbor/fixes";
-    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" plan={null} />))
-      .toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">Your plan</);
+    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan={null} />))
+      .toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/fixes">(?:(?!<\/a>).)*Your plan</);
     pathname = "/dashboard/harbor/accuracy";
-    const html = renderToStaticMarkup(<DashboardSidebar slug="harbor" plan={null} />);
+    const html = renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan={null} />);
     expect(html).toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor\/answers"/);
     expect(html).not.toMatch(/aria-current="page"[^>]*href="\/dashboard\/harbor"/);
   });
@@ -34,8 +34,8 @@ describe("DashboardSidebar", () => {
     expect(nextPlan(null)).toBe("pulse");
     expect(nextPlan("pulse")).toBe("partner");
     expect(nextPlan("partner")).toBeNull();
-    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" plan={null} />)).toContain("Upgrade to Pulse");
-    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" plan="pulse" />)).toContain("Upgrade to Partner");
-    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" plan="partner" />)).not.toContain("Upgrade to");
+    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan={null} />)).toContain("Upgrade to Pulse");
+    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan="pulse" />)).toContain("Upgrade to Partner");
+    expect(renderToStaticMarkup(<DashboardSidebar slug="harbor" practiceName="Harbor Plumbing" plan="partner" />)).not.toContain("Upgrade to");
   });
 });

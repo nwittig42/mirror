@@ -36,7 +36,7 @@ export default async function DashboardLayout({
   const [session, jar, [plan]] = await Promise.all([
     auth(),
     cookies(),
-    getDb().select({ plan: practices.plan }).from(practices).where(eq(practices.slug, slug)),
+    getDb().select({ plan: practices.plan, name: practices.name, logo: practices.logo }).from(practices).where(eq(practices.slug, slug)),
   ]);
   // Only a signed-in viewer gets a look that depends on the business; anyone else is about to see a 404.
   const dark = !!session && plan?.plan === "partner" && jar.get(THEME_COOKIE)?.value !== "light";
@@ -47,7 +47,7 @@ export default async function DashboardLayout({
     <div className={`app antialiased ${dark ? "theme-dark" : ""} ${locked ? "pb-24" : ""}`}>
       {banner}
       <div className="lg:flex">
-        {session && plan && <DashboardSidebar slug={slug} plan={isPlan(plan.plan) ? plan.plan : null} />}
+        {session && plan && <DashboardSidebar slug={slug} practiceName={plan.name} logo={plan.logo} plan={isPlan(plan.plan) ? plan.plan : null} />}
         <div className="min-w-0 flex-1">
           {locked && <CallBanner />}
           {children}

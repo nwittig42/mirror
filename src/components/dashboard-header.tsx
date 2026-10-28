@@ -10,10 +10,10 @@ type Tab = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "repo
 const MENU_ITEM = "block w-full rounded-lg px-3 py-2 text-left text-[14px] font-medium text-ink-soft hover:bg-bone hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold";
 
 /**
- * The customer dashboard's header, above the page beside the sidebar: at the
- * top left the profile menu (settings, Fact Sheet, Help, sign out), with a
- * way back to the Mirror website on small screens where the sidebar has none;
- * at the top right the plan; then the business name.
+ * The customer dashboard's header on phones and tablets: a way back to the
+ * Mirror website and the profile menu (settings, Fact Sheet, Help, sign out),
+ * the plan, then the business name. On a wide screen the sidebar carries all
+ * of this (see DashboardSidebar), so the header hides.
  */
 export function DashboardHeader({
   slug, practiceName, logo, plan, active,
@@ -27,11 +27,11 @@ export function DashboardHeader({
   active: Tab;
 }) {
   return (
-    <header className="mb-8 border-b border-line pb-6 print:hidden">
+    <header className="mb-8 border-b border-line pb-6 lg:hidden print:hidden">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Link href="/" title="Back to the Mirror website"
-            className="group flex items-center gap-3 text-ink hover:text-gold lg:hidden focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+            className="group flex items-center gap-3 text-ink hover:text-gold focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
             <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-ink group-hover:border-gold">
               <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 12H5M11 5l-7 7 7 7" />
