@@ -35,7 +35,26 @@ const FOCUS = "focus-visible:outline focus-visible:outline-2 focus-visible:outli
 
 /** The centred column every page sits in. */
 export function PageBody({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  return <div className={`mx-auto px-4 py-8 sm:px-6 ${wide ? "max-w-6xl" : "max-w-4xl"}`}>{children}</div>;
+  return <div className={`mx-auto px-4 py-8 sm:px-8 lg:py-12 ${wide ? "max-w-6xl" : "max-w-5xl"}`}>{children}</div>;
+}
+
+/**
+ * The top of a page: a small gold line over a serif title, a grey line under
+ * it, and `aside` (a button or a date) on the right on a wide screen.
+ */
+export function PageTitle({ eyebrow, title, children, aside }: {
+  eyebrow?: ReactNode; title: ReactNode; children?: ReactNode; aside?: ReactNode;
+}) {
+  return (
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+      <div className="min-w-0 max-w-2xl">
+        {eyebrow && <p className="eyebrow">{eyebrow}</p>}
+        <h1 className="display mt-2 text-[34px] leading-[1.1] tracking-[-0.01em] text-ink sm:text-[40px]">{title}</h1>
+        {children && <p className="mt-3 text-[15.5px] leading-relaxed text-muted">{children}</p>}
+      </div>
+      {aside && <div className="shrink-0">{aside}</div>}
+    </div>
+  );
 }
 
 /** A white card with a small title. With `href` the whole card is a link. */
@@ -44,12 +63,12 @@ export function Card({ title, href, aside, children, className = "" }: {
 }) {
   const head = (title || aside) && (
     <div className="mb-3 flex items-center justify-between gap-3">
-      {title && <h2 className="text-[13px] font-semibold uppercase tracking-[0.12em] text-muted">{title}</h2>}
+      {title && <h2 className="text-[15px] font-semibold text-ink">{title}</h2>}
       {aside}
       {href && !aside && <span className="text-[17px] text-muted" aria-hidden="true">→</span>}
     </div>
   );
-  const box = `block rounded-[20px] border border-line bg-paper p-5 ${className}`;
+  const box = `block rounded-[14px] border border-line bg-paper p-6 ${className}`;
   return href
     ? <Link href={href} className={`${box} transition-colors hover:border-gold ${FOCUS}`}>{head}{children}</Link>
     : <section className={box}>{head}{children}</section>;
@@ -59,7 +78,7 @@ export function Card({ title, href, aside, children, className = "" }: {
 export function Stat({ value, unit, tone = "neutral" }: { value: ReactNode; unit?: string; tone?: Tone }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className={`text-[40px] font-semibold leading-none tracking-tight ${TONE_TEXT[tone]}`}>{value}</span>
+      <span className={`display text-[44px] leading-none tabular-nums tracking-[-0.01em] ${TONE_TEXT[tone]}`}>{value}</span>
       {unit && <span className="text-[15px] text-muted">{unit}</span>}
     </div>
   );
@@ -77,11 +96,11 @@ export function Tag({ tone = "neutral", children }: { tone?: Tone; children: Rea
 const BUTTON = {
   primary: "bg-ink text-ivory hover:bg-ink-raised",
   gold: "bg-gold text-paper hover:brightness-110",
-  outline: "border border-ink bg-transparent text-ink hover:bg-bone",
+  outline: "border border-line bg-paper text-ink hover:border-ink",
 } as const;
 
 export function buttonClass(variant: keyof typeof BUTTON = "primary"): string {
-  return `inline-flex items-center justify-center whitespace-nowrap rounded-full px-5 py-2.5 text-[15px] font-semibold ${BUTTON[variant]} ${FOCUS}`;
+  return `inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg px-4 text-[14.5px] font-semibold transition-colors ${BUTTON[variant]} ${FOCUS}`;
 }
 
 /** A score out of 100 as one ring. Grey and "N/A" when there is no score yet. */
@@ -105,7 +124,7 @@ export function ScoreDial({ value, size = 148, label, color = "stroke-gold" }: {
         </g>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="font-semibold leading-none tracking-tight text-ink" style={{ fontSize: size * 0.3 }}>{value ?? "N/A"}</span>
+        <span className="display leading-none tabular-nums text-ink" style={{ fontSize: size * 0.32 }}>{value ?? "N/A"}</span>
         {/* A small ring has no room for the label; the caller names it beside the ring. */}
         {size >= 120 && <span className="mt-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</span>}
       </div>
@@ -139,8 +158,8 @@ export interface RingScore { key: RingKey; label: string; value: number | null; 
  * fill; a missing score shows the empty track.
  */
 export function ScoreRings({ rings, size = 184 }: { rings: RingScore[]; size?: number }) {
-  const stroke = size * 0.1;
-  const gap = size * 0.016;
+  const stroke = size * 0.075;
+  const gap = size * 0.03;
   const c = size / 2;
   return (
     <div className="shrink-0" style={{ width: size, height: size }} role="img"
@@ -169,7 +188,7 @@ export function ScoreRings({ rings, size = 184 }: { rings: RingScore[]; size?: n
 /** The numbers beside `ScoreRings`: one row per ring, in the ring's colour. A row with an `href` is a link to that score's page. */
 export function RingLegend({ rings }: { rings: RingScore[] }) {
   return (
-    <div className="space-y-1">
+    <div>
       {rings.map(ring => {
         const row = (
           <>
@@ -182,12 +201,12 @@ export function RingLegend({ rings }: { rings: RingScore[] }) {
               {ring.note && <Note className="mt-0.5 pl-[18px]">{ring.note}</Note>}
             </div>
             <div className="shrink-0 whitespace-nowrap">
-              <span className={`text-[30px] font-semibold leading-none tracking-tight ${ring.value === null ? "text-muted" : RING_TEXT[ring.key]}`}>{ring.value ?? "N/A"}</span>
+              <span className={`display text-[32px] leading-none tabular-nums ${ring.value === null ? "text-muted" : "text-ink"}`}>{ring.value ?? "N/A"}</span>
               {ring.value !== null && <span className="text-[15px] text-muted">/100</span>}
             </div>
           </>
         );
-        const box = "-mx-2 flex items-center justify-between gap-4 rounded-xl px-2 py-1.5";
+        const box = "-mx-3 flex items-center justify-between gap-4 rounded-lg border-b border-line px-3 py-3 last:border-b-0";
         return ring.href
           ? <Link key={ring.key} href={ring.href} className={`group ${box} hover:bg-bone ${FOCUS}`}>{row}</Link>
           : <div key={ring.key} className={box}>{row}</div>;
@@ -229,7 +248,7 @@ export function TrendRow({ label, now, change }: { label: string; now: number | 
             : `${up ? "Up" : "Down"} ${Math.abs(change)} since the last scan`}
         </div>
       </div>
-      <span className="text-[20px] font-semibold text-ink">{now ?? "N/A"}</span>
+      <span className="display text-[24px] tabular-nums text-ink">{now ?? "N/A"}</span>
     </div>
   );
 }
@@ -261,7 +280,7 @@ export function HistoryBars({ points, label }: { points: { date: Date; value: nu
 export function SectionTitle({ id, title, children }: { id?: string; title: string; children?: ReactNode }) {
   return (
     <div id={id} className="scroll-mt-24 pt-4">
-      <h2 className="text-[22px] font-semibold tracking-tight text-ink">{title}</h2>
+      <h2 className="display text-[26px] tracking-[-0.01em] text-ink">{title}</h2>
       {children && <Note className="mt-1">{children}</Note>}
     </div>
   );
@@ -283,7 +302,7 @@ export function BarRow({ label, value, fraction, highlight = false, rank, fill, 
         {icon}
         <span className="truncate">{label}</span>
       </span>
-      <span className={`min-w-0 flex-1 overflow-hidden rounded-full bg-bone ${fill ? "h-3" : "h-2"}`}>
+      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-bone">
         <span className={`block h-full rounded-full ${fill ?? (highlight ? "bg-gold" : "bg-muted")}`}
           style={{ width: `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%` }} />
       </span>
@@ -305,7 +324,7 @@ export function SiteIcon({ domain, size = 20 }: { domain: string; size?: number 
   );
 }
 
-const INITIAL_FILLS = ["bg-teal", "bg-plum", "bg-ring-facts", "bg-ring-visibility", "bg-ring-overall", "bg-sun"];
+const INITIAL_FILLS = ["bg-ink-soft", "bg-muted", "bg-gold", "bg-ring-overall", "bg-ring-facts"];
 
 /**
  * A business's mark beside its name: its saved logo, else its website's
@@ -342,7 +361,7 @@ export function SplitBar({ parts, unit, label }: { parts: BarPart[]; unit: strin
   if (total === 0) return null;
   return (
     <div>
-      <div className="flex h-4 gap-0.5 overflow-hidden rounded-full" role="img"
+      <div className="flex h-2.5 gap-0.5 overflow-hidden rounded-full" role="img"
         aria-label={`${label}: ${shown.map(p => `${p.label} ${p.value} ${unit}`).join(", ")}`}>
         {shown.map(p => <span key={p.key} className={`h-full ${p.fill}`} style={{ width: `${(p.value / total) * 100}%` }} />)}
       </div>
@@ -387,8 +406,8 @@ export function LineChart({ series, labels, label }: { series: LineSeries[]; lab
         {labels.map((l, i) => <text key={i} x={x(i)} y={H - 8} textAnchor="middle" className="fill-muted" fontSize={11}>{l}</text>)}
         {series.map(s => (
           <g key={s.key} className={s.stroke} fill="none">
-            <path d={path(s.points)} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-            {s.points.map((v, i) => v === null ? null : <circle key={i} cx={x(i)} cy={y(v)} r={4.5} className="fill-paper" strokeWidth={3} />)}
+            <path d={path(s.points)} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            {s.points.map((v, i) => v === null ? null : <circle key={i} cx={x(i)} cy={y(v)} r={3.5} className="fill-paper" strokeWidth={2} />)}
           </g>
         ))}
       </svg>
@@ -420,7 +439,7 @@ export function Table({ head, rows, right = [] }: { head: string[]; rows: ReactN
         <thead>
           <tr className="border-b border-line">
             {head.map((h, i) => (
-              <th key={h} className={`py-2 pr-4 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted last:pr-0 ${align(i)}`}>{h}</th>
+              <th key={h} className={`py-2.5 pr-4 text-[12.5px] font-medium text-muted last:pr-0 ${align(i)}`}>{h}</th>
             ))}
           </tr>
         </thead>
@@ -428,7 +447,7 @@ export function Table({ head, rows, right = [] }: { head: string[]; rows: ReactN
           {rows.map((cells, r) => (
             <tr key={r}>
               {cells.map((cell, i) => (
-                <td key={i} className={`py-2.5 pr-4 last:pr-0 ${i === 0 ? "text-ink" : "text-ink-soft"} ${align(i)}`}>{cell}</td>
+                <td key={i} className={`py-3 pr-4 last:pr-0 ${i === 0 ? "text-ink" : "text-ink-soft"} ${align(i)}`}>{cell}</td>
               ))}
             </tr>
           ))}

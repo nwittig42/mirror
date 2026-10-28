@@ -13,7 +13,7 @@ export function nextPlan(plan: Plan | null): Plan | null {
   return plan === "pulse" ? "partner" : null;
 }
 
-/** 18px line icons, drawn in the text colour. */
+/** 16px line icons, drawn in the text colour. */
 const ICONS: Record<string, ReactNode> = {
   overview: <><rect x="3.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="3.5" width="7" height="7" rx="1.5" /><rect x="3.5" y="13.5" width="7" height="7" rx="1.5" /><rect x="13.5" y="13.5" width="7" height="7" rx="1.5" /></>,
   answers: <path d="M4 5.5h16v10H9l-5 4z" />,
@@ -73,8 +73,8 @@ export function DashboardSidebar({ slug, practiceName, logo, plan }: {
     const on = isOn(l.suffix, l.also);
     return (
       <Link key={l.suffix} href={base + l.suffix} aria-current={on ? "page" : undefined}
-        className={`dash-link ${on ? "bg-bone text-ink" : "text-ink-soft hover:bg-bone/60 hover:text-ink"}`}>
-        <svg viewBox="0 0 24 24" aria-hidden="true" className="hidden h-[18px] w-[18px] shrink-0 fill-none stroke-current lg:block" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">{ICONS[l.icon]}</svg>
+        className={`dash-link ${on ? "bg-bone font-semibold text-ink" : "text-ink-soft hover:bg-bone/60 hover:text-ink"}`}>
+        <svg viewBox="0 0 24 24" aria-hidden="true" className="hidden h-4 w-4 shrink-0 fill-none stroke-current lg:block" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">{ICONS[l.icon]}</svg>
         {l.label}
       </Link>
     );
@@ -90,17 +90,17 @@ export function DashboardSidebar({ slug, practiceName, logo, plan }: {
   return (
     <aside className="dash-sidebar print:hidden">
       {/* A <details>, so the menu opens without any script. */}
-      <details className="profile-menu relative mb-6 hidden lg:block">
+      <details className="profile-menu relative mb-5 hidden border-b border-line pb-3 lg:block">
         <summary aria-label="Account and settings"
-          className="flex cursor-pointer list-none items-center gap-2.5 rounded-xl px-2 py-2 hover:bg-bone/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold [&::-webkit-details-marker]:hidden">
+          className="flex cursor-pointer list-none items-center gap-2.5 rounded-lg px-2 py-1.5 hover:bg-bone/60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold [&::-webkit-details-marker]:hidden">
           {logo ? (
             // A stored data: address, so next/image has nothing to optimize.
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logo} alt="" className="h-8 w-8 shrink-0 rounded-lg border border-line bg-white object-contain" />
+            <img src={logo} alt="" className="h-7 w-7 shrink-0 rounded-md border border-line bg-white object-contain" />
           ) : (
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ink text-[14px] font-semibold text-ivory">{(practiceName.trim()[0] ?? "?").toUpperCase()}</span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-ink text-[13px] font-semibold text-ivory">{(practiceName.trim()[0] ?? "?").toUpperCase()}</span>
           )}
-          <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{practiceName}</span>
+          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-ink">{practiceName}</span>
           <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 shrink-0 fill-none stroke-muted" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
         </summary>
         <div className="absolute left-0 right-0 top-full z-40 mt-1.5 rounded-2xl border border-line bg-paper p-1.5 shadow-lg">
@@ -126,14 +126,14 @@ export function DashboardSidebar({ slug, practiceName, logo, plan }: {
         </div>
       </nav>
 
-      <div className="mt-4 hidden rounded-xl border border-line bg-ivory p-3.5 lg:block">
+      <div className="mt-4 hidden rounded-[10px] border border-line p-3.5 lg:block">
         <p className="text-[13px] font-semibold text-ink">{plan ? `${PLAN_LABELS[plan]} plan` : "Free audit"}</p>
         <p className="mt-0.5 text-[12.5px] leading-snug text-muted">
           {plan ? "AI checked every week." : "One scan. A plan rescans every week."}
         </p>
         {up && (
           <Link href={`${base}/plans`}
-            className="mt-3 block rounded-lg bg-ink px-3 py-2.5 text-center text-[14px] font-semibold text-ivory hover:bg-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+            className="mt-3 block rounded-lg bg-ink px-3 py-2 text-center text-[13.5px] font-semibold text-ivory hover:bg-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
             Upgrade to {PLAN_LABELS[up]}
           </Link>
         )}

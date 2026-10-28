@@ -18,8 +18,8 @@ export function StartPlanButton({ plan, label, action, featured, disabled }: {
     <form action={formAction}>
       <input type="hidden" name="plan" value={plan} />
       <button type="submit" disabled={pending || disabled}
-        className={`w-full rounded-full px-5 py-3 text-[15px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          featured ? "bg-gold text-paper hover:brightness-110" : "bg-ink text-ivory hover:bg-ink-soft"}`}>
+        className={`h-11 w-full rounded-lg px-5 text-[14.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          featured ? "bg-ink text-ivory hover:bg-ink-soft" : "border border-line bg-paper text-ink hover:border-ink"}`}>
         {pending ? "Sending…" : label}
       </button>
       {state.status === "error" && <p className="mt-2 text-[13px] font-semibold text-flag" role="alert">{state.message}</p>}

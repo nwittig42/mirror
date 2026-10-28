@@ -17,19 +17,19 @@ import { KIND_FILL, TOOL } from "@/components/chart-keys";
 /** How many of the most-read websites the chart at the top shows. */
 const TOP_SITES = 8;
 
-/** One answer in the question grid: green when named near the top, yellow when named lower, pale when left out. */
+/** One answer in the question grid: gold when named near the top, light gold when named lower, pale when left out. */
 const SPOT: Record<Position, { fill: string; label: string }> = {
-  first: { fill: "bg-ok", label: "named first" },
-  top3: { fill: "bg-ok", label: "named in the top 3" },
+  first: { fill: "bg-gold", label: "named first" },
+  top3: { fill: "bg-gold", label: "named in the top 3" },
   mentioned: { fill: "bg-sun", label: "named" },
   absent: { fill: "bg-bone", label: "not named" },
 };
 
-/** A big coloured number that jumps to its section. */
+/** A big number that jumps to its section. */
 function Jump({ href, value, label, color }: { href: string; value: number; label: string; color: string }) {
   return (
-    <a href={href} className="block rounded-[20px] border border-line bg-paper px-5 py-4 hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
-      <span className={`block text-[34px] font-semibold leading-none tracking-tight ${color}`}>{value}</span>
+    <a href={href} className="block rounded-[14px] border border-line bg-paper px-6 py-5 transition-colors hover:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
+      <span className={`display block text-[40px] leading-none tabular-nums ${color}`}>{value}</span>
       <span className="mt-1.5 block text-[14px] text-muted">{label}</span>
     </a>
   );
@@ -123,11 +123,11 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
       )}
 
       <div className={`grid gap-3 sm:gap-4 ${locked ? "grid-cols-2" : "grid-cols-3"}`}>
-        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-ring-visibility" />
+        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-gold" />
         {!locked && (
           <Jump href="#wrong-facts" value={open.length} label={`wrong fact${open.length === 1 ? "" : "s"} to fix`} color={open.length > 0 ? "text-flag" : "text-ok"} />
         )}
-        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-ring-overall" />
+        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-ink" />
       </div>
 
       <div className="mt-4 space-y-4">
@@ -156,7 +156,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
             </ul>
             {notScanned.length > 0 && (
               <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-                <span className="text-[13px] font-semibold uppercase tracking-[0.1em] text-muted">Coming soon</span>
+                <span className="text-[13px] font-medium text-muted">Coming soon</span>
                 {notScanned.map(engine => (
                   <span key={engine} className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-line px-3 py-1 text-[13px] text-muted">
                     <span className="opacity-50 grayscale"><SiteIcon domain={TOOL[engine].site} size={14} /></span>{ENGINE_NAMES[engine]}
@@ -170,7 +170,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
         {grid.size > 0 && (
           <Card title="Question by question" aside={
             <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[13px] text-muted">
-              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-ok" />Top 3</span>
+              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gold" />Top 3</span>
               <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-sun" />Named</span>
               <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-bone" />Left out</span>
             </span>
@@ -179,7 +179,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
               <table className="w-full text-[15px]">
                 <thead>
                   <tr>
-                    <th className="pb-3 text-left text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">What buyers asked</th>
+                    <th className="pb-3 text-left text-[12.5px] font-medium text-muted">What buyers asked</th>
                     {tools.map(tool => (
                       <th key={tool.engine} className="px-2 pb-3 text-center" aria-label={tool.name}>
                         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-semibold text-ink-soft">

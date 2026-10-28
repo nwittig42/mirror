@@ -77,9 +77,9 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
       <Card title="Your score" aside={<span className="text-[13px] text-muted">Scan of {scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}</span>}>
         <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
           <ScoreRings rings={rings} />
-          <div className="min-w-[240px] flex-1 space-y-1">
+          <div className="min-w-[240px] flex-1">
             {rings.map(ring => (
-              <div key={ring.key} className="-mx-2 flex items-center justify-between gap-4 rounded-xl px-2 py-1.5">
+              <div key={ring.key} className="flex items-center justify-between gap-4 border-b border-line py-3 last:border-b-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: RING_COLOR[ring.key] }} aria-hidden="true" />
@@ -88,13 +88,13 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
                   <Note className="mt-0.5 pl-[18px]">{ring.note}</Note>
                 </div>
                 {ring.value === null ? (
-                  <a href={bookingUrl()} className={`${buttonClass("gold")} shrink-0 gap-1.5`}>
+                  <a href={bookingUrl()} className={`${buttonClass("outline")} h-9 shrink-0 gap-1.5 px-3 text-[13.5px]`}>
                     <LockIcon />
                     Schedule a call
                   </a>
                 ) : (
                   <div className="shrink-0 whitespace-nowrap">
-                    <span className="text-[30px] font-semibold leading-none tracking-tight" style={{ color: RING_COLOR[ring.key] }}>{ring.value}</span>
+                    <span className="display text-[34px] leading-none tabular-nums text-ink">{ring.value}</span>
                     <span className="text-[15px] text-muted">/100</span>
                   </div>
                 )}
@@ -102,8 +102,8 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
             ))}
           </div>
         </div>
-        <div className="mt-6 flex flex-wrap items-center gap-4 rounded-[16px] bg-ivory p-5">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-paper text-gold"><LockIcon size={18} /></span>
+        <div className="mt-6 flex flex-wrap items-center gap-4 rounded-[12px] border border-line bg-ivory p-5">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-gold"><LockIcon size={16} /></span>
           <div className="min-w-[220px] flex-1">
             <p className="text-[16px] font-semibold text-ink">Unlock Overall and Accuracy</p>
             <p className="mt-0.5 text-[14px] leading-relaxed text-ink-soft">
@@ -128,7 +128,7 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
         <Card title="Top competitor">
           {topCompetitor ? (
             <>
-              <div className="truncate text-[24px] font-semibold tracking-tight text-ink">{topCompetitor.name}</div>
+              <div className="display truncate text-[28px] leading-tight text-ink">{topCompetitor.name}</div>
               <Note className="mt-2">Named {topCompetitor.mentions} time{topCompetitor.mentions === 1 ? "" : "s"}, you {named}</Note>
             </>
           ) : <Note>No competitors named in the latest scan.</Note>}
@@ -146,7 +146,7 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
 
       {bestTool && (
         <Card title="Best AI tool">
-          <div className="text-[24px] font-semibold tracking-tight text-ink">{ENGINE_NAMES[bestTool.engine as keyof typeof ENGINE_NAMES] ?? bestTool.engine}</div>
+          <div className="display text-[28px] leading-tight text-ink">{ENGINE_NAMES[bestTool.engine as keyof typeof ENGINE_NAMES] ?? bestTool.engine}</div>
           <Note className="mt-2">Named you {bestTool.count} time{bestTool.count === 1 ? "" : "s"}</Note>
         </Card>
       )}

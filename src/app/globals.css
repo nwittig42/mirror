@@ -37,7 +37,7 @@
   --color-ivory: #f7f5f0;
   --color-bone: #ede8df;
   --color-paper: #ffffff;
-  --color-line: #ded8cd;
+  --color-line: #e6e1d6;
   --color-gold: #a8763e;
   --color-gold-soft: #e9dcc8;
   --color-flag: #a33a2a;
@@ -45,15 +45,16 @@
   --color-ok: #4f6b4a;
   --color-ok-soft: #e2e9dd;
   --color-blush: #f2e6df;
-  /* The three score rings on the customer's Overview: brown for overall,
-     orange for recommended, pink for accuracy. */
-  --color-ring-overall: #855a30;
-  --color-ring-visibility: #d2691e;
-  --color-ring-facts: #cf5f80;
-  /* Extra chart colours, for telling AI tools and kinds of website apart. */
-  --color-teal: #2f7f79;
-  --color-plum: #84528f;
-  --color-sun: #d99a1c;
+  /* The three score rings on the customer's Overview, one family so the page
+     stays calm: ink for overall, gold for recommended, warm grey for accuracy. */
+  --color-ring-overall: #2b2824;
+  --color-ring-visibility: #a8763e;
+  --color-ring-facts: #a39a8a;
+  /* Extra chart colours, for telling AI tools and kinds of website apart:
+     muted tones from the same warm palette, never bright. */
+  --color-teal: #6d7a70;
+  --color-plum: #8a7a6c;
+  --color-sun: #c9a477;
 }
 
 /* The signed-in app: ivory page, ink text, the website's body font. Dashboard
@@ -95,9 +96,9 @@
   --color-ok: #8fbb86;
   --color-ok-soft: #1f2e1c;
   --color-blush: #2e2420;
-  --color-ring-overall: #b98a5a;
-  --color-ring-visibility: #f08c45;
-  --color-ring-facts: #e889a6;
+  --color-ring-overall: #f5f2ea;
+  --color-ring-visibility: #d3a065;
+  --color-ring-facts: #8f877a;
   --color-teal: #56b8b0;
   --color-plum: #b88dc4;
   --color-sun: #ebb640;
@@ -1188,9 +1189,9 @@ body {
   align-items: center;
   gap: 10px;
   white-space: nowrap;
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 14.5px;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
   font-weight: 500;
 }
 .dash-link:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 0; }
@@ -1203,25 +1204,34 @@ body {
     z-index: 30;
     display: flex;
     flex-direction: column;
-    width: 256px;
-    padding: 16px 12px;
+    width: 240px;
+    padding: 14px 12px;
     border-bottom: 0;
     border-right: 1px solid var(--color-line);
     background: var(--color-paper);
     overflow-x: visible;
     overflow-y: auto;
   }
-  .dash-sidebar-nav { flex: 1; flex-direction: column; gap: 22px; }
+  .dash-sidebar-nav { flex: 1; flex-direction: column; gap: 20px; }
   /* The page beside the pinned sidebar. */
-  .dash-main { margin-left: 256px; }
-  .dash-sidebar-group { flex-direction: column; gap: 2px; }
+  .dash-main { margin-left: 240px; }
+  .dash-sidebar-group { flex-direction: column; gap: 1px; }
   .dash-group-title {
     display: block;
     padding: 0 10px 6px;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-muted);
   }
+}
+
+/* The small gold line over a page or section title. */
+.eyebrow {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-gold);
 }

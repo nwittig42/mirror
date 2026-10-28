@@ -71,15 +71,15 @@ export function PlanList({
 
   return (
     <>
-      <div className="mt-6 grid gap-4 rounded-[18px] border border-line bg-paper p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-6">
+      <div className="mt-6 grid gap-4 rounded-[14px] border border-line bg-paper p-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-6">
         <div>
           <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <p className="text-[18px] font-semibold text-ink" aria-live="polite">{count} of {total} done</p>
+            <p className="display text-[24px] tabular-nums text-ink" aria-live="polite">{count} of {total} done</p>
             <p className="text-[14px] text-muted">{percent}%</p>
           </div>
-          <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-bone" role="progressbar" aria-label="Steps done"
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bone" role="progressbar" aria-label="Steps done"
             aria-valuemin={0} aria-valuemax={total} aria-valuenow={count}>
-            <div className="h-full rounded-full bg-ok transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
+            <div className="h-full rounded-full bg-gold transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
           </div>
           {readOnlyNote && <p className="mt-3 text-[13px] text-muted">{readOnlyNote}</p>}
         </div>
@@ -87,7 +87,7 @@ export function PlanList({
           {(["high", "medium", "low"] as Level[]).map(l => {
             const n = all.filter(r => r.item.impact === l).length;
             return n ? (
-              <span key={l} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold" style={{ color: URGENCY[l].color, background: URGENCY[l].soft }}>
+              <span key={l} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-semibold text-ink-soft">
                 <span className="h-2 w-2 rounded-full" style={{ background: URGENCY[l].color }} aria-hidden="true" />
                 {n} {URGENCY[l].label.toLowerCase()}
               </span>
@@ -98,21 +98,20 @@ export function PlanList({
 
       {quick.length > 0 && (
         <section className="mt-10" aria-labelledby="start-here">
-          <h2 id="start-here" className="text-[26px] font-semibold tracking-tight text-ink">Start here</h2>
+          <h2 id="start-here" className="display text-[28px] text-ink">Start here</h2>
           <p className="mt-1 text-[16px] text-ink-soft">
             {quick.length === 1 ? "One quick win: little work, big effect." : `${quick.length} quick wins: little work, big effect. Do these first.`}
           </p>
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {quick.slice(0, 4).map(({ item }) => (
               <article key={item.key} data-done={done.has(item.key)}
-                className={`relative flex flex-col overflow-hidden rounded-[18px] border border-line bg-paper p-5 pl-6 transition-opacity sm:p-6 sm:pl-7 ${done.has(item.key) ? "opacity-60" : ""}`}>
-                <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: URGENCY[item.impact].color }} aria-hidden="true" />
+                className={`relative flex flex-col overflow-hidden rounded-[14px] border border-line bg-paper p-6 transition-[opacity,border-color] hover:border-ink-soft ${done.has(item.key) ? "opacity-60" : ""}`}>
                 <Labels item={item} />
-                <h3 className={`mt-3 text-[19px] font-semibold leading-snug ${done.has(item.key) ? "text-muted line-through" : "text-ink"}`}>{item.title}</h3>
+                <h3 className={`display mt-4 text-[23px] leading-snug ${done.has(item.key) ? "text-muted line-through" : "text-ink"}`}>{item.title}</h3>
                 {item.estimate && <p className="mt-2 flex-1 text-[15px] leading-relaxed text-ink-soft">{item.estimate.upside}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => open(item.key)}
-                    className="inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2 text-[14px] font-semibold text-ivory hover:bg-ink-soft">
+                    className="inline-flex h-9 items-center gap-2 rounded-lg bg-ink px-3.5 text-[13.5px] font-semibold text-ivory hover:bg-ink-soft">
                     Step-by-step guide
                     <span aria-hidden="true">→</span>
                   </button>
@@ -125,7 +124,7 @@ export function PlanList({
       )}
 
       <section className="mt-12 scroll-mt-6" id="every-step" aria-labelledby="every-step-title">
-        <h2 id="every-step-title" className="text-[26px] font-semibold tracking-tight text-ink">Every step</h2>
+        <h2 id="every-step-title" className="display text-[28px] text-ink">Every step</h2>
         <div className="mt-4 flex flex-wrap gap-2" role="tablist" aria-label="Filter steps">
           {tabs.map(t => (
             <button key={t.key} type="button" role="tab" aria-selected={filter === t.key} onClick={() => setFilter(t.key)}
@@ -139,14 +138,13 @@ export function PlanList({
         </div>
 
         <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)]">
-          <ul className="divide-y divide-line overflow-hidden rounded-[18px] border border-line bg-paper">
+          <ul className="divide-y divide-line overflow-hidden rounded-[14px] border border-line bg-paper">
             {shown.map(({ item, group }) => {
               const isSel = selected?.item.key === item.key;
               const isDone = done.has(item.key);
               return (
                 <li key={item.key} data-done={isDone} data-key={item.key} className={`relative ${isSel ? "bg-ivory" : ""}`}>
-                  <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: URGENCY[item.impact].color, opacity: isDone ? 0.35 : 1 }} aria-hidden="true" />
-                  <div className="flex gap-3.5 py-4 pl-6 pr-5">
+                  <div className="flex gap-3.5 px-5 py-4">
                     <TickBox item={item} done={isDone} mark={mark} action={action} readOnly={readOnly} />
                     <button type="button" onClick={() => setSelectedKey(item.key)} aria-expanded={isSel}
                       className="min-w-0 flex-1 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold">
@@ -167,7 +165,7 @@ export function PlanList({
           </ul>
 
           {selected && (
-            <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] overflow-y-auto rounded-[18px] border border-line bg-paper p-6 lg:block" aria-label="Step details">
+            <aside className="sticky top-6 hidden max-h-[calc(100vh-3rem)] overflow-y-auto rounded-[14px] border border-line bg-paper p-6 lg:block" aria-label="Step details">
               <StepDetail item={selected.item} group={selected.group} done={done.has(selected.item.key)} mark={mark} action={action} readOnly={readOnly} />
             </aside>
           )}
@@ -182,14 +180,14 @@ function Labels({ item }: { item: ActionItem }) {
   const u = URGENCY[item.impact];
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold" style={{ color: u.color, background: u.soft }}>
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-0.5 text-[12px] font-semibold text-ink-soft">
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: u.color }} aria-hidden="true" />
         {u.label}
       </span>
       <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 text-[12px] font-medium text-ink-soft">
         {item.estimate ? `${sizeOf(item.estimate.time) ?? SIZE[item.effort]} · ${shortTime(item.estimate.time)}` : SIZE[item.effort]}
       </span>
-      {isQuick(item) && <span className="rounded-full bg-ok-soft px-2.5 py-0.5 text-[12px] font-semibold text-ok">Quick win</span>}
+      {isQuick(item) && <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[12px] font-semibold text-gold">Quick win</span>}
     </div>
   );
 }
@@ -219,7 +217,7 @@ function StepDetail({ item, group, done, mark, action, readOnly }: {
   return (
     <div>
       <Labels item={item} />
-      <h3 className="mt-3 text-[24px] font-semibold leading-snug tracking-tight text-ink">{item.title}</h3>
+      <h3 className="display mt-3 text-[28px] leading-snug text-ink">{item.title}</h3>
       <p className="mt-1 text-[13px] text-muted">{group.title}</p>
 
       {item.estimate && (
@@ -230,27 +228,27 @@ function StepDetail({ item, group, done, mark, action, readOnly }: {
         </div>
       )}
       {item.estimate && (
-        <div className="mt-4 rounded-[14px] p-4" style={{ background: u.soft }}>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: u.color }}>What it could win</p>
+        <div className="mt-4 rounded-[12px] border border-line bg-ivory p-4">
+          <p className="eyebrow">What it could win</p>
           <p className="mt-1.5 text-[15px] leading-relaxed text-ink">{item.estimate.upside}</p>
         </div>
       )}
 
-      <p className="mt-5 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">Why it matters</p>
+      <p className="mt-5 text-[13px] font-medium text-muted">Why it matters</p>
       <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">{item.why}</p>
 
       {item.guide?.length ? (
         <Guide stepKey={item.key} steps={item.guide} />
       ) : item.how ? (
-        <div className="mt-5 rounded-[12px] border-l-4 border-ok bg-ok-soft/50 p-4">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-ok">What to do</p>
+        <div className="mt-5 rounded-[12px] border border-line p-4">
+          <p className="eyebrow">What to do</p>
           <p className="mt-1.5 text-[16px] leading-relaxed text-ink">{item.how}</p>
         </div>
       ) : null}
 
       {proof.length > 0 && (
         <>
-          <p className="mt-6 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">From your scan</p>
+          <p className="mt-6 text-[13px] font-medium text-muted">From your scan</p>
           <ul className="mt-1.5 space-y-1.5">
             {proof.map(e => (
               <li key={e} className="break-words rounded-[8px] bg-ivory px-3 py-2 text-[14px] leading-relaxed text-ink-soft">{e}</li>
@@ -269,7 +267,7 @@ function StepDetail({ item, group, done, mark, action, readOnly }: {
 function Tile({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
     <div className="bg-paper p-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</p>
+      <p className="text-[12px] font-medium text-muted">{label}</p>
       <p className="mt-1 text-[14px] font-semibold leading-snug text-ink" style={color ? { color } : undefined}>{value}</p>
     </div>
   );
@@ -302,7 +300,7 @@ function Guide({ stepKey, steps }: { stepKey: string; steps: GuideStep[] }) {
   return (
     <div className="mt-6">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[18px] font-semibold text-ink">Step by step</p>
+        <p className="display text-[22px] text-ink">Step by step</p>
         <p className="text-[13px] text-muted">{checked.length} of {steps.length}</p>
       </div>
       <ol className="mt-3 space-y-3">
@@ -410,8 +408,8 @@ function TickButton({ item, done, mark, action, readOnly, quiet = false }: {
       <input type="hidden" name="key" value={item.key} />
       <input type="hidden" name="done" value={done ? "0" : "1"} />
       <button type="submit" disabled={readOnly}
-        className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          done || quiet ? "border border-line bg-paper text-ink-soft hover:border-ink-soft" : "bg-ok text-ivory hover:brightness-110"}`}>
+        className={`inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+          done || quiet ? "border border-line bg-paper text-ink-soft hover:border-ink-soft" : "bg-ink text-ivory hover:bg-ink-soft"}`}>
         {done ? "Done · undo" : "Mark as done"}
       </button>
       {state.error && <p className="mt-2 text-[13px] font-semibold text-flag" role="alert">{state.error}</p>}

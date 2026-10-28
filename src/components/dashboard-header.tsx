@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PLAN_LABELS, type Plan } from "@/core/plan";
+import { PageTitle } from "@/components/ui";
 import { toggleDashboardTheme } from "@/app/dashboard/[slug]/theme-actions";
 import { signOutToHome } from "@/app/dashboard/[slug]/account-actions";
 
@@ -7,13 +8,27 @@ import { signOutToHome } from "@/app/dashboard/[slug]/account-actions";
 type Tab = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "reports"
   | "accuracy" | "sources" | "report" | "help" | "facts" | "settings" | "plans";
 
+/** Each page's title and the line under it. Pages that write their own title (Next steps, Plans, the Fact Sheet, a month's report) have none. */
+const TITLES: Partial<Record<Tab, { title: string; sub: string }>> = {
+  overview: { title: "Overview", sub: "How AI sees your business, in three scores." },
+  answers: { title: "What AI says", sub: "Every answer from your latest scan, AI tool by AI tool." },
+  accuracy: { title: "What AI says", sub: "What AI gets right and wrong about you." },
+  competitors: { title: "Competitors", sub: "Who AI recommends when buyers ask, and where you rank." },
+  sources: { title: "Sources", sub: "The websites AI reads before it answers." },
+  forecast: { title: "Forecast", sub: "Where your next steps could take you." },
+  reports: { title: "Reports", sub: "Your audit as pages to read, print or share." },
+  settings: { title: "Settings", sub: "Your business, your account and your plan." },
+  help: { title: "Help", sub: "Answers to common questions, and a way to reach us." },
+};
+
 const MENU_ITEM = "block w-full rounded-lg px-3 py-2 text-left text-[14px] font-medium text-ink-soft hover:bg-bone hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-gold";
 
 /**
- * The customer dashboard's header on phones and tablets: a way back to the
- * Mirror website and the profile menu (settings, Fact Sheet, Help, sign out),
- * the plan, then the business name. On a wide screen the sidebar carries all
- * of this (see DashboardSidebar), so the header hides.
+ * The top of every customer dashboard page. On phones and tablets: a way back
+ * to the Mirror website, the profile menu (settings, Fact Sheet, Help, sign
+ * out), the plan and the business name; on a wide screen the sidebar carries
+ * all of that (see DashboardSidebar). Then, on every screen, the page's title
+ * (see TITLES) under the business's name.
  */
 export function DashboardHeader({
   slug, practiceName, logo, plan, active,
@@ -26,7 +41,9 @@ export function DashboardHeader({
   plan?: Plan | null;
   active: Tab;
 }) {
+  const heading = TITLES[active];
   return (
+    <>
     <header className="mb-8 border-b border-line pb-6 lg:hidden print:hidden">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -115,5 +132,7 @@ export function DashboardHeader({
         <h1 className="text-[34px] font-semibold leading-tight tracking-tight text-ink">{practiceName}</h1>
       </div>
     </header>
+    {heading && <PageTitle eyebrow={practiceName} title={heading.title}>{heading.sub}</PageTitle>}
+    </>
   );
 }

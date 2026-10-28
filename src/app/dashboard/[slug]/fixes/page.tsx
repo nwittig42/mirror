@@ -6,7 +6,7 @@ import { getLatestScan } from "@/lib/queries";
 import { loadActionPlan } from "@/lib/action-plan";
 import { ADMIN_READ_ONLY_MESSAGE, isAdminViewer } from "@/lib/admin-view";
 import { DashboardHeader } from "@/components/dashboard-header";
-import { PageBody } from "@/components/ui";
+import { PageBody, PageTitle } from "@/components/ui";
 import { toggleTick } from "./actions";
 import { OneTimeAuditCard } from "@/components/locked";
 import { PlanList } from "./plan-list";
@@ -41,15 +41,13 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
     <PageBody wide>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="fixes" />
 
-      <div className="pt-2">
-        {loaded && plan && (
-          <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-gold">
-            From your scan of {loaded.scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}
-          </p>
-        )}
-        <h1 className="display mt-2 text-[40px] leading-tight text-ink sm:text-[52px]">Your next steps</h1>
+      <div>
+        <PageTitle
+          eyebrow={loaded && plan ? `From your scan of ${loaded.scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}` : practice.name}
+          title="Your next steps"
+        />
         {locked && plan && plan.total > 0 && (
-          <div className="mt-5">
+          <div className="-mt-2 mb-2">
             <OneTimeAuditCard slug={slug} scanDate={scan?.startedAt ?? null}>
               Your free audit doesn&apos;t scan again, so it can&apos;t tell you which of these steps worked. A plan rescans every week and shows you.
             </OneTimeAuditCard>
@@ -61,7 +59,7 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
             Your scan is still running. Your next steps show up here when it finishes.
           </p>
         ) : plan.total === 0 ? (
-          <div className="mt-6 rounded-[20px] border border-line bg-paper p-6">
+          <div className="mt-6 rounded-[14px] border border-line bg-paper p-6">
             <p className="text-[18px] font-semibold text-ink">Nothing to do right now</p>
             <p className="mt-1.5 text-[15px] leading-relaxed text-ink-soft">
               AI named you when buyers asked, and your website gave it nothing to trip over. We look again on the next scan.
@@ -71,7 +69,7 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
           <>
             <p className="mt-3 text-[18px] leading-relaxed text-ink-soft">
               {plural(plan.total, "step")} to get recommended by AI more often
-              {plan.quickWins > 0 && <> · <span className="font-semibold text-ok">{plural(plan.quickWins, "quick win")}</span></>}
+              {plan.quickWins > 0 && <> · <span className="font-semibold text-gold">{plural(plan.quickWins, "quick win")}</span></>}
             </p>
             <PlanList
               groups={plan.groups}

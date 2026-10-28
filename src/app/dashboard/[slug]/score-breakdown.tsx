@@ -38,7 +38,7 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
       value: often,
       shown: `${often}%`,
       note: `Named in ${named} of ${earned.length} answers when buyers asked without using your name.`,
-      color: "var(--color-teal)",
+      color: "var(--color-ink)",
     },
     {
       label: "How high it places you",
@@ -48,7 +48,7 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
       note: firsts
         ? `Named first in ${firsts} of ${category.length} answers. First place counts most, then the top three.`
         : "Never named first yet. First place counts most, then the top three.",
-      color: "var(--color-ring-visibility)",
+      color: "var(--color-ink)",
     },
     {
       label: "How many AI tools name you",
@@ -56,7 +56,7 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
       value: tools.length ? Math.round((naming.length / tools.length) * 100) : 0,
       shown: `${naming.length} of ${tools.length}`,
       note: missing.length ? `Not named at all by ${missing.join(", ")}.` : "Every AI tool we asked named you at least once.",
-      color: "var(--color-plum)",
+      color: "var(--color-ink)",
     },
   ];
 
@@ -68,14 +68,14 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
           <p className="text-[15px] leading-relaxed text-ink">{b.say}</p>
         </div>
       )}
-      <p className="mt-5 text-[12px] font-semibold uppercase tracking-[0.14em] text-muted">What&apos;s in your Recommended by AI score</p>
+      <p className="eyebrow mt-6">What&apos;s in your Recommended by AI score</p>
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         {parts.map(p => (
-          <div key={p.label} className="rounded-[14px] border border-line p-4">
-            <p className="text-[14px] font-semibold text-ink">{p.label}</p>
-            <p className="mt-1 text-[26px] font-semibold leading-tight tracking-tight" style={{ color: p.color }}>{p.shown}</p>
-            <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-bone">
-              <div className="h-full rounded-full" style={{ width: `${Math.max(p.value, 2)}%`, background: p.color }} />
+          <div key={p.label} className="rounded-[12px] border border-line p-5">
+            <p className="text-[13.5px] font-medium text-muted">{p.label}</p>
+            <p className="display mt-2 text-[34px] leading-none tabular-nums" style={{ color: p.color }}>{p.shown}</p>
+            <div className="mt-4 h-1 overflow-hidden rounded-full bg-bone">
+              <div className="h-full rounded-full bg-gold" style={{ width: `${Math.max(p.value, 2)}%` }} />
             </div>
             <p className="mt-2.5 text-[13px] leading-relaxed text-ink-soft">{p.note}</p>
             <p className="mt-1.5 text-[12px] font-medium text-muted">{p.weight}</p>
