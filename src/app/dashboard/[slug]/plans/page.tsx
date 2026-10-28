@@ -46,7 +46,7 @@ export default async function PlansPage({ params }: { params: Promise<{ slug: st
         {PLAN_OFFERS.map(o => {
           const current = practice.plan === o.plan;
           return (
-            <article key={o.plan} className={`flex flex-col rounded-[14px] border bg-paper p-7 ${o.featured ? "border-ink ring-1 ring-ink" : "border-line"}`}>
+            <article key={o.plan} className={`flex flex-col rounded-[18px] border p-7 shadow-[0_1px_2px_rgba(26,26,24,0.04),0_10px_30px_-18px_rgba(60,40,15,0.22)] ${o.featured ? "border-gold/60 bg-[radial-gradient(120%_60%_at_100%_0%,rgba(214,160,92,0.22),transparent_60%),linear-gradient(180deg,#fdf8ef,#ffffff_45%)] ring-1 ring-gold/30" : "border-line bg-paper"}`}>
               <div className="flex items-center justify-between gap-3">
                 <h2 className="display text-[28px] text-ink">{o.name}</h2>
                 {current ? (
@@ -56,7 +56,7 @@ export default async function PlansPage({ params }: { params: Promise<{ slug: st
                 ) : null}
               </div>
               <p className="mt-4">
-                <span className="display text-[44px] tabular-nums text-ink">{o.amt}</span>
+                <span className={`display text-[48px] tabular-nums ${o.featured ? "text-gold-grad" : "text-ink"}`}>{o.amt}</span>
                 <span className="text-[15px] text-muted"> / month</span>
               </p>
               <p className="mt-1 text-[13.5px] font-semibold text-gold">First month free</p>

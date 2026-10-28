@@ -25,10 +25,10 @@ const SEARCH_LIMIT = 8;
 
 const FOLD = "cursor-pointer text-[14px] font-semibold text-muted hover:text-ink";
 
-/** Bar colours on the ranking: businesses named more than the customer (dark), the customer (gold), and the rest (light). */
-const AHEAD = "bg-ink-soft";
+/** Bar colours on the ranking: businesses named more than the customer (clay), the customer (gold), and the rest (emerald). */
+const AHEAD = "bg-ring-facts";
 const YOU = "bg-gold";
-const BEHIND = "bg-ring-facts";
+const BEHIND = "bg-teal";
 
 type Mark = { domain?: string; logo?: string | null };
 
@@ -169,8 +169,8 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
         {!nobodyNamed && (
           <div className="grid grid-cols-3 gap-3 sm:gap-4">
             <Tile value={`#${ownRank + 1}`} label={`your rank of ${report.shareOfVoice.length} named`} color="text-gold" />
-            <Tile value={ahead} label="named more than you" color="text-ink" />
-            <Tile value={behind} label="named less than you" color="text-ink" />
+            <Tile value={ahead} label="named more than you" color="text-ring-facts" />
+            <Tile value={behind} label="named less than you" color="text-teal" />
           </div>
         )}
 
@@ -193,7 +193,7 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
         {report.rows.length > 0 && (
         <Card title="Question by question" aside={
           <span className="flex items-center gap-3 text-[13px] text-muted">
-            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gold" />Named you</span>
+            <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-teal" />Named you</span>
             <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-bone" />Left you out</span>
           </span>
         }>
@@ -210,7 +210,7 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
                           <span key={engine} className="flex items-center gap-1" role="img"
                             aria-label={`${ENGINE_NAMES[engine]} ${named ? "named you" : "left you out"}`}>
                             <SiteIcon domain={TOOL[engine].site} size={16} />
-                            <span className={`h-3 w-3 rounded-full ${named ? "bg-gold" : "bg-bone"}`} />
+                            <span className={`h-3 w-3 rounded-full ${named ? "bg-teal" : "bg-bone"}`} />
                           </span>
                         );
                       })}
@@ -293,7 +293,7 @@ export default async function CompetitorsPage({ params }: { params: Promise<{ sl
                 <p className="mb-2 text-[13px] font-medium text-muted">Words AI added most</p>
                 <ul className="mb-5 flex flex-wrap gap-2">
                   {searches.addedWords.slice(0, 8).map(w => (
-                    <li key={w.word} className="rounded-full border border-line px-3 py-1 text-[14px] font-medium text-ink">{w.word}</li>
+                    <li key={w.word} className="rounded-full border border-gold/30 bg-gold-soft/60 px-3 py-1 text-[14px] font-medium text-ink">{w.word}</li>
                   ))}
                 </ul>
               </>

@@ -10,9 +10,9 @@ type Mark = (key: string, on: boolean) => void;
 
 // Urgency is the impact: what it costs to leave the step undone.
 const URGENCY: Record<Level, { label: string; color: string; soft: string }> = {
-  high: { label: "Urgent", color: "#b4412f", soft: "#f6e0db" },
-  medium: { label: "Important", color: "#b7791f", soft: "#f7ead0" },
-  low: { label: "When you can", color: "#6f7a6c", soft: "#e7ebe4" },
+  high: { label: "Urgent", color: "#b4532f", soft: "#f6e3da" },
+  medium: { label: "Important", color: "#9a6a2c", soft: "#f3e6d0" },
+  low: { label: "When you can", color: "#3e7d6a", soft: "#e1ece5" },
 };
 // Size is the effort.
 const SIZE: Record<Level, string> = { low: "Small task", medium: "Medium task", high: "Big project" };
@@ -79,7 +79,7 @@ export function PlanList({
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bone" role="progressbar" aria-label="Steps done"
             aria-valuemin={0} aria-valuemax={total} aria-valuenow={count}>
-            <div className="h-full rounded-full bg-gold transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
+            <div className="h-full rounded-full bg-[linear-gradient(90deg,#d6a468,#3e7d6a)] transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
           </div>
           {readOnlyNote && <p className="mt-3 text-[13px] text-muted">{readOnlyNote}</p>}
         </div>
@@ -87,7 +87,7 @@ export function PlanList({
           {(["high", "medium", "low"] as Level[]).map(l => {
             const n = all.filter(r => r.item.impact === l).length;
             return n ? (
-              <span key={l} className="inline-flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-semibold text-ink-soft">
+              <span key={l} className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-semibold" style={{ color: URGENCY[l].color, background: URGENCY[l].soft }}>
                 <span className="h-2 w-2 rounded-full" style={{ background: URGENCY[l].color }} aria-hidden="true" />
                 {n} {URGENCY[l].label.toLowerCase()}
               </span>
@@ -111,7 +111,7 @@ export function PlanList({
                 {item.estimate && <p className="mt-2 flex-1 text-[15px] leading-relaxed text-ink-soft">{item.estimate.upside}</p>}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button type="button" onClick={() => open(item.key)}
-                    className="inline-flex h-9 items-center gap-2 rounded-lg bg-ink px-3.5 text-[13.5px] font-semibold text-ivory hover:bg-ink-soft">
+                    className="btn-ink inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13.5px] font-semibold">
                     Step-by-step guide
                     <span aria-hidden="true">→</span>
                   </button>
@@ -180,14 +180,14 @@ function Labels({ item }: { item: ActionItem }) {
   const u = URGENCY[item.impact];
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-paper px-2.5 py-0.5 text-[12px] font-semibold text-ink-soft">
+      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold" style={{ color: u.color, background: u.soft }}>
         <span className="h-1.5 w-1.5 rounded-full" style={{ background: u.color }} aria-hidden="true" />
         {u.label}
       </span>
       <span className="rounded-full border border-line bg-paper px-2.5 py-0.5 text-[12px] font-medium text-ink-soft">
         {item.estimate ? `${sizeOf(item.estimate.time) ?? SIZE[item.effort]} · ${shortTime(item.estimate.time)}` : SIZE[item.effort]}
       </span>
-      {isQuick(item) && <span className="rounded-full bg-gold-soft px-2.5 py-0.5 text-[12px] font-semibold text-gold">Quick win</span>}
+      {isQuick(item) && <span className="rounded-full bg-[#e1ece5] px-2.5 py-0.5 text-[12px] font-semibold text-teal">Quick win</span>}
     </div>
   );
 }
@@ -409,7 +409,7 @@ function TickButton({ item, done, mark, action, readOnly, quiet = false }: {
       <input type="hidden" name="done" value={done ? "0" : "1"} />
       <button type="submit" disabled={readOnly}
         className={`inline-flex h-9 items-center gap-2 rounded-lg px-3.5 text-[13.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          done || quiet ? "border border-line bg-paper text-ink-soft hover:border-ink-soft" : "bg-ink text-ivory hover:bg-ink-soft"}`}>
+          done || quiet ? "border border-line bg-paper text-ink-soft hover:border-ink-soft" : "btn-ink"}`}>
         {done ? "Done · undo" : "Mark as done"}
       </button>
       {state.error && <p className="mt-2 text-[13px] font-semibold text-flag" role="alert">{state.error}</p>}

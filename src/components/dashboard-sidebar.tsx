@@ -133,7 +133,7 @@ export function DashboardSidebar({ slug, practiceName, logo, plan }: {
         </p>
         {up && (
           <Link href={`${base}/plans`}
-            className="mt-3 block rounded-lg bg-ink px-3 py-2 text-center text-[13.5px] font-semibold text-ivory hover:bg-ink-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
+            className="btn-gold mt-3 block rounded-lg px-3 py-2.5 text-center text-[13.5px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold">
             Upgrade to {PLAN_LABELS[up]}
           </Link>
         )}

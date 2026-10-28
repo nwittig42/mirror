@@ -19,7 +19,7 @@ export function StartPlanButton({ plan, label, action, featured, disabled }: {
       <input type="hidden" name="plan" value={plan} />
       <button type="submit" disabled={pending || disabled}
         className={`h-11 w-full rounded-lg px-5 text-[14.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-          featured ? "bg-ink text-ivory hover:bg-ink-soft" : "border border-line bg-paper text-ink hover:border-ink"}`}>
+          featured ? "btn-gold" : "btn-ink"}`}>
         {pending ? "Sending…" : label}
       </button>
       {state.status === "error" && <p className="mt-2 text-[13px] font-semibold text-flag" role="alert">{state.message}</p>}

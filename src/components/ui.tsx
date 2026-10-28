@@ -39,18 +39,19 @@ export function PageBody({ children, wide = false }: { children: ReactNode; wide
 }
 
 /**
- * The top of a page: a small gold line over a serif title, a grey line under
- * it, and `aside` (a button or a date) on the right on a wide screen.
+ * The top of a page: a warm band (.page-hero in globals.css) with a small
+ * gold line over a serif title, a line under it, and `aside` (a button or a
+ * date) on the right on a wide screen.
  */
 export function PageTitle({ eyebrow, title, children, aside }: {
   eyebrow?: ReactNode; title: ReactNode; children?: ReactNode; aside?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div className="page-hero mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="min-w-0 max-w-2xl">
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1 className="display mt-2 text-[34px] leading-[1.1] tracking-[-0.01em] text-ink sm:text-[40px]">{title}</h1>
-        {children && <p className="mt-3 text-[15.5px] leading-relaxed text-muted">{children}</p>}
+        <h1 className="display mt-2 text-[36px] leading-[1.08] tracking-[-0.015em] text-ink sm:text-[46px]">{title}</h1>
+        {children && <p className="mt-3 text-[16px] leading-relaxed text-ink-soft">{children}</p>}
       </div>
       {aside && <div className="shrink-0">{aside}</div>}
     </div>
@@ -68,9 +69,9 @@ export function Card({ title, href, aside, children, className = "" }: {
       {href && !aside && <span className="text-[17px] text-muted" aria-hidden="true">→</span>}
     </div>
   );
-  const box = `block rounded-[14px] border border-line bg-paper p-6 ${className}`;
+  const box = `block rounded-[16px] border border-line bg-paper p-6 shadow-[0_1px_2px_rgba(26,26,24,0.04),0_10px_30px_-18px_rgba(60,40,15,0.22)] ${className}`;
   return href
-    ? <Link href={href} className={`${box} transition-colors hover:border-gold ${FOCUS}`}>{head}{children}</Link>
+    ? <Link href={href} className={`${box} transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-gold hover:shadow-[0_2px_4px_rgba(26,26,24,0.05),0_18px_40px_-20px_rgba(150,99,44,0.45)] ${FOCUS}`}>{head}{children}</Link>
     : <section className={box}>{head}{children}</section>;
 }
 
@@ -78,7 +79,7 @@ export function Card({ title, href, aside, children, className = "" }: {
 export function Stat({ value, unit, tone = "neutral" }: { value: ReactNode; unit?: string; tone?: Tone }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className={`display text-[44px] leading-none tabular-nums tracking-[-0.01em] ${TONE_TEXT[tone]}`}>{value}</span>
+      <span className={`display text-[46px] leading-none tabular-nums tracking-[-0.01em] ${tone === "gold" ? "text-gold-grad" : TONE_TEXT[tone]}`}>{value}</span>
       {unit && <span className="text-[15px] text-muted">{unit}</span>}
     </div>
   );
@@ -94,8 +95,8 @@ export function Tag({ tone = "neutral", children }: { tone?: Tone; children: Rea
 }
 
 const BUTTON = {
-  primary: "bg-ink text-ivory hover:bg-ink-raised",
-  gold: "bg-gold text-paper hover:brightness-110",
+  primary: "btn-ink",
+  gold: "btn-gold",
   outline: "border border-line bg-paper text-ink hover:border-ink",
 } as const;
 
@@ -201,7 +202,7 @@ export function RingLegend({ rings }: { rings: RingScore[] }) {
               {ring.note && <Note className="mt-0.5 pl-[18px]">{ring.note}</Note>}
             </div>
             <div className="shrink-0 whitespace-nowrap">
-              <span className={`display text-[32px] leading-none tabular-nums ${ring.value === null ? "text-muted" : "text-ink"}`}>{ring.value ?? "N/A"}</span>
+              <span className={`display text-[32px] leading-none tabular-nums ${ring.value === null ? "text-muted" : RING_TEXT[ring.key]}`}>{ring.value ?? "N/A"}</span>
               {ring.value !== null && <span className="text-[15px] text-muted">/100</span>}
             </div>
           </>
@@ -302,7 +303,7 @@ export function BarRow({ label, value, fraction, highlight = false, rank, fill, 
         {icon}
         <span className="truncate">{label}</span>
       </span>
-      <span className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-bone">
+      <span className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-bone">
         <span className={`block h-full rounded-full ${fill ?? (highlight ? "bg-gold" : "bg-muted")}`}
           style={{ width: `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%` }} />
       </span>
@@ -324,7 +325,7 @@ export function SiteIcon({ domain, size = 20 }: { domain: string; size?: number 
   );
 }
 
-const INITIAL_FILLS = ["bg-ink-soft", "bg-muted", "bg-gold", "bg-ring-overall", "bg-ring-facts"];
+const INITIAL_FILLS = ["bg-teal", "bg-plum", "bg-ring-facts", "bg-ring-visibility", "bg-ring-overall", "bg-sun"];
 
 /**
  * A business's mark beside its name: its saved logo, else its website's

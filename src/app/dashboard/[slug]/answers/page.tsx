@@ -17,10 +17,10 @@ import { KIND_FILL, TOOL } from "@/components/chart-keys";
 /** How many of the most-read websites the chart at the top shows. */
 const TOP_SITES = 8;
 
-/** One answer in the question grid: gold when named near the top, light gold when named lower, pale when left out. */
+/** One answer in the question grid: emerald when named near the top, amber when named lower, pale when left out. */
 const SPOT: Record<Position, { fill: string; label: string }> = {
-  first: { fill: "bg-gold", label: "named first" },
-  top3: { fill: "bg-gold", label: "named in the top 3" },
+  first: { fill: "bg-teal", label: "named first" },
+  top3: { fill: "bg-teal", label: "named in the top 3" },
   mentioned: { fill: "bg-sun", label: "named" },
   absent: { fill: "bg-bone", label: "not named" },
 };
@@ -123,11 +123,11 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
       )}
 
       <div className={`grid gap-3 sm:gap-4 ${locked ? "grid-cols-2" : "grid-cols-3"}`}>
-        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-gold" />
+        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-gold-grad" />
         {!locked && (
           <Jump href="#wrong-facts" value={open.length} label={`wrong fact${open.length === 1 ? "" : "s"} to fix`} color={open.length > 0 ? "text-flag" : "text-ok"} />
         )}
-        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-ink" />
+        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-teal" />
       </div>
 
       <div className="mt-4 space-y-4">
@@ -170,7 +170,7 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
         {grid.size > 0 && (
           <Card title="Question by question" aside={
             <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-[13px] text-muted">
-              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-gold" />Top 3</span>
+              <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-teal" />Top 3</span>
               <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-sun" />Named</span>
               <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-full bg-bone" />Left out</span>
             </span>
