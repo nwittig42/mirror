@@ -124,7 +124,7 @@ export function ScoreDial({ value, size = 148, label, color = "stroke-gold" }: {
         </g>
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="display leading-none tabular-nums text-ink" style={{ fontSize: size * 0.32 }}>{value ?? "N/A"}</span>
+        <span className="score-dial-num display leading-none tabular-nums text-ink" style={{ fontSize: size * 0.3 }}>{value ?? "N/A"}</span>
         {/* A small ring has no room for the label; the caller names it beside the ring. */}
         {size >= 120 && <span className="mt-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted">{label}</span>}
       </div>

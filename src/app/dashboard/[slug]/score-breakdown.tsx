@@ -68,7 +68,7 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
           <p className="text-[15px] leading-relaxed text-ink">{b.say}</p>
         </div>
       )}
-      <p className="eyebrow mt-6">What&apos;s in your Recommended by AI score</p>
+      <p className="mt-6 text-[15px] font-semibold text-ink">What&apos;s in your Recommended by AI score</p>
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         {parts.map(p => (
           <div key={p.label} className="rounded-[14px] border border-line p-5">

@@ -15,7 +15,7 @@ const STATE_TONE: Record<FixState, Tone> = {
   todo: "flag", in_progress: "gold", fixed: "gold", confirmed: "ok", dismissed: "neutral",
 };
 const SEVERITY: Record<Severity, string> = { critical: "Serious", major: "Important", minor: "Minor" };
-const LABEL = "text-[12px] font-semibold uppercase tracking-[0.1em] text-muted";
+const LABEL = "text-[13px] font-medium text-muted";
 
 function day(d: Date): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });

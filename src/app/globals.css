@@ -265,6 +265,15 @@ body {
   --line: #ded8cd;
   --flag: #a33a2a;
   --gut: 40px;
+  /* The website and the free audit keep their own chart colours and hairline,
+     whatever the dashboard's palette does (see @theme above). */
+  --color-line: #ded8cd;
+  --color-ring-overall: #855a30;
+  --color-ring-visibility: #d2691e;
+  --color-ring-facts: #cf5f80;
+  --color-teal: #2f7f79;
+  --color-plum: #84528f;
+  --color-sun: #d99a1c;
 
   background: var(--ivory);
   color: var(--ink);
@@ -1239,20 +1248,16 @@ body {
   .dash-group-title {
     display: block;
     padding: 0 10px 6px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-size: 12.5px;
+    font-weight: 500;
     color: var(--color-muted);
   }
 }
 
-/* The small grey line over a page or section title. */
+/* A small grey label over a section, in sentence case (spaced-out capitals read as a template). */
 .eyebrow {
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--color-muted);
 }
 
@@ -1273,3 +1278,6 @@ body {
 .btn-ink:hover { background: #33302b; }
 .theme-dark .btn-ink { color: #1a1a18; background: linear-gradient(180deg, #ffffff, #e9e4da); }
 
+
+/* The score dial's number keeps its original bold sans on the website and the free audit. */
+.mk .score-dial-num { font-family: inherit; font-weight: 600; letter-spacing: -0.025em; }

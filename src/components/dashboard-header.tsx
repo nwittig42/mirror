@@ -28,7 +28,7 @@ const MENU_ITEM = "block w-full rounded-lg px-3 py-2 text-left text-[14px] font-
  * to the Mirror website, the profile menu (settings, Fact Sheet, Help, sign
  * out), the plan and the business name; on a wide screen the sidebar carries
  * all of that (see DashboardSidebar). Then, on every screen, the page's title
- * (see TITLES) under the business's name.
+ * (see TITLES).
  */
 export function DashboardHeader({
   slug, practiceName, logo, plan, active,
@@ -71,7 +71,7 @@ export function DashboardHeader({
               <svg viewBox="0 0 12 12" aria-hidden="true" className="h-3 w-3 fill-none stroke-muted" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
             </summary>
             <div className="absolute left-0 top-full z-40 mt-2 w-56 rounded-2xl border border-line bg-paper p-1.5 shadow-lg">
-              <p className="truncate px-3 pb-1.5 pt-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">{practiceName}</p>
+              <p className="truncate px-3 pb-1.5 pt-2 text-[13px] font-semibold text-ink">{practiceName}</p>
               {[
                 { key: "settings" as const, label: "Profile and settings", suffix: "/settings" },
                 { key: "plans" as const, label: plan ? "Your plan" : "Plans and pricing", suffix: "/plans" },
@@ -132,7 +132,7 @@ export function DashboardHeader({
         <h1 className="text-[34px] font-semibold leading-tight tracking-tight text-ink">{practiceName}</h1>
       </div>
     </header>
-    {heading && <PageTitle eyebrow={practiceName} title={heading.title}>{heading.sub}</PageTitle>}
+    {heading && <PageTitle title={heading.title}>{heading.sub}</PageTitle>}
     </>
   );
 }

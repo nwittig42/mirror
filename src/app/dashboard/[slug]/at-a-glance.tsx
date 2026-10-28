@@ -74,8 +74,7 @@ export function AtAGlance({ slug, practiceName, named, total, tools, score, comp
 
   return (
     <section className="rounded-[16px] border border-line bg-paper p-6 shadow-[0_1px_2px_rgba(26,26,24,0.04)] sm:p-8" aria-labelledby="glance-title">
-      <p className="eyebrow">At a glance</p>
-      <h2 id="glance-title" className="display mt-2 text-[26px] leading-snug text-ink sm:text-[30px]">
+      <h2 id="glance-title" className="display text-[26px] leading-snug text-ink sm:text-[30px]">
         {often === "none"
           ? <>AI didn&apos;t recommend {practiceName} in any of the answers we checked.</>
           : often === "every one"

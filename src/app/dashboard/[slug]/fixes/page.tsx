@@ -42,10 +42,9 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="fixes" />
 
       <div>
-        <PageTitle
-          eyebrow={loaded && plan ? `From your scan of ${loaded.scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}` : practice.name}
-          title="Your next steps"
-        />
+        <PageTitle title="Your next steps">
+          {loaded && plan ? `From your scan of ${loaded.scanDate.toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "UTC" })}.` : null}
+        </PageTitle>
         {locked && plan && plan.total > 0 && (
           <div className="-mt-2 mb-2">
             <OneTimeAuditCard slug={slug} scanDate={scan?.startedAt ?? null}>

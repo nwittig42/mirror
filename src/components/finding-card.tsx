@@ -33,7 +33,7 @@ export interface FindingCardProps {
 }
 
 const MAX_SOURCES = 4;
-const LABEL = "text-[12px] font-semibold uppercase tracking-[0.1em] text-muted";
+const LABEL = "text-[13px] font-medium text-muted";
 
 function hostOf(url: string): string {
   try {

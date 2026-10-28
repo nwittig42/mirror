@@ -111,7 +111,7 @@ export function AnswerCard({
         </p>
         {citations.length > 0 && (
           <div className="mt-4 border-t border-line pt-3">
-            <p className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted">Pages it read</p>
+            <p className="text-[13px] font-medium text-muted">Pages it read</p>
             <ul className="mt-1 space-y-1">
               {citations.map((url, i) => (
                 <li key={url + i} className="break-all text-[13px] text-muted">

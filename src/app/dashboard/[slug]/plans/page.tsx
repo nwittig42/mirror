@@ -36,7 +36,7 @@ export default async function PlansPage({ params }: { params: Promise<{ slug: st
     <PageBody wide>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="plans" />
 
-      <PageTitle eyebrow="Plans" title={practice.plan ? `You're on ${PLAN_LABELS[practice.plan]}` : "Keep AI recommending you"}>
+      <PageTitle title={practice.plan ? `You're on ${PLAN_LABELS[practice.plan]}` : "Keep AI recommending you"}>
         {practice.plan
           ? "Your plan scans every week. Switch plans any time."
           : `Your free audit is a one-time snapshot${scanned ? ` from ${scanned}` : ""}. AI answers change every week. A plan scans again every week, so you can see your next steps working and catch new mistakes as they appear.`}
@@ -52,7 +52,7 @@ export default async function PlansPage({ params }: { params: Promise<{ slug: st
                 {current ? (
                   <span className="rounded-full bg-ok-soft px-3 py-1 text-[12px] font-semibold text-ok">Your plan</span>
                 ) : o.badge ? (
-                  <span className="eyebrow">{o.badge}</span>
+                  <span className="rounded-full bg-ink px-2.5 py-1 text-[12px] font-semibold text-ivory">{o.badge}</span>
                 ) : null}
               </div>
               <p className="mt-4">
