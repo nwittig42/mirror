@@ -45,13 +45,11 @@ export default async function DashboardLayout({
   const page = (banner: ReactNode) => (
     // Room at the foot of a free account's pages, so the pinned button never covers the last thing on them.
     <div className={`app antialiased ${dark ? "theme-dark" : ""} ${locked ? "pb-24" : ""}`}>
-      {banner}
-      <div className="lg:flex">
-        {session && plan && <DashboardSidebar slug={slug} practiceName={plan.name} logo={plan.logo} plan={isPlan(plan.plan) ? plan.plan : null} />}
-        <div className="min-w-0 flex-1">
-          {locked && <CallBanner />}
-          {children}
-        </div>
+      {session && plan && <DashboardSidebar slug={slug} practiceName={plan.name} logo={plan.logo} plan={isPlan(plan.plan) ? plan.plan : null} />}
+      <div className={session && plan ? "dash-main" : ""}>
+        {banner}
+        {locked && <CallBanner />}
+        {children}
       </div>
       {locked && <StartPlanFloat slug={slug} />}
     </div>

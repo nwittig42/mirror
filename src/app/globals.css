@@ -1196,13 +1196,14 @@ body {
 .dash-link:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 0; }
 @media (min-width: 1024px) {
   .dash-sidebar {
-    position: sticky;
+    position: fixed;
     top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 30;
     display: flex;
     flex-direction: column;
-    flex-shrink: 0;
     width: 256px;
-    height: 100vh;
     padding: 16px 12px;
     border-bottom: 0;
     border-right: 1px solid var(--color-line);
@@ -1211,6 +1212,8 @@ body {
     overflow-y: auto;
   }
   .dash-sidebar-nav { flex: 1; flex-direction: column; gap: 22px; }
+  /* The page beside the pinned sidebar. */
+  .dash-main { margin-left: 256px; }
   .dash-sidebar-group { flex-direction: column; gap: 2px; }
   .dash-group-title {
     display: block;
