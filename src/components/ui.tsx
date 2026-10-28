@@ -39,19 +39,18 @@ export function PageBody({ children, wide = false }: { children: ReactNode; wide
 }
 
 /**
- * The top of a page: a warm band (.page-hero in globals.css) with a small
- * gold line over a serif title, a line under it, and `aside` (a button or a
- * date) on the right on a wide screen.
+ * The top of a page: a small grey line over a serif title, a line under it,
+ * and `aside` (a button or a date) on the right on a wide screen.
  */
 export function PageTitle({ eyebrow, title, children, aside }: {
   eyebrow?: ReactNode; title: ReactNode; children?: ReactNode; aside?: ReactNode;
 }) {
   return (
-    <div className="page-hero mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
       <div className="min-w-0 max-w-2xl">
         {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-        <h1 className="display mt-2 text-[36px] leading-[1.08] tracking-[-0.015em] text-ink sm:text-[46px]">{title}</h1>
-        {children && <p className="mt-3 text-[16px] leading-relaxed text-ink-soft">{children}</p>}
+        <h1 className="display mt-1.5 text-[32px] leading-[1.1] tracking-[-0.01em] text-ink sm:text-[38px]">{title}</h1>
+        {children && <p className="mt-2 text-[15.5px] leading-relaxed text-muted">{children}</p>}
       </div>
       {aside && <div className="shrink-0">{aside}</div>}
     </div>
@@ -69,9 +68,9 @@ export function Card({ title, href, aside, children, className = "" }: {
       {href && !aside && <span className="text-[17px] text-muted" aria-hidden="true">→</span>}
     </div>
   );
-  const box = `block rounded-[16px] border border-line bg-paper p-6 shadow-[0_1px_2px_rgba(26,26,24,0.04),0_10px_30px_-18px_rgba(60,40,15,0.22)] ${className}`;
+  const box = `block rounded-[16px] border border-line bg-paper p-6 shadow-[0_1px_2px_rgba(26,26,24,0.04)] ${className}`;
   return href
-    ? <Link href={href} className={`${box} transition-[border-color,transform,box-shadow] hover:-translate-y-0.5 hover:border-gold hover:shadow-[0_2px_4px_rgba(26,26,24,0.05),0_18px_40px_-20px_rgba(150,99,44,0.45)] ${FOCUS}`}>{head}{children}</Link>
+    ? <Link href={href} className={`${box} transition-[border-color,transform,box-shadow] hover:border-ink-soft hover:shadow-[0_2px_4px_rgba(26,26,24,0.05),0_14px_32px_-20px_rgba(26,26,24,0.3)] ${FOCUS}`}>{head}{children}</Link>
     : <section className={box}>{head}{children}</section>;
 }
 
@@ -79,7 +78,7 @@ export function Card({ title, href, aside, children, className = "" }: {
 export function Stat({ value, unit, tone = "neutral" }: { value: ReactNode; unit?: string; tone?: Tone }) {
   return (
     <div className="flex items-baseline gap-2">
-      <span className={`display text-[46px] leading-none tabular-nums tracking-[-0.01em] ${tone === "gold" ? "text-gold-grad" : TONE_TEXT[tone]}`}>{value}</span>
+      <span className={`display text-[46px] leading-none tabular-nums tracking-[-0.01em] ${tone === "gold" ? "text-ink" : TONE_TEXT[tone]}`}>{value}</span>
       {unit && <span className="text-[15px] text-muted">{unit}</span>}
     </div>
   );

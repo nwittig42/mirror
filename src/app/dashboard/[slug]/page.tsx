@@ -13,6 +13,29 @@ import { topEngine } from "@/core/top-engine";
 import { PreviewSummary } from "./preview-summary";
 import { ForecastCard } from "./forecast-card";
 import { ScoreBreakdown } from "./score-breakdown";
+import { AtAGlance } from "./at-a-glance";
+import { loadActionPlan } from "@/lib/action-plan";
+import type { ActionPlan } from "@/core/action-plan";
+import type { Db } from "@/db";
+
+/** The step to start with: the first quick win (little work, big effect), else the first big one, else the first. */
+function firstStep(plan: ActionPlan | null): { title: string } | null {
+  const all = plan?.groups.flatMap(g => g.items) ?? [];
+  return all.find(i => i.effort === "low" && i.impact === "high") ?? all.find(i => i.impact === "high") ?? all[0] ?? null;
+}
+
+/** "At a glance" for the latest scan: buyer questions only, as the score counts them. */
+async function glance(db: Db, slug: string, practice: { id: string; name: string }, score: number | null,
+  checks: { engine: string; promptKind: string; mentioned: boolean; competitorsMentioned: string[] | null }[]) {
+  const earned = checks.filter(c => c.promptKind !== "branded");
+  const loaded = await loadActionPlan(db, practice.id, { ticks: false });
+  const tools = [...new Set(earned.map(c => c.engine))].map(e => ENGINE_NAMES[e as keyof typeof ENGINE_NAMES] ?? e);
+  return (
+    <AtAGlance slug={slug} practiceName={practice.name} named={earned.filter(c => c.mentioned).length} total={earned.length}
+      tools={tools} score={score} competitor={topBuyerCompetitor(checks)} firstStep={firstStep(loaded?.plan ?? null)}
+      steps={loaded?.plan.total ?? 0} />
+  );
+}
 
 function WorkLog({ activities }: { activities: { id: string; description: string; createdAt: Date }[] }) {
   if (activities.length === 0) {
@@ -65,16 +88,16 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   // facts nobody has confirmed yet. None of the rest is loaded.
   if (locked) {
     const checks = await getChecksForScan(db, latestScan.id);
+    const ranking = shownScores(displayScores(latestScan)).visibility;
     return (
       <PageBody>
         <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
+        <div className="mb-4">{await glance(db, slug, practice, ranking, checks)}</div>
         <PreviewSummary
           slug={slug}
-          ranking={shownScores(displayScores(latestScan)).visibility}
+          ranking={ranking}
           scanDate={latestScan.startedAt}
           checks={checks}
-          // Buyer questions only, as the finished audit counts it, so both pages show the same number.
-          topCompetitor={topBuyerCompetitor(checks)}
           cta={<BookCallButton>Schedule a call</BookCallButton>}
           forecast={await ForecastCard({ free: true, slug, practice })}
         />
@@ -120,6 +143,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
 
       <div className="space-y-4">
+        {await glance(db, slug, practice, shown.visibility, checks)}
+
         <Card title="Your score" aside={<span className="text-[13px] text-muted">Scan of {scanDate}</span>}>
           <div className="flex flex-wrap items-center gap-x-10 gap-y-6">
             <ScoreRings rings={rings} />

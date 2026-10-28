@@ -71,9 +71,9 @@ export function ScoreBreakdown({ score, checks }: { score: number | null; checks
       <p className="eyebrow mt-6">What&apos;s in your Recommended by AI score</p>
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         {parts.map(p => (
-          <div key={p.label} className="rounded-[14px] border border-line p-5" style={{ background: `linear-gradient(180deg, color-mix(in srgb, ${p.color} 9%, transparent), transparent 70%)` }}>
+          <div key={p.label} className="rounded-[14px] border border-line p-5">
             <p className="text-[13.5px] font-medium text-muted">{p.label}</p>
-            <p className="display mt-2 text-[34px] leading-none tabular-nums" style={{ color: p.color }}>{p.shown}</p>
+            <p className="display mt-2 text-[34px] leading-none tabular-nums text-ink">{p.shown}</p>
             <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-bone">
               <div className="h-full rounded-full" style={{ width: `${Math.max(p.value, 2)}%`, background: p.color }} />
             </div>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Card, Note, ScoreRings, Stat, Tag, buttonClass, type RingScore } from "@/components/ui";
+import { Card, Note, ScoreRings, Tag, buttonClass, type RingScore } from "@/components/ui";
 import { ENGINE_NAMES } from "@/core/coverage";
 import { topEngine } from "@/core/top-engine";
 import { ScoreBreakdown } from "./score-breakdown";
@@ -41,25 +41,23 @@ function excerpt(text: string, max = 260): string {
 }
 
 /**
- * The Summary a free account sees before their call: how often AI names
- * them, who it names instead, and one answer that shows it, then links to
+ * The Summary a free account sees before their call, under "At a glance":
+ * their score, the forecast and one answer that shows it, then links to
  * the rest of their audit and what the call unlocks. No overall score and no
  * fact check: both rest on facts that were read off their website and that
  * nobody has confirmed with them yet.
  */
-export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor, cta, forecast }: {
+export function PreviewSummary({ slug, ranking, scanDate, checks, cta, forecast }: {
   slug: string;
   ranking: number | null;
   scanDate: Date;
   checks: PreviewCheck[];
-  topCompetitor: { name: string; mentions: number } | null;
   cta: ReactNode;
   /** The free forecast card, loaded by the page (it reads the database). */
   forecast?: ReactNode;
 }) {
   // Buyer questions only: questions that name the business name it back every time.
   const earned = checks.filter(c => c.promptKind !== "branded");
-  const named = earned.filter(c => c.mentioned).length;
   const bestTool = topEngine(earned);
   const missed = earned.find(c => !c.mentioned && (c.competitorsMentioned?.length ?? 0) > 0);
   // Overall and Accuracy rest on facts nobody has confirmed yet: their rings stay empty until the call.
@@ -120,20 +118,6 @@ export function PreviewSummary({ slug, ranking, scanDate, checks, topCompetitor,
 
       {forecast}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card title="Named by AI">
-          <Stat value={`${named}/${earned.length}`} unit="answers" tone="gold" />
-          <Note className="mt-2">When buyers asked without using your name</Note>
-        </Card>
-        <Card title="Top competitor">
-          {topCompetitor ? (
-            <>
-              <div className="display truncate text-[28px] leading-tight text-ink">{topCompetitor.name}</div>
-              <Note className="mt-2">Named {topCompetitor.mentions} time{topCompetitor.mentions === 1 ? "" : "s"}, you {named}</Note>
-            </>
-          ) : <Note>No competitors named in the latest scan.</Note>}
-        </Card>
-      </div>
 
       {missed && (
         <Card title="An answer you were left out of">

@@ -79,7 +79,7 @@ export function PlanList({
           </div>
           <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-bone" role="progressbar" aria-label="Steps done"
             aria-valuemin={0} aria-valuemax={total} aria-valuenow={count}>
-            <div className="h-full rounded-full bg-[linear-gradient(90deg,#d6a468,#3e7d6a)] transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
+            <div className="h-full rounded-full bg-teal transition-[width] duration-500 ease-out" style={{ width: `${percent}%` }} />
           </div>
           {readOnlyNote && <p className="mt-3 text-[13px] text-muted">{readOnlyNote}</p>}
         </div>

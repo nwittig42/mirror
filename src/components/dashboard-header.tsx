@@ -10,7 +10,7 @@ type Tab = "overview" | "answers" | "fixes" | "competitors" | "forecast" | "repo
 
 /** Each page's title and the line under it. Pages that write their own title (Next steps, Plans, the Fact Sheet, a month's report) have none. */
 const TITLES: Partial<Record<Tab, { title: string; sub: string }>> = {
-  overview: { title: "Overview", sub: "How AI sees your business, in three scores." },
+  overview: { title: "Overview", sub: "Where you stand with AI today, and what to do next." },
   answers: { title: "What AI says", sub: "Every answer from your latest scan, AI tool by AI tool." },
   accuracy: { title: "What AI says", sub: "What AI gets right and wrong about you." },
   competitors: { title: "Competitors", sub: "Who AI recommends when buyers ask, and where you rank." },

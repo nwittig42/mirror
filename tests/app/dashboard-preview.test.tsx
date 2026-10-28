@@ -77,7 +77,7 @@ describe("a prospect's dashboard before their call", () => {
   it("shows the ranking, the top competitor and one answer they were left out of, and asks for the call", async () => {
     const page = await html(DashboardPage({ params }));
     expect(page).toContain("Recommended by AI");
-    expect(page).toContain("1/2");
+    expect(page).toContain("You came up in 1.");
     expect(page).toContain("Rose City Plumbing");
     expect(page).toContain("An answer you were left out of");
     expect(page).toContain("Rose City Plumbing is the one most people recommend");
@@ -105,8 +105,8 @@ describe("a prospect's dashboard before their call", () => {
   it("counts the top competitor over buyer questions only, as the finished audit does", async () => {
     // Rose City is named in one buyer answer and in the branded one: 2 in all, 1 of the 2 buyer answers.
     const page = await html(DashboardPage({ params }));
-    expect(page).toContain("Named 1 time, you 1");
-    expect(page).not.toContain("Named 2 times");
+    expect(page).toContain("Recommended 1 time, you 1.");
+    expect(page).not.toContain("Recommended 2 times");
   });
 
   it("hides the best AI tool when two tie, here and on the unlocked home page", async () => {
@@ -241,8 +241,8 @@ describe("a prospect's dashboard before their call", () => {
   it("counts the unlocked home page's top competitor over buyer questions too", async () => {
     await db.update(practices).set({ active: true });
     const page = await html(DashboardPage({ params }));
-    expect(page).toContain("Named 1 time, you 1");
-    expect(page).not.toContain("Named 2 times");
+    expect(page).toContain("Recommended 1 time, you 1.");
+    expect(page).not.toContain("Recommended 2 times");
   });
 
   it("shows every headline score, the maths line and each AI tool's score on the 30-100 scale once unlocked", async () => {

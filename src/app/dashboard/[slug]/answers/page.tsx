@@ -123,11 +123,11 @@ export default async function AnswersPage({ params }: { params: Promise<{ slug: 
       )}
 
       <div className={`grid gap-3 sm:gap-4 ${locked ? "grid-cols-2" : "grid-cols-3"}`}>
-        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-gold-grad" />
+        <Jump href="#by-question" value={named} label={`of ${earned.length} answers named you`} color="text-ink" />
         {!locked && (
           <Jump href="#wrong-facts" value={open.length} label={`wrong fact${open.length === 1 ? "" : "s"} to fix`} color={open.length > 0 ? "text-flag" : "text-ok"} />
         )}
-        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-teal" />
+        <Jump href="#answers" value={checks.length} label={`answer${checks.length === 1 ? "" : "s"} to read`} color="text-ink" />
       </div>
 
       <div className="mt-4 space-y-4">

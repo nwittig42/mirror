@@ -1092,10 +1092,7 @@ body {
    with one plain offer and one button. Fixed colours, so it reads the same
    on the ivory and the dark themes. */
 .call-banner {
-  background:
-    radial-gradient(60% 160% at 100% 50%, rgba(214, 160, 92, 0.28), transparent 60%),
-    radial-gradient(40% 140% at 0% 0%, rgba(62, 125, 106, 0.22), transparent 60%),
-    linear-gradient(90deg, #15130f, #1f1b16);
+  background: #1a1a18;
   color: #f7f5f0;
 }
 .call-banner-inner {
@@ -1147,10 +1144,8 @@ body {
   gap: 16px 32px;
   padding: 22px 26px;
   border-radius: 16px;
-  border: 1px solid rgba(168, 118, 62, 0.25);
-  background:
-    radial-gradient(50% 140% at 0% 0%, rgba(214, 160, 92, 0.16), transparent 60%),
-    #ffffff;
+  border: 1px solid var(--color-line);
+  background: #ffffff;
   box-shadow: 0 1px 2px rgba(26, 26, 24, 0.04), 0 10px 30px -18px rgba(60, 40, 15, 0.22);
 }
 .audit-note-title {
@@ -1219,7 +1214,7 @@ body {
     padding: 14px 12px;
     border-bottom: 0;
     border-right: 0;
-    /* A dark espresso column: the palette is turned over inside it, so every
+    /* A dark charcoal column: the palette is turned over inside it, so every
        utility in the sidebar follows without knowing (as .theme-dark does). */
     --color-ink: #f5f2ea;
     --color-ink-soft: #c9c2b4;
@@ -1228,20 +1223,15 @@ body {
     --color-line: rgba(255, 255, 255, 0.09);
     --color-paper: #1d1a16;
     --color-ivory: rgba(255, 255, 255, 0.03);
-    background:
-      radial-gradient(120% 40% at 0% 0%, rgba(211, 160, 101, 0.16), transparent 60%),
-      radial-gradient(120% 35% at 100% 100%, rgba(62, 125, 106, 0.18), transparent 60%),
-      linear-gradient(180deg, #1a1714, #100f0d);
+    background: #171614;
     color: var(--color-ink);
     overflow-x: visible;
     overflow-y: auto;
   }
   .dash-link[aria-current="page"] {
-    background: linear-gradient(90deg, rgba(211, 160, 101, 0.24), rgba(211, 160, 101, 0.06));
-    color: #f3dcb8;
-    box-shadow: inset 2px 0 0 #d3a065;
+    background: rgba(255, 255, 255, 0.09);
+    color: #ffffff;
   }
-  .dash-link[aria-current="page"] svg { color: #d9a35a; }
   .dash-sidebar-nav { flex: 1; flex-direction: column; gap: 20px; }
   /* The page beside the pinned sidebar. */
   .dash-main { margin-left: 240px; }
@@ -1257,17 +1247,17 @@ body {
   }
 }
 
-/* The small gold line over a page or section title. */
+/* The small grey line over a page or section title. */
 .eyebrow {
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--color-gold);
+  color: var(--color-muted);
 }
 
-/* Buttons with depth: a gold gradient for the one thing to do, an ink one for
-   the rest. A light top edge and a soft shadow, no glow and no movement. */
+/* Buttons: a gold gradient only for the main thing to do (book a call,
+   upgrade), plain ink for the rest. No glow and no movement. */
 .btn-gold {
   color: #fff;
   background: linear-gradient(180deg, #d6a468 0%, #b5803f 55%, #96632c 100%);
@@ -1277,54 +1267,9 @@ body {
 .btn-gold:hover { background: linear-gradient(180deg, #e0b073 0%, #bf8a48 55%, #a06b31 100%); }
 .btn-ink {
   color: #f7f5f0;
-  background: linear-gradient(180deg, #3a352f 0%, #1f1c19 60%, #141210 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 18px -10px rgba(0, 0, 0, 0.55);
+  background: #1a1a18;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
-.btn-ink:hover { background: linear-gradient(180deg, #47413a 0%, #2a2622 60%, #181614 100%); }
+.btn-ink:hover { background: #33302b; }
 .theme-dark .btn-ink { color: #1a1a18; background: linear-gradient(180deg, #ffffff, #e9e4da); }
 
-/* The band at the top of every dashboard page: a warm wash of gold, emerald
-   and clay light over cream, with a fine grain, like a printed paper. */
-.page-hero {
-  position: relative;
-  overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid rgba(168, 118, 62, 0.22);
-  padding: 36px 40px;
-  background:
-    radial-gradient(70% 140% at 100% 0%, rgba(214, 160, 92, 0.42), transparent 60%),
-    radial-gradient(50% 120% at 0% 100%, rgba(62, 125, 106, 0.22), transparent 65%),
-    radial-gradient(45% 100% at 65% 115%, rgba(192, 97, 63, 0.2), transparent 60%),
-    linear-gradient(135deg, #fbf6ec, #f2e6d2);
-}
-.page-hero::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.35;
-  mix-blend-mode: multiply;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-.page-hero > * { position: relative; z-index: 1; }
-.page-hero .eyebrow { color: #96632c; }
-.theme-dark .page-hero {
-  border-color: rgba(211, 160, 101, 0.25);
-  background:
-    radial-gradient(70% 140% at 100% 0%, rgba(211, 160, 101, 0.3), transparent 60%),
-    radial-gradient(50% 120% at 0% 100%, rgba(62, 125, 106, 0.3), transparent 65%),
-    linear-gradient(135deg, #1c1915, #0e0d0b);
-}
-.theme-dark .page-hero .eyebrow { color: #d9a35a; }
-.theme-dark .page-hero::after { mix-blend-mode: screen; opacity: 0.15; }
-@media (max-width: 640px) {
-  .page-hero { padding: 24px 20px; border-radius: 16px; }
-}
-
-/* A big number filled with the gold gradient. */
-.text-gold-grad {
-  background: linear-gradient(180deg, #c99052 0%, #a8763e 50%, #7d5428 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}

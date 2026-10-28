@@ -69,7 +69,7 @@ export default async function ActionPlanPage({ params }: { params: Promise<{ slu
           <>
             <p className="mt-3 text-[18px] leading-relaxed text-ink-soft">
               {plural(plan.total, "step")} to get recommended by AI more often
-              {plan.quickWins > 0 && <> · <span className="font-semibold text-gold">{plural(plan.quickWins, "quick win")}</span></>}
+              {plan.quickWins > 0 && <> · <span className="font-semibold text-teal">{plural(plan.quickWins, "quick win")}</span></>}
             </p>
             <PlanList
               groups={plan.groups}
