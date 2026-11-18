@@ -194,7 +194,7 @@ describe("createAccount", () => {
     await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "evil@x.example" }))).rejects.toBe(SIGNED_IN);
     const [user] = await getDb().select().from(schema.users);
     expect(user.email).toBe("owner@glow.example");
-    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirectTo: `/audit/${lead.id}?step=call` });
+    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirect: false });
   });
 
   it("takes the email from the form when the lead has none, and keeps it on the lead", async () => {
@@ -241,7 +241,18 @@ describe("createAccount", () => {
     const { lead } = await readyLead({ email: "owner@glow.example", status: "preparing" }, "running");
     await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" }))).rejects.toBe(SIGNED_IN);
     expect((await getDb().select().from(schema.users)).map(u => u.email)).toEqual(["owner@glow.example"]);
-    expect(signIn.mock.calls[0][1]).toMatchObject({ redirectTo: `/audit/${lead.id}?step=call` });
+    expect(signIn.mock.calls[0][1]).toMatchObject({ redirect: false });
+  });
+
+  it("goes on to the call step on the address the visitor is already on, not the sign-in system's own", async () => {
+    // The site answers on more than one address. A sign-in that redirects by
+    // itself goes to its configured one, where the cookie just set on this
+    // one doesn't exist, and the visitor lands signed out.
+    signIn.mockResolvedValue("https://other-host.example/audit/x?step=call");
+    const { lead } = await readyLead({ email: "owner@glow.example", status: "preparing" }, "running");
+    await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" })))
+      .rejects.toEqual(redirectsTo(`/audit/${lead.id}\\?step=call`));
+    expect(signIn.mock.calls[0][1]).toEqual({ email: "owner@glow.example", password: "correct horse battery", redirect: false });
   });
 
   it("holds the report back when the login is made with a typed address mid-audit", async () => {
@@ -341,7 +352,7 @@ describe("redeem", () => {
     const { practiceId } = await readyLead();
     const token = await createInvite(getDb(), practiceId, "owner@glow.example");
     await expect(redeem(REDEEM, form({ token, password: "correct horse battery" }))).rejects.toBe(SIGNED_IN);
-    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirectTo: "/app" });
+    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirect: false });
   });
 
   it("explains a link that is no good", async () => {

@@ -199,14 +199,17 @@ export async function createAccount(leadId: string, _prev: AccountState, formDat
   }
 
   try {
-    // Redirects (by throwing) back to the audit page, on to the call step:
-    // the audit may still be running, and the dashboard comes after.
-    await signIn("credentials", { email: result.email, password, redirectTo: `/audit/${leadId}?step=call` });
+    // Signs in without letting the sign-in redirect by itself: it would go to
+    // its configured address (AUTH_URL), and the site answers on others too.
+    // The session cookie is set on the address the visitor is on, so that is
+    // where they must stay.
+    await signIn("credentials", { email: result.email, password, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) return { error: "Your account is ready. Log in to continue." };
     throw error;
   }
-  return {};
+  // On to the call step: the audit may still be running, and the dashboard comes after.
+  redirect(`/audit/${leadId}?step=call`);
 }
 
 export interface PhoneState {

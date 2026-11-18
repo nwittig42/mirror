@@ -35,13 +35,17 @@ async function signInWithPassword(formData: FormData): Promise<void> {
     // that routes by role. Sending everyone to /admin would 404 every client.
     // Middleware intercepts anyone still on a temporary password and sends
     // them to /change-password before this destination is ever rendered.
-    await signIn("credentials", { email, password, redirectTo: "/app" });
+    // The sign-in doesn't redirect by itself: it would go to its configured
+    // address (AUTH_URL), while the session cookie is set on the address the
+    // visitor is on, which may be another one the site answers on.
+    await signIn("credentials", { email, password, redirect: false });
   } catch (error) {
     if (error instanceof AuthError) {
       redirect("/login?error=CredentialsSignin");
     }
     throw error;
   }
+  redirect("/app");
 }
 
 export default async function LoginPage({
