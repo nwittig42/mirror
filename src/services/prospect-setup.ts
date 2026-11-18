@@ -159,8 +159,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
       await db.update(nameVariations).set({ text: name }).where(eq(nameVariations.practiceId, practice.id));
     }
 
-    const logo = website ? await deps.fetchLogo?.(website).catch(() => null) : null;
-    if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
+    // Fetched while the pages are read and the drafts are written, and saved
+    // once those are in: nothing below waits on it.
+    const logoWork = website ? Promise.resolve(deps.fetchLogo?.(website)).catch(() => null) : Promise.resolve(null);
 
     // Each step below falls back instead of failing the setup, but says why in
     // the server log, since the lead's note can only say that it happened.
@@ -188,9 +189,19 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
       }
     }
 
-    const drafted = pages.length
-      ? await deps.draftFacts({ businessName: name, pages }).catch(failed("drafting facts", [] as DraftFact[]))
-      : [];
+    // Facts and questions are drafted at the same time: each is one slow
+    // model call, and neither reads what the other writes.
+    const [drafted, q] = await Promise.all([
+      pages.length
+        ? deps.draftFacts({ businessName: name, pages }).catch(failed("drafting facts", [] as DraftFact[]))
+        : Promise.resolve([] as DraftFact[]),
+      !website
+        ? Promise.resolve({ category: null, location: null, questions: [] } as DraftQuestions)
+        : deps.draftQuestions({ businessName: name, pages, category: leadCategory, location: leadLocation })
+          .catch(failed("drafting questions", { category: null, location: null, questions: [] } as DraftQuestions)),
+    ]);
+    const logo = await logoWork;
+    if (logo) await db.update(practices).set({ logo }).where(eq(practices.id, practice.id));
     const seen = new Set<string>();
     const factRows = drafted.filter(f => !seen.has(f.label.toLowerCase()) && seen.add(f.label.toLowerCase()));
     if (factRows.length) {
@@ -202,10 +213,6 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
       notes.push("No facts could be drafted from their website.");
     }
 
-    const q = !website
-      ? ({ category: null, location: null, questions: [] }) as DraftQuestions
-      : await deps.draftQuestions({ businessName: name, pages, category: leadCategory, location: leadLocation })
-      .catch(failed("drafting questions", { category: null, location: null, questions: [] } as DraftQuestions));
     const category = leadCategory ?? known(q.category);
     const location = leadLocation ?? known(q.location);
     await db.update(practices).set({ category, location }).where(eq(practices.id, practice.id));
@@ -233,7 +240,9 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     }
     await db.insert(prompts).values(questions.map(x => ({ practiceId: practice.id, text: x.text, kind: x.kind })));
     await logActivity(db, practice.id, `set up from the booking form: ${factRows.length} facts, ${questionsLine}`);
-    await deps.draftForecast?.(db, practice.id).catch(() => undefined);
+    // The forecast setup buys search numbers, which takes a while and which
+    // the scan doesn't need, so it runs alongside the scan, not ahead of it.
+    const forecastWork = Promise.resolve().then(() => deps.draftForecast?.(db, practice.id)).catch(() => undefined);
 
     // Saved before the scan starts, since a scan run in steps finishes in
     // another function call, which reads them from here.
@@ -244,6 +253,7 @@ export async function prepareProspect(db: Db, leadId: string, deps: ProspectDeps
     } catch (err) {
       outcome = { error: errorText(err) };
     }
+    await forecastWork;
     if (outcome === "started") return;
     return finishProspect(db, practice.id, outcome, deps);
   };

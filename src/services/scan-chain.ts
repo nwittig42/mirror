@@ -33,6 +33,18 @@ export interface StepDeps {
   invokedAt: number;
   /** The clock, for tests. */
   now?: () => number;
+  /** No new engine call starts this long after `invokedAt`. Default: STEP_START_BUDGET_MS. */
+  startBudgetMs?: number;
+  /** The step stops waiting for calls still running this long after `invokedAt`. Default: STEP_HARD_STOP_MS. */
+  hardStopMs?: number;
+  /** The last step this scan may take. Default: MAX_STEPS. */
+  maxSteps?: number;
+  /**
+   * On the last step, record the scan on what came back even while calls are
+   * still running, instead of handing off to a step that can only fail. For
+   * a scan that has to answer by a set time.
+   */
+  settleOnLast?: boolean;
   /** Starts step `step` of the scan in a function call of its own. */
   triggerNext: (scanId: string, step: number) => Promise<void>;
   /** What to do with a scan once it is recorded, by its purpose. */
@@ -66,8 +78,9 @@ export async function runStep(
 ): Promise<"continued" | "finished" | "skipped"> {
   if (!(await claimStep(db, scanId, step))) return "skipped";
   const now = deps.now ?? Date.now;
-  const startBy = deps.invokedAt + STEP_START_BUDGET_MS;
-  const last = step >= MAX_STEPS;
+  const startBy = deps.invokedAt + (deps.startBudgetMs ?? STEP_START_BUDGET_MS);
+  const maxSteps = deps.maxSteps ?? MAX_STEPS;
+  const last = step >= maxSteps;
 
   // Only while this step is still the latest: a handoff that timed out may
   // have started the next step anyway, and that one carries on.
@@ -81,14 +94,16 @@ export async function runStep(
   };
 
   try {
-    if (step > MAX_STEPS) {
+    if (step > maxSteps) {
       await fail("ran out of steps");
       return "finished";
     }
     const { done } = await gatherStep(db, scanId, deps.adapters, deps.judge, deps.extractor, {
-      ...deps.scanOptions, startBy, stopBy: deps.invokedAt + STEP_HARD_STOP_MS, now: deps.now, lastChance: last,
+      ...deps.scanOptions, startBy, stopBy: deps.invokedAt + (deps.hardStopMs ?? STEP_HARD_STOP_MS), now: deps.now, lastChance: last,
     });
-    if (!done || (!last && now() > startBy)) {
+    // Answers not saved by now count as failed when the scan is recorded.
+    const settle = last && !!deps.settleOnLast;
+    if (!settle && (!done || (!last && now() > startBy))) {
       try {
         await deps.triggerNext(scanId, step + 1);
       } catch (err) {

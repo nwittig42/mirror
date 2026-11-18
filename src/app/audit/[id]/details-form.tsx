@@ -4,9 +4,11 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitDetails, type DetailsState } from "../actions";
 import { ThankYou } from "./thank-you";
+import { useAuditProgressIfAny } from "./audit-bar";
 
-function Field({ name, label, type = "text", optional = false, autoComplete, state }: {
+function Field({ name, label, type = "text", optional = false, autoComplete, state, inputRef }: {
   name: string; label: string; type?: string; optional?: boolean; autoComplete?: string; state: DetailsState;
+  inputRef?: React.Ref<HTMLInputElement>;
 }) {
   const error = state.fieldErrors?.[name];
   return (
@@ -17,6 +19,7 @@ function Field({ name, label, type = "text", optional = false, autoComplete, sta
       </label>
       <input
         id={name}
+        ref={inputRef}
         name={name}
         type={type}
         defaultValue={state.values?.[name] ?? ""}
@@ -31,15 +34,23 @@ function Field({ name, label, type = "text", optional = false, autoComplete, sta
 }
 
 /**
- * The right column while the audit runs: who to send it to. The business
- * name, type and city start filled in from the lead. Once it is in, the form
- * becomes the thank-you and the scheduler, without a page load.
+ * Who the audit is for. The business name, type and city start filled in
+ * from the lead. As step 1 of the onboarding it hands over to the login step;
+ * for an audit that didn't start or failed it becomes the thank-you and the
+ * scheduler, without a page load.
  */
-export function DetailsForm({ leadId, prefill, websiteUrl, calendlyUrl }: {
+export function DetailsForm({ leadId, prefill, websiteUrl, calendlyUrl, step = false }: {
   leadId: string;
   prefill: { practiceName: string; category: string; location: string };
   websiteUrl?: string;
   calendlyUrl?: string;
+  /**
+   * Step 1 of the onboarding, while the audit runs: no phone (the call step
+   * asks for it), and once saved the page moves on to the login step by
+   * itself. Without it, this is the form for an audit that didn't start or
+   * failed, which ends in the thank-you and the scheduler.
+   */
+  step?: boolean;
 }) {
   const [state, formAction, isPending] = useActionState(
     submitDetails.bind(null, leadId),
@@ -59,6 +70,19 @@ export function DetailsForm({ leadId, prefill, websiteUrl, calendlyUrl }: {
     }
   }, [state.status, router]);
 
+  // The business name is read from their website a few seconds after this
+  // form is drawn. When it arrives and the box is still empty, it is filled
+  // in, never over something they typed.
+  const siteName = useAuditProgressIfAny()?.businessName ?? null;
+  const nameInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (siteName && nameInput.current && !nameInput.current.value) nameInput.current.value = siteName;
+  }, [siteName]);
+
+  if (state.status === "success" && state.email && step) {
+    // The refresh above brings the login step; this holds the place meanwhile.
+    return <div className="mk-form-card" role="status"><p className="mk-body">Saved. One moment…</p></div>;
+  }
   if (state.status === "success" && state.email) {
     return (
       <ThankYou
@@ -79,19 +103,19 @@ export function DetailsForm({ leadId, prefill, websiteUrl, calendlyUrl }: {
       className="mk-form-card"
       noValidate
     >
-      <span className="mk-eyebrow">While you wait</span>
+      <span className="mk-eyebrow">{step ? "Step 1 of 3" : "While you wait"}</span>
       <h2 className="mk-display mk-h3" style={{ marginTop: 14, marginBottom: 26 }}>
-        Where should we send it?
+        {step ? "About you" : "Where should we send it?"}
       </h2>
       {state.message && <p className="mk-form-alert" role="alert">{state.message}</p>}
       <Field name="contactName" label="Your name" autoComplete="name" state={state} />
       <Field name="email" label="Email" type="email" autoComplete="email" state={state} />
-      <Field name="phone" label="Phone" type="tel" optional autoComplete="tel" state={state} />
-      <Field name="practiceName" label="Business name" autoComplete="organization" state={state} />
+      {!step && <Field name="phone" label="Phone" type="tel" optional autoComplete="tel" state={state} />}
+      <Field name="practiceName" label="Business name" autoComplete="organization" state={state} inputRef={nameInput} />
       <Field name="category" label="Type of business" optional state={state} />
       <Field name="location" label="City" optional autoComplete="address-level2" state={state} />
       <button type="submit" className="mk-btn mk-btn-block" disabled={isPending}>
-        {isPending ? "Sending…" : "Send me my audit"}
+        {isPending ? "Saving…" : step ? "Continue" : "Send me my audit"}
       </button>
     </form>
   );

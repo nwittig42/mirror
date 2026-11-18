@@ -22,6 +22,11 @@ vi.mock("@/lib/auth", () => ({
     return { practice, locked: !practice.active && role !== "operator" };
   }),
 }));
+// The dashboard keeps itself fresh through the app router while it waits on a scan; a static render has none.
+vi.mock("next/navigation", async importOriginal => ({
+  ...(await importOriginal<typeof import("next/navigation")>()),
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 const printed: string[] = [];
 vi.mock("@/services/report-pdf", () => ({
   renderReportPdf: vi.fn(async (_r: unknown, variant: string) => { printed.push(variant); return Buffer.from("%PDF-fake"); }),
@@ -85,6 +90,19 @@ describe("a prospect's dashboard before their call", () => {
     expect(page).toContain("Schedule a call");
     expect(page).toContain("Unlock Overall and Accuracy");
     expect(page).toContain('href="/dashboard/harbor/reports/pdf?variant=summary"');
+  });
+
+  it("says a quick look is a quick look, and that the full audit is on its way", async () => {
+    await db.update(scans).set({ purpose: "quick" });
+    const page = (await html(DashboardPage({ params }))).replace(/&#x27;/g, "'");
+    expect(page).toContain("This is a quick look from ChatGPT and Claude. Your full audit across every AI tool is running and will replace it in a few minutes.");
+    // The quick result itself is still shown.
+    expect(page).toContain("You came up in 1.");
+  });
+
+  it("says nothing extra once the scan showing is a full one", async () => {
+    const page = await html(DashboardPage({ params }));
+    expect(page).not.toContain("quick look");
   });
 
   it("shows the ranking on the 30-100 scale", async () => {

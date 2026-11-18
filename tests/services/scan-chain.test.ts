@@ -121,6 +121,54 @@ describe("runStep", () => {
   });
 });
 
+describe("a step that settles on its last chance", () => {
+  const answering = (name: EngineAdapter["name"]): EngineAdapter =>
+    ({ name, run: async () => ({ answer: "Glow MedSpa.", citations: [] }) });
+  const hanging = (name: EngineAdapter["name"]): EngineAdapter =>
+    ({ name, run: () => new Promise(() => undefined) });
+
+  function liveClockDeps(adapters: EngineAdapter[], extra: Partial<StepDeps>) {
+    const next: number[] = [];
+    const completed: ScanResult[] = [];
+    const deps: StepDeps = {
+      adapters, judge: clean, extractor: async () => [],
+      scanOptions: { retryDelaysMs: [], finalRetryDelayMs: 0, concurrency: 8 },
+      invokedAt: Date.now(),
+      triggerNext: async (_scanId, n) => { next.push(n); },
+      onComplete: async (_db, _scanId, result) => { completed.push(result); },
+      onFailed: async () => undefined,
+      ...extra,
+    };
+    return { deps, next, completed };
+  }
+
+  it("a quick step with a call still hanging at the hard stop records what came back instead of handing off", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });
+    const c = liveClockDeps(
+      [answering("openai"), answering("anthropic"), answering("gemini"), hanging("perplexity")],
+      { startBudgetMs: 200, hardStopMs: 400, maxSteps: 1, settleOnLast: true },
+    );
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "quick" });
+    expect(await runStep(db, scanId, 1, c.deps)).toBe("finished");
+    expect(c.next).toHaveLength(0);
+    expect(c.completed).toHaveLength(1);
+    // Three of four answered: exactly the 75% a scan needs.
+    expect(c.completed[0].blocked).toBe(false);
+    expect((await db.query.scans.findFirst({ where: eq(scans.id, scanId) }))?.status).toBe("complete");
+  });
+
+  it("without settleOnLast a step that runs out of time still hands off", async () => {
+    const db = await makeTestDb();
+    const { practiceId } = await seedPractice(db, { name: "Glow MedSpa", prompts: [{ text: "Best", kind: "category" }] });
+    const c = liveClockDeps([answering("openai"), hanging("perplexity")], { startBudgetMs: 200, hardStopMs: 400 });
+    const scanId = await startScan(db, practiceId, { runs: 1, purpose: "manual" });
+    expect(await runStep(db, scanId, 1, c.deps)).toBe("continued");
+    expect(c.next).toEqual([2]);
+    expect(c.completed).toHaveLength(0);
+  });
+});
+
 describe("makeStepTrigger", () => {
   it("calls the step route with the secret and the bypass header", async () => {
     const calls: { url: string; headers: Record<string, string> }[] = [];

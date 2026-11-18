@@ -351,6 +351,40 @@ describe("prepareProspect", () => {
   });
 });
 
+describe("a setup that doesn't make the visitor wait", () => {
+  it("drafts facts and questions at the same time", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    const events: string[] = [];
+    const tick = () => new Promise(resolve => setTimeout(resolve, 20));
+    const base = deps();
+    await prepareProspect(db, l.id, deps({
+      draftFacts: async args => { events.push("facts:start"); await tick(); events.push("facts:end"); return base.draftFacts(args); },
+      draftQuestions: async args => { events.push("questions:start"); await tick(); events.push("questions:end"); return base.draftQuestions(args); },
+    }));
+    const firstEnd = events.findIndex(e => e.endsWith(":end"));
+    expect(events.slice(0, firstEnd).sort()).toEqual(["facts:start", "questions:start"]);
+  });
+
+  it("does not wait for the forecast before scanning", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    let release: () => void = () => undefined;
+    const forecast = new Promise<void>(resolve => { release = resolve; });
+    const scan = vi.fn(async () => { release(); return "started" as const; });
+    await prepareProspect(db, l.id, deps({ draftForecast: () => forecast, scan }));
+    expect(scan).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failing forecast doesn't fail the setup", async () => {
+    const db = await makeTestDb();
+    const l = await lead(db);
+    await prepareProspect(db, l.id, deps({ draftForecast: async () => { throw new Error("no search numbers"); } }));
+    const [after] = await db.select().from(schema.leads).where(eq(schema.leads.id, l.id));
+    expect(after.status).toBe("ready");
+  });
+});
+
 describe("a lead whose scan runs in steps", () => {
   it("stays preparing once the scan has started, keeping the setup notes", async () => {
     const db = await makeTestDb();

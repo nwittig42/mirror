@@ -3,6 +3,7 @@ import type { Db } from "@/db";
 import { displayScores, shownScore, shownScores } from "@/core/scoring";
 import { activities, checks, facts, findings, prompts, scans } from "@/db/schema";
 import { SCAN_STUCK_AFTER_MS } from "@/services/scan-runner";
+import { shownScanWhere } from "@/lib/published-scan";
 
 /**
  * Most recent scan of any status (running, complete, blocked, failed). Tells
@@ -54,7 +55,7 @@ export async function scanInProgress(db: Db, practiceId: string): Promise<boolea
 /** Most recent COMPLETE scan for a practice, or null if none has finished yet. */
 export async function getLatestScan(db: Db, practiceId: string) {
   const [scan] = await db.select().from(scans)
-    .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
+    .where(shownScanWhere(practiceId))
     .orderBy(desc(scans.startedAt))
     .limit(1);
   return scan ?? null;
@@ -67,7 +68,7 @@ export async function getLatestScan(db: Db, practiceId: string) {
  */
 export async function getScoreHistory(db: Db, practiceId: string, limit: number) {
   const rows = await db.select().from(scans)
-    .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
+    .where(shownScanWhere(practiceId))
     .orderBy(desc(scans.startedAt))
     .limit(limit);
   return rows.reverse().map(s => ({ date: s.startedAt, ...shownScores(displayScores(s)) }));

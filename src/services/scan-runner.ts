@@ -200,7 +200,7 @@ type Gathered =
     };
 
 /** What a scan is for, which decides what happens once its last step finishes. */
-export type ScanPurpose = "manual" | "weekly" | "prospect";
+export type ScanPurpose = "manual" | "weekly" | "prospect" | "quick";
 
 export interface StepOptions extends ScanOptions {
   /** Epoch ms after which this step starts no new engine call or retry. */

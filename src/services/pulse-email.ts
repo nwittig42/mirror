@@ -1,4 +1,5 @@
-import { and, desc, eq } from "drizzle-orm";
+import { fullScanWhere } from "@/lib/published-scan";
+import { desc, eq } from "drizzle-orm";
 import type { Db } from "@/db";
 import { nameVariations, practiceMembers, practices, scans, users } from "@/db/schema";
 import { getLatestScanAttempt, getChecksForScan, getOpenFindings } from "@/lib/queries";
@@ -141,7 +142,7 @@ export async function sendPulse(
 
   const [recentScans, checks, openFindings, memberRows, variationRows] = await Promise.all([
     db.select().from(scans)
-      .where(and(eq(scans.practiceId, practiceId), eq(scans.status, "complete")))
+      .where(fullScanWhere(practiceId))
       .orderBy(desc(scans.startedAt))
       .limit(2),
     getChecksForScan(db, latest.id),

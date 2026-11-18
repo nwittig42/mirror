@@ -93,6 +93,7 @@ describe("auditProgress", () => {
     await answers(scan.id, seeded.promptIds[0], 1);
     expect(await auditProgress(db, row.id)).toEqual({
       stage: "asking", percent: 34, answers: 1, total: 4, businessName: "Glow", hasEmail: true, email: "a@b.co",
+      asking: "the AI tools",
     });
   });
 
@@ -125,6 +126,68 @@ describe("auditProgress", () => {
     await db.insert(schema.scans).values({ practiceId: seeded.practiceId, status: "failed", startedAt: new Date(Date.now() - 60_000) });
     await db.insert(schema.scans).values({ practiceId: seeded.practiceId, totalTasks: 3, startedAt: new Date() });
     expect(await auditProgress(db, row.id)).toMatchObject({ stage: "asking", total: 3 });
+  });
+});
+
+describe("auditProgress with a quick look ahead of the full audit", () => {
+  const scan = (practiceId: string, values: Partial<typeof schema.scans.$inferInsert>) =>
+    db.insert(schema.scans).values({ practiceId, ...values }).returning().then(rows => rows[0]);
+  const ago = (ms: number) => new Date(Date.now() - ms);
+
+  it("is done once any scan is complete, even with a full scan running after it", async () => {
+    const { seeded, row } = await withPractice();
+    await scan(seeded.practiceId, { purpose: "quick", status: "complete", totalTasks: 2, startedAt: ago(60_000) });
+    await scan(seeded.practiceId, { purpose: "prospect", totalTasks: 12, startedAt: ago(5_000) });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "done", percent: 100 });
+  });
+
+  it("stays done when the full audit fails after a quick result", async () => {
+    const { seeded, row } = await withPractice({ status: "needs_attention", note: "The first scan failed: x" });
+    await scan(seeded.practiceId, { purpose: "quick", status: "complete", startedAt: ago(60_000) });
+    await scan(seeded.practiceId, { purpose: "prospect", status: "failed", startedAt: ago(5_000) });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "done", percent: 100 });
+  });
+
+  it("follows the quick scan while it runs", async () => {
+    const { seeded, row } = await withPractice();
+    const quick = await scan(seeded.practiceId, { purpose: "quick", totalTasks: 4 });
+    await answers(quick.id, seeded.promptIds[0], 2);
+    expect(await auditProgress(db, row.id)).toMatchObject({
+      stage: "asking", answers: 2, total: 4, asking: "ChatGPT and Claude",
+    });
+  });
+
+  it("is not failed when the quick scan is blocked and the full one hasn't started", async () => {
+    const { seeded, row } = await withPractice();
+    await scan(seeded.practiceId, { purpose: "quick", status: "blocked" });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "asking", percent: 20, asking: "the AI tools" });
+  });
+
+  it("is not failed when the quick scan failed and the full one hasn't started", async () => {
+    const { seeded, row } = await withPractice();
+    await scan(seeded.practiceId, { purpose: "quick", status: "failed" });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "asking", percent: 20 });
+  });
+
+  it("follows the full scan after a blocked quick one", async () => {
+    const { seeded, row } = await withPractice();
+    await scan(seeded.practiceId, { purpose: "quick", status: "blocked", startedAt: ago(60_000) });
+    const full = await scan(seeded.practiceId, { purpose: "prospect", totalTasks: 12, startedAt: ago(5_000) });
+    await answers(full.id, seeded.promptIds[0], 3);
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "asking", answers: 3, total: 12, asking: "the AI tools" });
+  });
+
+  it("is failed when the lead needs attention and nothing completed", async () => {
+    const { seeded, row } = await withPractice({ status: "needs_attention", note: "The first scan failed: x" });
+    await scan(seeded.practiceId, { purpose: "quick", status: "blocked", startedAt: ago(60_000) });
+    await scan(seeded.practiceId, { purpose: "prospect", status: "failed", startedAt: ago(5_000) });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "failed" });
+  });
+
+  it("gives up on a quick look that ended long ago with no full audit after it", async () => {
+    const { seeded, row } = await withPractice({ createdAt: ago(20 * 60_000) });
+    await scan(seeded.practiceId, { purpose: "quick", status: "blocked", startedAt: ago(19 * 60_000) });
+    expect(await auditProgress(db, row.id)).toMatchObject({ stage: "failed" });
   });
 });
 

@@ -1,3 +1,4 @@
+import { fullScanWhere } from "@/lib/published-scan";
 import { and, asc, desc, eq, gte, inArray, lt } from "drizzle-orm";
 import type { Db } from "@/db";
 import { activities, checks, findings, nameVariations, practices, prompts, scans } from "@/db/schema";
@@ -135,11 +136,11 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
   const historyStart = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() - (HISTORY_MONTHS - 1), 1));
   const [inMonthScans, prevMonthScans, findingRows, activityRows, historyScans] = await Promise.all([
     db.select().from(scans).where(and(
-      eq(scans.practiceId, practiceId), eq(scans.status, "complete"),
+      fullScanWhere(practiceId),
       gte(scans.startedAt, start), lt(scans.startedAt, end),
     )).orderBy(asc(scans.startedAt)),
     db.select().from(scans).where(and(
-      eq(scans.practiceId, practiceId), eq(scans.status, "complete"),
+      fullScanWhere(practiceId),
       gte(scans.startedAt, prevStart), lt(scans.startedAt, prevEnd),
     )).orderBy(asc(scans.startedAt)),
     db.select().from(findings).where(eq(findings.practiceId, practiceId)),
@@ -150,7 +151,7 @@ export async function buildReportData(db: Db, practiceId: string, monthISO: stri
       gte(activities.createdAt, start), lt(activities.createdAt, end),
     )).orderBy(desc(activities.createdAt)).limit(ACTIVITY_CAP),
     db.select().from(scans).where(and(
-      eq(scans.practiceId, practiceId), eq(scans.status, "complete"),
+      fullScanWhere(practiceId),
       gte(scans.startedAt, historyStart), lt(scans.startedAt, end),
     )).orderBy(asc(scans.startedAt)),
   ]);

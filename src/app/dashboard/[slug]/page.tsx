@@ -17,6 +17,9 @@ import { AtAGlance } from "./at-a-glance";
 import { loadActionPlan } from "@/lib/action-plan";
 import type { ActionPlan } from "@/core/action-plan";
 import type { Db } from "@/db";
+import { noticeIsWaiting, noticeText, scanNotice } from "@/lib/scan-state";
+import { quickToolsLabel } from "@/services/quick-scan";
+import { ScanRefresher } from "@/components/scan-refresher";
 
 /** The step to start with: the first quick win (little work, big effect), else the first big one, else the first. */
 function firstStep(plan: ActionPlan | null): { title: string } | null {
@@ -61,6 +64,17 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   const { practice, locked } = await requirePracticeView(slug);
   const db = getDb();
   const latestScan = await getLatestScan(db, practice.id);
+  // A new audit shows a quick look first and the full audit after it. This
+  // says which one is on screen, and keeps the page checking while it waits.
+  const notice = await scanNotice(db, practice.id);
+  const waiting = <ScanRefresher active={noticeIsWaiting(notice)} />;
+  const quickNotice = notice === "quick-full-running" || notice === "quick-full-failed"
+    ? (
+      <p role="status" className="mb-4 rounded-xl border border-line bg-white px-5 py-4 text-[14px] leading-relaxed text-ink">
+        {noticeText(notice, quickToolsLabel())}
+      </p>
+    )
+    : null;
 
   if (!latestScan) {
     const activities = await getActivities(db, practice.id, 5);
@@ -75,11 +89,12 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
                 { key: "visibility", label: "Recommended by AI", value: null },
                 { key: "facts", label: "Accuracy", value: null },
               ]} />
-              <Note>Your first scan is running. Your scores fill in here when it finishes.</Note>
+              <Note>{noticeText(notice === "first-failed" ? "first-failed" : "first-running", "")}</Note>
             </div>
           </Card>
           <Card title="What we're working on"><WorkLog activities={activities} /></Card>
         </div>
+        {waiting}
       </PageBody>
     );
   }
@@ -92,6 +107,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
     return (
       <PageBody>
         <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
+        {quickNotice}
+        {waiting}
         <div className="mb-4">{await glance(db, slug, practice, ranking, checks)}</div>
         <PreviewSummary
           slug={slug}
@@ -141,6 +158,8 @@ export default async function DashboardPage({ params }: { params: Promise<{ slug
   return (
     <PageBody>
       <DashboardHeader slug={slug} practiceName={practice.name} logo={practice.logo} plan={practice.plan} active="overview" />
+      {quickNotice}
+      {waiting}
 
       <div className="space-y-4">
         {await glance(db, slug, practice, shown.visibility, checks)}

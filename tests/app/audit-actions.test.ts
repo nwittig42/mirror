@@ -22,7 +22,7 @@ vi.mock("@/lib/env", () => ({ loadEnv: () => ({ OPERATOR_EMAIL: "operator@exampl
 const signIn = vi.fn();
 vi.mock("@/lib/auth", () => ({ signIn: (...a: unknown[]) => signIn(...a) }));
 
-import { startAudit, submitDetails, createAccount, type AuditStartState, type DetailsState, type AccountState } from "@/app/audit/actions";
+import { startAudit, submitDetails, createAccount, savePhone, type AuditStartState, type DetailsState, type AccountState } from "@/app/audit/actions";
 import { redeem, type RedeemState } from "@/app/welcome/actions";
 import { createInvite } from "@/services/account-invites";
 import { makeTestDb, seedPractice } from "../helpers/db";
@@ -194,7 +194,7 @@ describe("createAccount", () => {
     await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "evil@x.example" }))).rejects.toBe(SIGNED_IN);
     const [user] = await getDb().select().from(schema.users);
     expect(user.email).toBe("owner@glow.example");
-    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirectTo: "/app" });
+    expect(signIn).toHaveBeenCalledWith("credentials", { email: "owner@glow.example", password: "correct horse battery", redirectTo: `/audit/${lead.id}?step=call` });
   });
 
   it("takes the email from the form when the lead has none, and keeps it on the lead", async () => {
@@ -237,11 +237,53 @@ describe("createAccount", () => {
     expect(await getDb().select().from(schema.users)).toHaveLength(0);
   });
 
-  it("needs a complete scan", async () => {
+  it("makes the login while the audit is still running", async () => {
     const { lead } = await readyLead({ email: "owner@glow.example", status: "preparing" }, "running");
+    await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" }))).rejects.toBe(SIGNED_IN);
+    expect((await getDb().select().from(schema.users)).map(u => u.email)).toEqual(["owner@glow.example"]);
+    expect(signIn.mock.calls[0][1]).toMatchObject({ redirectTo: `/audit/${lead.id}?step=call` });
+  });
+
+  it("holds the report back when the login is made with a typed address mid-audit", async () => {
+    const { lead } = await readyLead({ status: "preparing" }, "running");
+    await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "new@glow.example" }))).rejects.toBe(SIGNED_IN);
+    // Counted, not matched: a failed matcher prints the call's database argument, which is too big to print.
+    expect(sendProspectReportFor.mock.calls.length).toBe(0);
+  });
+
+  it("asks them to try again when the business isn't set up yet", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example", email: "owner@glow.example" }).returning();
     const state = await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" }));
-    expect(state.error).toBeTruthy();
+    expect(state.error).toBe("We're still setting up your audit. Try again in a few seconds.");
     expect(await getDb().select().from(schema.users)).toHaveLength(0);
+  });
+
+  it("says why when the address already has a login, and leaves the lead alone", async () => {
+    const { lead } = await readyLead({ email: "owner@glow.example" });
+    await getDb().insert(schema.users).values({ email: "owner@glow.example", role: "client", passwordHash: "x" });
+    const state = await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery" }));
+    expect(state.reason).toBe("has-account");
+    expect((await getDb().select().from(schema.leads).where(eq(schema.leads.id, lead.id)))[0].email).toBe("owner@glow.example");
+  });
+
+  it("takes a different address once the lead's own already has a login", async () => {
+    const { lead } = await readyLead({ email: "owner@glow.example" });
+    await getDb().insert(schema.users).values({ email: "owner@glow.example", role: "client", passwordHash: "x" });
+    await expect(createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "Second@Glow.example" })))
+      .rejects.toBe(SIGNED_IN);
+    expect((await getDb().select().from(schema.leads).where(eq(schema.leads.id, lead.id)))[0].email).toBe("second@glow.example");
+    expect(signIn.mock.calls[0][1]).toMatchObject({ email: "second@glow.example" });
+  });
+
+  it("puts the lead's address back when the different one is refused too", async () => {
+    const { lead } = await readyLead({ email: "owner@glow.example" });
+    await getDb().insert(schema.users).values([
+      { email: "owner@glow.example", role: "client", passwordHash: "x" },
+      { email: "taken@x.example", role: "client", passwordHash: "x" },
+    ]);
+    const state = await createAccount(lead.id, ACCOUNT, form({ password: "correct horse battery", email: "taken@x.example" }));
+    expect(state.reason).toBe("has-account");
+    expect((await getDb().select().from(schema.leads).where(eq(schema.leads.id, lead.id)))[0].email).toBe("owner@glow.example");
   });
 
   it("needs a valid email when the lead has none", async () => {
@@ -252,6 +294,45 @@ describe("createAccount", () => {
 
   it("refuses an id that isn't a UUID", async () => {
     expect((await createAccount("nope", ACCOUNT, form({ password: "correct horse battery" }))).error).toBeTruthy();
+  });
+});
+
+describe("submitDetails with the business name left blank", () => {
+  it("keeps the name read from the site", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example", practiceName: "Glow MedSpa", nameFromSite: true }).returning();
+    const state = await submitDetails(lead.id, DETAILS, form({ contactName: "Dr. Kim", email: "kim@glow.example", practiceName: "" }));
+    expect(state.status).toBe("success");
+    expect((await allLeads())[0]).toMatchObject({ practiceName: "Glow MedSpa", email: "kim@glow.example", nameFromSite: true });
+  });
+
+  it("still asks for it when there is no name at all", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example" }).returning();
+    const state = await submitDetails(lead.id, DETAILS, form({ contactName: "Dr. Kim", email: "kim@glow.example", practiceName: "" }));
+    expect(state.fieldErrors).toHaveProperty("practiceName");
+  });
+});
+
+describe("savePhone", () => {
+  it("saves a phone number later", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example", email: "a@b.co" }).returning();
+    expect(await savePhone(lead.id, {}, form({ phone: " 512 555 0100 " }))).toEqual({ saved: true });
+    expect((await allLeads())[0].phone).toBe("512 555 0100");
+  });
+
+  it("refuses a number that is too long, and an unknown audit", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example" }).returning();
+    expect((await savePhone(lead.id, {}, form({ phone: "5".repeat(41) }))).error).toBeTruthy();
+    expect((await savePhone("00000000-0000-4000-8000-000000000000", {}, form({ phone: "512" }))).error).toBeTruthy();
+    expect((await allLeads())[0].phone).toBeNull();
+  });
+});
+
+describe("submitDetails without a phone", () => {
+  it("saves details without a phone", async () => {
+    const [lead] = await getDb().insert(schema.leads).values({ websiteUrl: "https://glow.example" }).returning();
+    const state = await submitDetails(lead.id, DETAILS, form({ contactName: "Dr. Kim", email: "kim@glow.example", practiceName: "Glow" }));
+    expect(state.status).toBe("success");
+    expect((await allLeads())[0].phone).toBeNull();
   });
 });
 

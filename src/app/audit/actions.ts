@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { AuthError } from "next-auth";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { getDb, type Db } from "@/db";
-import { leads, scans } from "@/db/schema";
+import { leads, users } from "@/db/schema";
 import { signIn } from "@/lib/auth";
 import { loadEnv } from "@/lib/env";
 import { isSafeHttpUrl } from "@/lib/url";
@@ -40,6 +40,8 @@ export interface DetailsState {
 
 export interface AccountState {
   error?: string;
+  /** Set when the address already has a login, so the form can point at the login page and offer another address. */
+  reason?: "has-account";
   fieldErrors?: Record<string, string>;
 }
 
@@ -120,6 +122,10 @@ export async function submitDetails(leadId: string, _prev: DetailsState, formDat
   if (!existing) return unknownLead;
   if (existing.email) return { status: "success", email: existing.email };
 
+  // The name is read from their website a few seconds after the form is
+  // drawn, so the box can still be empty when they press Continue. A blank
+  // one means "the name you found", not a missing answer.
+  if (!values.practiceName.trim() && existing.practiceName) values.practiceName = existing.practiceName;
   const parsed = detailsSchema.safeParse(values);
   if (!parsed.success) return { status: "error", fieldErrors: fieldErrorsOf(parsed.error), values };
 
@@ -145,50 +151,75 @@ const emailField = auditRequestSchema.shape.email;
 export async function createAccount(leadId: string, _prev: AccountState, formData: FormData): Promise<AccountState> {
   const password = text(formData, "password");
   if (!isUuid(leadId)) return { error: "We couldn't find this audit. Start a new one." };
-
   const db = getDb();
   const [lead] = await db.select().from(leads).where(eq(leads.id, leadId));
-  if (!lead?.practiceId) return { error: "We couldn't find this audit. Start a new one." };
-  const [done] = await db.select({ id: scans.id }).from(scans)
-    .where(and(eq(scans.practiceId, lead.practiceId), eq(scans.status, "complete"))).orderBy(desc(scans.startedAt)).limit(1);
-  if (!done) return { error: "Your audit isn't finished yet. Try again in a moment." };
+  if (!lead) return { error: "We couldn't find this audit. Start a new one." };
+  // The login is made while the audit runs, so it needs only the business,
+  // which setup creates in its first moments. Before that there is nothing
+  // to attach a login to.
+  if (!lead.practiceId) return { error: "We're still setting up your audit. Try again in a few seconds." };
 
   // The lead's own address wins. A typed one is only taken when none is on
-  // file, and it is claimed on the lead first (one conditional update, so two
-  // submits at once can't both win) and given back if no login is made.
-  let email = lead.email;
+  // file, or when the one on file already has a login and so can never be
+  // used here. Either way it is claimed on the lead first (one conditional
+  // update, so two submits at once can't both win) and put back if no login
+  // is made.
+  const previous = lead.email;
+  let email = previous;
   let claimed = false;
-  if (!email) {
-    const parsed = emailField.safeParse(text(formData, "email"));
+  const typed = text(formData, "email").trim();
+  const replacing = !!previous && typed !== "" && typed.toLowerCase() !== previous.toLowerCase()
+    && (await db.select({ id: users.id }).from(users).where(eq(users.email, previous.toLowerCase())).limit(1)).length > 0;
+  if (!email || replacing) {
+    const parsed = emailField.safeParse(typed);
     if (!parsed.success) return { fieldErrors: { email: parsed.error.issues[0].message } };
     email = parsed.data.toLowerCase();
     const [won] = await db.update(leads).set({ email })
-      .where(and(eq(leads.id, leadId), isNull(leads.email))).returning({ id: leads.id });
-    if (!won) return { error: accountErrorMessage("has-account") };
+      .where(and(eq(leads.id, leadId), previous ? eq(leads.email, previous) : isNull(leads.email))).returning({ id: leads.id });
+    if (!won) return { error: accountErrorMessage("has-account"), reason: "has-account" };
     claimed = true;
   }
+  const giveBack = () => db.update(leads).set({ email: previous }).where(eq(leads.id, leadId));
 
   let result;
   try {
     result = await createAccountFromAudit(db, lead.practiceId, email, password, loadEnv().OPERATOR_EMAIL);
   } catch (err) {
-    if (claimed) await db.update(leads).set({ email: null }).where(eq(leads.id, leadId));
+    if (claimed) await giveBack();
     throw err;
   }
   if (!result.ok) {
-    if (claimed) await db.update(leads).set({ email: null }).where(eq(leads.id, leadId));
-    return { error: accountErrorMessage(result.reason) };
+    if (claimed) await giveBack();
+    return { error: accountErrorMessage(result.reason), ...(result.reason === "has-account" ? { reason: "has-account" as const } : {}) };
   }
-
-  if (claimed) {
+  // An address that arrives after the audit finished gets the report now. One
+  // that arrives mid-audit is picked up when the full audit finishes.
+  if (claimed && lead.status === "ready") {
     await sendReportOnce(db, leadId, reportDeps).catch(err => console.error(`report email for lead ${leadId} failed:`, err));
   }
+
   try {
-    // Redirects (by throwing) to /app on success.
-    await signIn("credentials", { email: result.email, password, redirectTo: "/app" });
+    // Redirects (by throwing) back to the audit page, on to the call step:
+    // the audit may still be running, and the dashboard comes after.
+    await signIn("credentials", { email: result.email, password, redirectTo: `/audit/${leadId}?step=call` });
   } catch (error) {
     if (error instanceof AuthError) return { error: "Your account is ready. Log in to continue." };
     throw error;
   }
   return {};
+}
+
+export interface PhoneState {
+  saved?: boolean;
+  error?: string;
+}
+
+/** The optional phone number from the call step, saved on the lead for whoever takes the call. */
+export async function savePhone(leadId: string, _prev: PhoneState, formData: FormData): Promise<PhoneState> {
+  const unknown: PhoneState = { error: "We couldn't find this audit. Start a new one." };
+  if (!isUuid(leadId)) return unknown;
+  const parsed = auditRequestSchema.shape.phone.safeParse(text(formData, "phone"));
+  if (!parsed.success) return { error: parsed.error.issues[0].message };
+  const [saved] = await getDb().update(leads).set({ phone: parsed.data || null }).where(eq(leads.id, leadId)).returning({ id: leads.id });
+  return saved ? { saved: true } : unknown;
 }

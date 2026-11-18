@@ -3362,3 +3362,77 @@
   flex-basis: 100%;
   min-width: 0;
 }
+
+/* ---------- the audit onboarding: a pinned progress bar over one step at a time ---------- */
+/* The bar is what stays in view on this page, so the nav scrolls away under it. */
+.mk-audit-page .lp-nav {
+  position: static;
+}
+.mk-audit-bar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--paper);
+  border-bottom: 1px solid var(--line);
+  padding: 14px var(--gut) 16px;
+}
+.mk-audit-bar-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.mk-audit-bar-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 16px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.mk-audit-bar-head .title {
+  font-weight: 600;
+  color: var(--ink);
+}
+.mk-audit-bar-head .stage {
+  flex: 1;
+  min-width: 0;
+}
+.mk-audit-bar-head .count {
+  color: var(--muted);
+}
+.mk-audit-bar-head .clock {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.mk-audit-bar .mk-progress {
+  margin-top: 10px;
+}
+.mk-onboard {
+  max-width: 560px;
+}
+.mk-audit-page .mk-section:has(.mk-onboard) {
+  padding-top: 56px;
+}
+.mk-field-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (max-width: 640px) {
+  .mk-audit-bar {
+    padding: 12px 18px 14px;
+  }
+  .mk-audit-bar-head {
+    font-size: 13px;
+  }
+  /* The stage gets a line of its own under the title and clock. */
+  .mk-audit-bar-head .stage {
+    order: 3;
+    flex-basis: 100%;
+  }
+  .mk-audit-bar-head .title {
+    flex: 1;
+  }
+  .mk-audit-page .mk-section:has(.mk-onboard) {
+    padding-top: 32px;
+  }
+}
